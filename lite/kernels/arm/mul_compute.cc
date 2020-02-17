@@ -18,6 +18,8 @@
 #include "lite/core/op_registry.h"
 #include "lite/core/type_system.h"
 
+using float16 = paddle::zynqmp::float16;
+
 namespace paddle {
 namespace lite {
 namespace kernels {
@@ -25,11 +27,46 @@ namespace arm {
 
 void MulCompute::PrepareForRun() {
   auto& ctx = this->ctx_->template As<ARMContext>();
+
+  auto& param = this->Param<param_t>();
+
+  param.output->mutable_data<float>();
+
+  // int channel = param.x->ZynqTensor()->shape().channel();
+
+  zynqmp::Shape s(zynqmp::NCHW,
+                  {1, 2 * param.x->ZynqTensor()->shape().channel(), 1, 1});
+
+  half_intput_.mutableData<void>(paddle::zynqmp::FP16, s);
+  half_output_.mutableData<void>(paddle::zynqmp::FP16,
+                                 param.output->ZynqTensor()->shape());
+
+  // // ====================================================
+  zynqmp::FullyConnectedParam& fc_param = pe_.param();
+
+  fc_param.input = &half_intput_;
+  fc_param.output = &half_output_;
+  fc_param.filter = param.y->ZynqTensor();
+
+  fc_param.bias = &bias_;
+
+  int channel = fc_param.filter->shape().channel();
+
+  zynqmp::Shape bias_shape(zynqmp::N, {channel});
+
+  float* bias_data =
+      fc_param.bias->mutableData<float>(zynqmp::FP32, bias_shape);
+  memset(bias_data, 0, channel * sizeof(float));
+  bias_.flush();
+
+  pe_.init();
+  pe_.apply();
 }
 
 void MulCompute::Run() {
   auto& param = Param<param_t>();
 
+  /*
   const auto* x_data = param.x->data<float>();
   const auto* y_data = param.y->data<float>();
   auto* o_data = param.output->mutable_data<float>();
@@ -82,6 +119,27 @@ void MulCompute::Run() {
                                    false,
                                    &ctx);
   }
+
+*/
+
+  // param.output->ZynqTensor()->saveToFile("cpu", true);
+
+  param.x->ZynqTensor()->flush();
+  param.x->ZynqTensor()->setDataType(zynqmp::FP32);
+  param.x->ZynqTensor()->flush();
+   param.x->ZynqTensor()->saveToFile("x", true);
+
+  half_intput_.copyFrom(param.x->ZynqTensor());
+  half_intput_.invalidate();
+  half_intput_.saveToFile("half", true);
+  pe_.dispatch();
+  half_output_.flush();
+   param.output->ZynqTensor()->copyFrom(&half_output_);
+
+   //param.x->ZynqTensor()->saveToFile("x", true);
+  half_output_.saveToFile("half",true);
+
+  exit(-1);
 }
 
 }  // namespace arm

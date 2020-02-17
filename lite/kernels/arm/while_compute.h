@@ -36,7 +36,7 @@ class StepExecutor {
       auto &op_desc = *block->template GetOp<cpp::OpDesc>(i);
       auto op_type = op_desc.Type();
       auto op_handler = lite::LiteOpRegistry::Global().Create(op_desc.Type());
-      // VLOG(4) << "while: creating Op [" << op_type << "]";
+      VLOG(4) << "while: creating Op [" << op_type << "]";
       op_handler->Attach(op_desc, scope);
 
       auto hostplace = place_;

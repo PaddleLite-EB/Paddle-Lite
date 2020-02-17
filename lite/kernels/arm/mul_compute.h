@@ -17,6 +17,9 @@
 #include "lite/core/op_registry.h"
 #include "lite/core/types.h"
 
+#include "lite/backends/fpga/KD/float16.hpp"
+#include "lite/backends/fpga/KD/pes/fully_connected_pe.hpp"
+
 namespace paddle {
 namespace lite {
 namespace kernels {
@@ -34,6 +37,12 @@ class MulCompute : public KernelLite<TARGET(kARM), PRECISION(kFloat)> {
 
  private:
   int m_, n_, k_;
+
+  zynqmp::FullyConnectedPE pe_;
+  zynqmp::Tensor bias_;
+
+  zynqmp::Tensor half_intput_;
+  zynqmp::Tensor half_output_;
 };
 
 }  // namespace arm

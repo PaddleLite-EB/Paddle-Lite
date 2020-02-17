@@ -28,7 +28,7 @@ namespace zynqmp {
 typedef int16_t half;
 
 #define IMAGE_ALIGNMENT 16           // Aligned to 16
-#define FILTER_ELEMENT_ALIGNMENT 16  // Filter element number aligned to 16
+#define FILTER_ELEMENT_ALIGNMENT 32  // Filter element number aligned to 16
 #define BS_NUM_ALIGNMENT 8
 #define BIAS_NUM_ALIGNMENT 16
 
