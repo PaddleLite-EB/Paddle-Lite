@@ -27,5 +27,5 @@ cmake .. \
         -DLITE_BUILD_EXTRA=ON \
         -DLITE_WITH_PROFILE=OFF
 
-make -j42
+make -j12
 cd -

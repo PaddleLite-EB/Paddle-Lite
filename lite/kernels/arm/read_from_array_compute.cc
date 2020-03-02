@@ -37,6 +37,8 @@ void ReadFromArrayCompute::Run() {
 
   auto out_lod = param.Out->mutable_lod();
   *out_lod = (*param.X)[id].lod();
+
+  param.Out->ZynqTensor()->saveToFile("read_from_array", true);
 }
 
 }  // namespace arm

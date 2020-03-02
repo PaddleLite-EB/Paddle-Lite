@@ -287,6 +287,7 @@ class Tensor {
     src->syncToDevice();
     size_t aligned_remainder = src->shape().numel() % 16;
     if (aligned_remainder > 0) {
+      aligned_remainder = 16 - aligned_remainder;
       size_t dtype_size =
           src->dataType_ == FP32 ? sizeof(float) : sizeof(float16);
       void* dst = src->data<char>() + src->shape().numel() * dtype_size;
@@ -391,6 +392,7 @@ class Tensor {
   }
 
   void save_file_with_name(std::string path) {
+    return;
     invalidate();
     std::ofstream ofs;
     ofs.open(path);

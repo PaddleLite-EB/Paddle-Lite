@@ -64,6 +64,7 @@ void OneHotCompute::Run() {
       *(p_out_data + i * param.depth + (int)(p_in_data[i])) = 1.0;  // NOLINT
     }
   }
+  param.Out->ZynqTensor()->saveToFile("one_hot", true);
 }
 }  // namespace host
 }  // namespace kernels

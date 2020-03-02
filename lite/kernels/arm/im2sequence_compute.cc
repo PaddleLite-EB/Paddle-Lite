@@ -120,6 +120,7 @@ void Im2SequenceCompute::Run() {
     }
     auto lod = param.Out->mutable_lod();
     lod->resize(1);
+    param.Out->ZynqTensor()->saveToFile("im", true);
     (*lod)[0] = im_offset;
   }
 }
