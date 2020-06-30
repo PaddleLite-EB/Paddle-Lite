@@ -239,6 +239,7 @@ int perform_bypass(const struct BypassArgs &args) {
     }
   }
 
+  // TODO(chonwhite) size should include type_size;
   int remainder = size - max_size * count;
   if (remainder > 0) {
     bypassArgs.image.channels = remainder;
@@ -303,6 +304,30 @@ int compute_norm(const struct NormalizeArgs &args) {
 
 int compute_fpga_resize(const struct ResizeArgs &args) {
   return do_ioctl(IOCTL_CONFIG_RESIZE, &args);
+}
+
+int link_actions(int action0, int action1) {
+  LinkActionArgs args;
+  args.action_id_1 = action0;
+  args.action_id_2 = action1;
+  return do_ioctl(IOCTL_LINK_ACTION, &args);
+}
+
+int alloc_scale_reg() {
+  GenerateIdxArgs args;
+  return do_ioctl(IOCTL_GENERATE_IDX, &args);
+}
+
+int write_scale(struct WriteScaleArgs &args) {  // NOLINT
+  return do_ioctl(IOCTL_WRITE_SCALE_IDX, &args);
+}
+
+int read_scale(struct ReadScaleArgs &args) {  // NOLINT
+  return do_ioctl(IOCTL_READ_SCALE_IDX, &args);
+}
+
+int start_transaction(const struct CnnCmdArgs &args) {  // NOLINT
+  return do_ioctl(IOCTL_CNN_CMD, &args);
 }
 
 int16_t fp32_2_fp16(float fp32_num) {

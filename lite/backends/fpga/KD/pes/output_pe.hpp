@@ -14,9 +14,14 @@ limitations under the License. */
 
 #pragma once
 
+#include <memory>
+
 #include "lite/backends/fpga/KD/llapi/zynqmp_api.h"
 #include "lite/backends/fpga/KD/pe.hpp"
 #include "lite/backends/fpga/KD/pe_params.hpp"
+
+#include "lite/backends/fpga/KD/debugger.hpp"
+#include "lite/backends/fpga/KD/tensor_util.hpp"
 
 namespace paddle {
 namespace zynqmp {
@@ -26,38 +31,60 @@ class OutputPE : public PE {
   bool init() {
     Tensor* output = param_.output;
     output->setAligned(false);
-    DLEngine::get_instance().out_data = reinterpret_cast<float*>(
-        fpga_malloc(output->shape().numel() * sizeof(float)));
     return true;
   }
+
+  int config_bypass() {
+    BypassArgs args;
+    args.input_data_type =
+        param_.input->dataType() == FP32 ? DATA_TYPE_FP32 : DATA_TYPE_FP16;
+    args.output_data_type =
+        param_.output->dataType() == FP32 ? DATA_TYPE_FP32 : DATA_TYPE_FP16;
+    args.input_layout_type = LAYOUT_HWC;
+    args.output_layout_type = LAYOUT_HWC;
+    args.image.address = param_.input->data<void>();
+    args.image.scale_address = param_.input->scale();
+    args.image.channels = param_.input->shape().alignedElementCount();
+    args.image.height = 1;
+    args.image.width = 1;
+    args.image.pad_height = 0;
+    args.image.pad_width = 0;
+    args.output.address = param_.output->data<void>();
+    args.output.scale_address = param_.output->scale();
+    args.output_idx =
+        param_.output->scaleIndex(true);  // TODO(chonwhite) use default index;
+    return perform_bypass(args);
+  }
+
+  void apply() {
+    transaction_.reset(TransactionManager::get_instance().getTransaction());
+    Action* action = new Action(config_bypass());
+    action_.reset(action);
+    transaction_->appendAction(action);
+    TransactionManager::get_instance().endTransaction();
+  }
+
+  // void setLast(bool last) {
+  //   last_ = last;
+  // }
 
   bool dispatch() {
     Tensor* input = param_.input;
     Tensor* output = param_.output;
+
+    input->saveToFile("fetch_in", true);
+
+    transaction_->startTraction();
+
+    output->saveToFile("fetch_out", true);
+
+    // cpu_copy(input, output);
+    output->invalidate();
     if (input->aligned()) {
-      Tensor tmp;
-      tmp.setAligned(true);
-      tmp.mutableData<float16>(FP16, input->shape());
-      tmp.copyFrom(input);
-      tmp.unalignImage();
-      output->copyFrom(&tmp);
-    } else {
-      output->copyFrom(input);
+      // output->unalignImage();
     }
-    //
-    output->syncToCPU();
-    if (DLEngine::get_instance().out_data == nullptr) {
-      DLEngine::get_instance().out_data = reinterpret_cast<float*>(
-          fpga_malloc(output->shape().numel() * sizeof(float)));
-    }
-    memcpy(DLEngine::get_instance().out_data,
-           output->data<void>(),
-           output->shape().numel() * sizeof(float));
 
-    fpga_reset();
-
-    // auto max = fpga_get_memory_size_max();
-    // std::cout << "PL ===== Max: ===== :: " << max << std::endl;
+    lite::Debugger::get_instance().commit();
 
     return true;
   }
@@ -65,7 +92,10 @@ class OutputPE : public PE {
   OutputParam& param() { return param_; }
 
  private:
+  // bool last_ = true;
   OutputParam param_;
+  std::shared_ptr<Transaction> transaction_;
+  std::shared_ptr<Action> action_;
 };
 }  // namespace zynqmp
 }  // namespace paddle

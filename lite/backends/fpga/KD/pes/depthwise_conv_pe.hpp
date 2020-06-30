@@ -14,6 +14,8 @@ limitations under the License. */
 
 #pragma once
 
+#include <memory>
+
 #include "lite/backends/fpga/KD/float16.hpp"
 #include "lite/backends/fpga/KD/pe.hpp"
 #include "lite/backends/fpga/KD/pe_params.hpp"
@@ -125,36 +127,43 @@ class DepthwiseConvPE : public PE {
     args.sub_conv_num = 1;
     param.args = args;
 
+    transaction_.reset(TransactionManager::get_instance().getTransaction());
+    Action* action = new Action(compute_fpga_dwconv(args));
+    action_.reset(action);
+    transaction_->appendAction(action);
+
     inplace_.power_enable = false;
     inplace_.normalize_enable = false;
   }
 
   bool dispatch() {
-    param_.input->syncToDevice();
-    if (param_.activeParam.type == TYPE_RELU) {
-      inplace_.relu_enable = true;
-    } else if (param_.activeParam.type == TYPE_RELU6) {
-      inplace_.relu6_enable = true;
-    } else if (param_.activeParam.type == TYPE_SIGMOID) {
-      inplace_.sigmoid_enable = true;
-    } else if (param_.activeParam.type == TYPE_LEAKY_RELU) {
-      inplace_.leaky_relu_enable = true;
-    }
+    return true;
+    // param_.input->syncToDevice();
+    // if (param_.activeParam.type == TYPE_RELU) {
+    //   inplace_.relu_enable = true;
+    // } else if (param_.activeParam.type == TYPE_RELU6) {
+    //   inplace_.relu6_enable = true;
+    // } else if (param_.activeParam.type == TYPE_SIGMOID) {
+    //   inplace_.sigmoid_enable = true;
+    // } else if (param_.activeParam.type == TYPE_LEAKY_RELU) {
+    //   inplace_.leaky_relu_enable = true;
+    // }
 
-    if (inplace_.relu_enable || inplace_.leaky_relu_enable ||
-        inplace_.relu6_enable || inplace_.sigmoid_enable) {
-      config_inplace(inplace_);
-    }
-    bool ret = compute_fpga_dwconv(param_.args) == 0;
-    if (inplace_.relu_enable || inplace_.leaky_relu_enable ||
-        inplace_.relu6_enable || inplace_.sigmoid_enable) {
-      inplace_.relu_enable = false;
-      inplace_.leaky_relu_enable = false;
-      inplace_.relu6_enable = false;
-      inplace_.sigmoid_enable = false;
-      config_inplace(inplace_);
-    }
-    return ret;
+    // if (inplace_.relu_enable || inplace_.leaky_relu_enable ||
+    //     inplace_.relu6_enable || inplace_.sigmoid_enable) {
+    //   config_inplace(inplace_);
+    // }
+
+    // bool ret = compute_fpga_dwconv(param_.args) == 0;
+    // if (inplace_.relu_enable || inplace_.leaky_relu_enable ||
+    //     inplace_.relu6_enable || inplace_.sigmoid_enable) {
+    //   inplace_.relu_enable = false;
+    //   inplace_.leaky_relu_enable = false;
+    //   inplace_.relu6_enable = false;
+    //   inplace_.sigmoid_enable = false;
+    //   config_inplace(inplace_);
+    // }
+    // return ret;
   }
 
   DepthwiseConvParam& param() { return param_; }
@@ -163,6 +172,9 @@ class DepthwiseConvPE : public PE {
   DepthwiseConvParam param_;
   Tensor bias_;
   InplaceArgs inplace_ = {0};
+
+  std::shared_ptr<Transaction> transaction_;
+  std::shared_ptr<Action> action_;
 };
 
 }  // namespace zynqmp

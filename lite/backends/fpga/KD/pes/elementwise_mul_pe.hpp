@@ -14,6 +14,8 @@ limitations under the License. */
 
 #pragma once
 
+#include <memory>
+
 #include "lite/backends/fpga/KD/pe.hpp"
 #include "lite/backends/fpga/KD/pe_params.hpp"
 namespace paddle {
@@ -52,6 +54,11 @@ class ElementwiseMulPE : public PE {
     args.image.pad_height = 0;
     args.output.address = output->data<void>();
     args.output.scale_address = output->scale();
+
+    transaction_.reset(TransactionManager::get_instance().getTransaction());
+    Action* action = new Action(compute_fpga_scale(args));
+    action_.reset(action);
+    transaction_->appendAction(action);
   }
 
   void updateInput(Tensor* t, int index) {
@@ -61,7 +68,7 @@ class ElementwiseMulPE : public PE {
   }
 
   bool dispatch() {
-    compute_fpga_scale(args_) == 0;
+    // compute_fpga_scale(args_) == 0;
     return true;
   }
 
@@ -71,6 +78,9 @@ class ElementwiseMulPE : public PE {
   ElementwiseMulParam param_;
   ScaleArgs args_ = {0};
   Tensor bias_tensor;
+
+  std::shared_ptr<Transaction> transaction_;
+  std::shared_ptr<Action> action_;
 };
 
 }  // namespace zynqmp

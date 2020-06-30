@@ -16,6 +16,7 @@ limitations under the License. */
 
 #include <arm_neon.h>
 #include <algorithm>
+#include <memory>
 #include <vector>
 
 #include "lite/backends/fpga/KD/pe.hpp"
@@ -26,6 +27,8 @@ limitations under the License. */
 #include "lite/backends/fpga/KD/pes/elementwise_add_pe.hpp"
 #include "lite/backends/fpga/KD/pes/scale_pe.hpp"
 #include "lite/backends/fpga/KD/pes/split_pe.hpp"
+
+#include "lite/backends/fpga/KD/dispatch/transaction_manager.hpp"
 
 namespace paddle {
 namespace zynqmp {
@@ -41,9 +44,7 @@ class ConvPE : public PE {
 
   void apply() {
     split_axis = fill_split_arg(param_);
-
     split_channel = param_.groups != 1 && param_.splitParams().size() > 1;
-
     if (split_axis == 0 && param_.splitParams().size() > 1) {
       ConcatParam& concat_param = concatPE_.param();
       for (auto conv_param : param_.splitParams()) {
@@ -74,8 +75,18 @@ class ConvPE : public PE {
       // param_.filter->releaseData();
     }
 
-    // exit(-1);
+    // ======================= dispatch =======================
+    transaction_.reset(TransactionManager::get_instance().getTransaction());
+    if (split_axis == 0) {
+      for (auto conv_param : param_.splitParams()) {
+        int action_id = compute_fpga_conv_basic(conv_param->args);
+        Action* action = new Action(action_id);
+        actions_.push_back(action);
+        transaction_->appendAction(action);
+      }
+    }
   }
+
   void cpu_compute() {
     Tensor* input = param_.input;
     Tensor* output = param_.output;
@@ -99,15 +110,6 @@ class ConvPE : public PE {
       float* out_ptr = mi;
 #pragma omp parallel for
       for (int j = 0; j < in_channel; j++) {
-        // float32x4_t x0 = vld1q_f32(image);
-        // float32x4_t x1 = vld1q_f32(filter_ptr);
-
-        // float32x4_t r = vmulq_f32(x0, x1);
-
-        // vst1q_f32(out_ptr, r);
-        // image += 4;
-        // filter_ptr += 4;
-        // out_ptr += 4;
         float value = image_addr[j] * filter_ptr[j];
         mi[j] = value;
       }
@@ -124,95 +126,86 @@ class ConvPE : public PE {
   }
 
   bool dispatch() {
-    fpga_reset();
-    if (use_cpu_) {
-      cpu_compute();
-      return true;
-    }
+    return true;
 
-    if (param_.activeParam.type == TYPE_RELU) {
-      inplace_.relu_enable = true;
-    } else if (param_.activeParam.type == TYPE_RELU6) {
-      inplace_.relu6_enable = true;
-    } else if (param_.activeParam.type == TYPE_SIGMOID) {
-      inplace_.sigmoid_enable = true;
-    } else if (param_.activeParam.type == TYPE_LEAKY_RELU) {
-      inplace_.leaky_relu_enable = true;
-    }
+    // fpga_reset();
+    // if (use_cpu_) {
+    //   cpu_compute();
+    //   return true;
+    // }
 
-    if (inplace_.relu_enable || inplace_.leaky_relu_enable ||
-        inplace_.relu6_enable || inplace_.sigmoid_enable) {
-      config_inplace(inplace_);
-      if (inplace_.leaky_relu_enable) {
-        activeParamterArgs.type = TYPE_LEAKY_RELU;
-        activeParamterArgs.leaky_relu_factor =
-            fp32_2_fp16(param_.activeParam.leaky_relu_factor);
-        config_activation(activeParamterArgs);
-      }
-    }
+    // if (param_.activeParam.type == TYPE_RELU) {
+    //   inplace_.relu_enable = true;
+    // } else if (param_.activeParam.type == TYPE_RELU6) {
+    //   inplace_.relu6_enable = true;
+    // } else if (param_.activeParam.type == TYPE_SIGMOID) {
+    //   inplace_.sigmoid_enable = true;
+    // } else if (param_.activeParam.type == TYPE_LEAKY_RELU) {
+    //   inplace_.leaky_relu_enable = true;
+    // }
 
-    std::vector<BasicConvParam*>& params = param_.splitParams();
+    // if (inplace_.relu_enable || inplace_.leaky_relu_enable ||
+    //     inplace_.relu6_enable || inplace_.sigmoid_enable) {
+    //   config_inplace(inplace_);
+    //   if (inplace_.leaky_relu_enable) {
+    //     activeParamterArgs.type = TYPE_LEAKY_RELU;
+    //     activeParamterArgs.leaky_relu_factor =
+    //         fp32_2_fp16(param_.activeParam.leaky_relu_factor);
+    //     config_activation(activeParamterArgs);
+    //   }
+    // }
 
-    if (split_channel) {
-      // splitPE_.param().input->saveToFile("input_image",true);
-      splitPE_.dispatch();
-    }
+    // std::vector<BasicConvParam*>& params = param_.splitParams();
 
-    int ret = 0;
-    for (auto conv_param : params) {
-      // conv_param->input.printScale();
-      // if (split_channel) {
-      //   conv_param->input.saveToFile("pack_image",true);
-      // }
-      ret |= compute_fpga_conv_basic(conv_param->args);
-    }
+    // if (split_channel) {
+    //   splitPE_.dispatch();
+    // }
 
-    if (inplace_.relu_enable || inplace_.leaky_relu_enable ||
-        inplace_.relu6_enable || inplace_.sigmoid_enable) {
-      inplace_.relu_enable = false;
-      inplace_.leaky_relu_enable = false;
-      inplace_.relu6_enable = false;
-      inplace_.sigmoid_enable = false;
-      config_inplace(inplace_);
+    // int ret = 0;
+    // for (auto conv_param : params) {
+    //   ret |= compute_fpga_conv_basic(conv_param->args);
+    // }
 
-      if (inplace_.leaky_relu_enable) {
-        activeParamterArgs.type = TYPE_LEAKY_RELU;
-        activeParamterArgs.leaky_relu_factor = fp32_2_fp16(0);
-        config_activation(activeParamterArgs);
-      }
-    }
+    // if (inplace_.relu_enable || inplace_.leaky_relu_enable ||
+    //     inplace_.relu6_enable || inplace_.sigmoid_enable) {
+    //   inplace_.relu_enable = false;
+    //   inplace_.leaky_relu_enable = false;
+    //   inplace_.relu6_enable = false;
+    //   inplace_.sigmoid_enable = false;
+    //   config_inplace(inplace_);
 
-    size_t size = params.size();
-    if (split_axis == 0 && ret == 0 && size > 1) {
-      // std::cout << "concat size:" << size << std::endl;
-      concatPE_.dispatch();
-    }
-    if (split_axis == 1 && ret == 0 && size > 1) {
-      // for (int n = 0; n < size - 1; n++) {
-      ElementwiseAddParam& add_param = addPE_.param();
-      add_param.inputs = {&params[0]->output, &params[1]->output};
-      add_param.output = param_.output;
-      addPE_.init();
-      addPE_.apply();
-      addPE_.dispatch();
+    //   if (inplace_.leaky_relu_enable) {
+    //     activeParamterArgs.type = TYPE_LEAKY_RELU;
+    //     activeParamterArgs.leaky_relu_factor = fp32_2_fp16(0);
+    //     config_activation(activeParamterArgs);
+    //   }
+    // }
 
-      // param_.output->printScale();
-
-      // params[0]->input.saveToFile("conv_1.txt");
-      // params[1]->input.saveToFile("conv_2.txt");
-
-      // params[0]->output.saveToFile("ew_o1.txt");
-      // params[1]->output.saveToFile("ew_o2.txt");
-      // std::cout << "\n ================== EW ================== \n";
-      // }
-    }
-
-    return ret == 0;
+    // size_t size = params.size();
+    // if (split_axis == 0 && ret == 0 && size > 1) {
+    //   concatPE_.dispatch();
+    // }
+    // if (split_axis == 1 && ret == 0 && size > 1) {
+    //   // for (int n = 0; n < size - 1; n++) {
+    //   ElementwiseAddParam& add_param = addPE_.param();
+    //   add_param.inputs = {&params[0]->output, &params[1]->output};
+    //   add_param.output = param_.output;
+    //   addPE_.init();
+    //   addPE_.apply();
+    //   addPE_.dispatch();
+    // }
+    // return ret == 0;
   }
 
   ConvParam& param() { return param_; }
 
-  ~ConvPE() {}
+  ~ConvPE() {
+    for (int i = 0; i < actions_.size(); i++) {
+      Action* action = actions_[i];
+      delete action;
+    }
+    actions_.clear();
+  }
 
  private:
   bool use_cpu_ = false;
@@ -224,6 +217,10 @@ class ConvPE : public PE {
   int split_axis = 0;
   InplaceArgs inplace_ = {0};
   ActiveParamterArgs activeParamterArgs;
+
+  // =================
+  std::shared_ptr<Transaction> transaction_;
+  std::vector<Action*> actions_;
 };
 
 }  // namespace zynqmp

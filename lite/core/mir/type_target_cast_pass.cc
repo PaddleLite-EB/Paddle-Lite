@@ -53,7 +53,6 @@ void TypeTargetTransformPass::Apply(const std::unique_ptr<SSAGraph>& graph) {
       ComplementInputs(graph.get(), node, in, &copied_nodes);
     }
   }
-
 }
 
 void TypeTargetTransformPass::ComplementInputs(
@@ -76,6 +75,12 @@ void TypeTargetTransformPass::ComplementInputs(
   CHECK(inst.op_info()->GetInputArgname(in_arg_name, &tmp));
   auto decl_arg_type = inst.picked_kernel().GetInputDeclType(tmp);
   CHECK(in->AsArg().type);
+
+  // TODO(chonwhite) reconsider this
+  if (graph->valid_places()[0].target == TARGET(kFPGA)) {
+    return;
+  }
+
   if (!TargetCompatibleTo(*in->AsArg().type, *decl_arg_type)) {
     VLOG(3) << "found Target unmatched tensor: " << in->AsArg().name
             << " for kernel " << inst.op()->DebugString() << " "

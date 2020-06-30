@@ -16,6 +16,9 @@ limitations under the License. */
 
 #include <stdio.h>
 #include <iostream>
+#include <memory>
+
+#include "lite/backends/fpga/KD/dispatch/transaction_manager.hpp"
 #include "lite/backends/fpga/KD/pe_params.hpp"
 #include "lite/backends/fpga/KD/tensor_util.hpp"
 

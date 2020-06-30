@@ -54,7 +54,7 @@ struct DeviceInfo {
   uint32_t filter_cap;
   uint32_t version;
   uint16_t device_type;
-  uint32_t colunm;
+  uint32_t column;
   uint32_t reserved1;
   uint32_t reserved2;
   uint32_t reserved3;
@@ -81,6 +81,11 @@ struct MemoryCacheArgs {
 
 struct MemoryBarrierArgs {
   uint16_t dummy;
+};
+
+struct ActiveParamterArgs {
+  enum ActiveType type;
+  uint16_t leaky_relu_factor;
 };
 
 struct BNArgs {
@@ -114,8 +119,17 @@ struct ImageOutputArgs {
   float* scale_address;  // output scale address;
 };
 
+// TODO(zhulin) consider renaming it;
+struct ConvDeconvArgs {
+  bool enabled;
+  uint16_t sub_kernel_num;   // which is the stride of deconv, means that deconv
+                             // will be divided into several sub conv operation
+  uint16_t invalid_col_num;  // which will be dumped in the left and right for
+                             // each row directly in FPGA
+};
+
 struct ConvArgs {
-  bool relu_enabled;
+  // bool                    relu_enabled;
   void* sb_address;  // scale and bias are interlaced;
   void* filter_address;
   void* filter_scale_address;
@@ -123,13 +137,18 @@ struct ConvArgs {
   uint32_t group_num;
   uint32_t dilation;
 
+  uint32_t output_idx;  // output scale index
+  uint32_t input_idx;   // input scale index
+
+  struct ConvDeconvArgs deconv;
   struct KernelArgs kernel;
   struct ImageInputArgs image;  // input image;
   struct ImageOutputArgs output;
+  struct ActiveParamterArgs activeParam;
 };
 
 struct DWconvArgs {
-  bool relu_enabled;
+  // bool relu_enabled;
   void* bias_address;
   void* filter_address;
   struct KernelArgs kernel;
@@ -138,6 +157,8 @@ struct DWconvArgs {
   uint16_t out_width;
   uint16_t out_height;
   uint16_t sub_conv_num;
+  uint32_t dilation_rate;
+  struct ActiveParamterArgs activeParam;
 };
 
 struct PoolingArgs {
@@ -148,6 +169,7 @@ struct PoolingArgs {
   struct ImageOutputArgs output;
   uint16_t out_width;
   uint16_t out_height;
+  struct ActiveParamterArgs activeParam;
 };
 
 // elementwise add arguments
@@ -168,6 +190,7 @@ struct BypassArgs {
   enum DLayoutType output_layout_type;
   struct ImageInputArgs image;
   struct ImageOutputArgs output;
+  uint32_t output_idx;  // input scale index
 };
 
 struct ScaleArgs {
@@ -187,6 +210,29 @@ struct NormalizeArgs {
   uint32_t image_height;
   uint32_t image_channel;
   uint32_t* output_scale_address;
+};
+
+struct PreprocessArgs {
+  void* input_image_address;
+  void* output_image_address;
+  uint32_t input_width;
+  uint32_t input_height;
+  uint32_t output_width;
+  uint32_t output_height;
+  uint32_t height_ratio;
+  uint32_t width_ratio;
+  uint16_t mean0;
+  uint16_t mean1;
+  uint16_t mean2;
+  uint16_t scale0;
+  uint16_t scale1;
+  uint16_t scale2;
+  uint32_t rd_ring_buf_size;
+  uint32_t wr_ring_buf_size;
+  uint32_t vedio_in_fomat;
+  uint32_t vedio_out_fomat;
+  uint32_t vedio_source;
+  bool mean_scale_enabled;
 };
 
 struct ResizeArgs {
@@ -213,10 +259,10 @@ struct NormalizeParameterArgs {
   uint32_t hight_width;
 };
 
-struct ActiveParamterArgs {
-  ActiveType type;
-  uint16_t leaky_relu_factor;
-};
+// struct ActiveParamterArgs {
+//     enum ActiveType  type;
+//     uint16_t leaky_relu_factor;
+// };
 
 struct InplaceArgs {
   bool leaky_relu_enable;
@@ -238,13 +284,36 @@ struct FpgaRegReadArgs {
 };
 
 struct FpgaResetArgs {
-  uint32_t val;
+  uint32_t dummy;
+};
+
+struct CnnCmdArgs {
+  uint32_t action_id;
+};
+
+struct LinkActionArgs {
+  uint32_t action_id_1;
+  uint32_t action_id_2;
+};
+
+struct GenerateIdxArgs {
+  uint32_t idx;
+};
+
+struct WriteScaleArgs {
+  uint32_t idx;
+  uint64_t address;
+};
+
+struct ReadScaleArgs {
+  uint32_t idx;
+  uint32_t* address;
 };
 
 #define IOCTL_FPGA_MAGIC (('F' + 'P' + 'G' + 'A') / 4)
+// #define IOCTL_MEMORY_MAGIC                  (('M' + 'E' + 'M' + 'Y') / 4)
 
 #define IOCTL_VERSION _IOW(IOCTL_FPGA_MAGIC, 01, struct VersionArgs)
-#define IOCTL_DEVICE_INFO _IOW(IOCTL_FPGA_MAGIC, 100, struct DeviceInfo)
 
 #define IOCTL_SEPARATOR_0 10
 
@@ -263,7 +332,6 @@ struct FpgaResetArgs {
 #define IOCTL_CONFIG_SCALE _IOW(IOCTL_FPGA_MAGIC, 25, struct ScaleArgs)
 #define IOCTL_CONFIG_NORMALIZE _IOW(IOCTL_FPGA_MAGIC, 26, struct NormalizeArgs)
 #define IOCTL_CONFIG_RESIZE _IOW(IOCTL_FPGA_MAGIC, 30, struct ResizeArgs)
-
 #define IOCTL_CONFIG_DWCONV _IOW(IOCTL_FPGA_MAGIC, 31, struct DWconvArgs)
 
 #define IOCTL_CONFIG_INPLACE _IOW(IOCTL_FPGA_MAGIC, 40, struct InplaceArgs)
@@ -273,9 +341,19 @@ struct FpgaResetArgs {
   _IOW(IOCTL_FPGA_MAGIC, 42, struct NormalizeParameterArgs)
 #define IOCTL_CONFIG_ACTIVATION_PARAMETER \
   _IOW(IOCTL_FPGA_MAGIC, 43, struct ActiveParamterArgs)
+
 #define IOCTL_FPGA_REG_READ _IOW(IOCTL_FPGA_MAGIC, 50, struct FpgaRegReadArgs)
 #define IOCTL_FPGA_REG_WRITE _IOW(IOCTL_FPGA_MAGIC, 51, struct FpgaRegWriteArgs)
 #define IOCTL_FPGA_RESET _IOW(IOCTL_FPGA_MAGIC, 52, struct FpgaResetArgs)
+#define IOCTL_CNN_CMD _IOW(IOCTL_FPGA_MAGIC, 90, struct CnnCmdArgs)
+#define IOCTL_DEVICE_INFO _IOW(IOCTL_FPGA_MAGIC, 100, struct DeviceInfo)
+#define IOCTL_LINK_ACTION _IOW(IOCTL_FPGA_MAGIC, 150, struct LinkActionArgs)
+#define IOCTL_GENERATE_IDX _IOW(IOCTL_FPGA_MAGIC, 151, struct GenerateIdxArgs)
+#define IOCTL_WRITE_SCALE_IDX _IOW(IOCTL_FPGA_MAGIC, 152, struct WriteScaleArgs)
+#define IOCTL_READ_SCALE_IDX _IOW(IOCTL_FPGA_MAGIC, 153, struct ReadScaleArgs)
+
+#define IOCTL_SEPARATOR_2 200
+#define IOCTL_PREPROCESS _IOW(IOCTL_FPGA_MAGIC, 201, struct PreprocessArgs)
 
 //============================== API =============================
 
@@ -364,10 +442,21 @@ int compute_norm(const struct NormalizeArgs& args);
 
 int config_inplace(const struct InplaceArgs& args);
 
+//=======
+int link_actions(int action0, int action1);
+
 int flush_cache(void* addr, int size);
 int invalidate_cache(void* addr, int size);
 
+int alloc_scale_reg();
+
+int start_transaction(const struct CnnCmdArgs& args);  // NOLINT
+
 int fpga_reset();
+
+int write_scale(struct WriteScaleArgs& args);  // NOLINT
+
+int read_scale(struct ReadScaleArgs& args);  // NOLINT
 
 int16_t fp32_2_fp16(float fp32_num);
 float fp16_2_fp32(int16_t fp16_num);

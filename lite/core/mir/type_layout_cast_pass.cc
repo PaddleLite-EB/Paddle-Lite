@@ -88,6 +88,11 @@ void TypeLayoutTransformPass::ComplementInputs(SSAGraph* graph,
     return;
   }
 
+  // TODO(chonwhite) reconsider this
+  if (graph->valid_places()[0].target == TARGET(kFPGA)) {
+    return;
+  }
+
   if (!DataLayoutCompatible(*in->AsArg().type, *decl_arg_type)) {
     VLOG(4) << "found Layout unmatched tensor: " << in->AsArg().name
             << " for kernel " << inst.op()->DebugString() << " "

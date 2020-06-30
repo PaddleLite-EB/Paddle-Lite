@@ -14,17 +14,41 @@ limitations under the License. */
 
 #pragma once
 
+#include <algorithm>
+#include <memory>
+#include <vector>
+
+#include "lite/backends/fpga/KD/pe.hpp"
+#include "lite/backends/fpga/KD/pe_params.hpp"
+
+#include "lite/backends/fpga/KD/dispatch/transaction_manager.hpp"
+
 namespace paddle {
 namespace zynqmp {
 
-class Action {
+class CPUPE : public PE {
  public:
-  explicit Action(int id) { id_ = id; }
+  bool init() {
+    // Tensor* output = param_.output;
+    // output->setAligned(false);
+    // output->setDataLocation(CPU);
+    return true;
+  }
 
-  int id() { return id_; }
+  void apply() {
+    transaction_.reset(TransactionManager::get_instance().getTransaction());
+    TransactionManager::get_instance().endTransaction();
+  }
+
+  bool dispatch() { transaction_->startTraction(); }
+
+  CPUParam& param() { return param_; }
 
  private:
-  int id_ = -1;
+  CPUParam param_;
+
+  std::shared_ptr<Transaction> transaction_;
 };
+
 }  // namespace zynqmp
 }  // namespace paddle

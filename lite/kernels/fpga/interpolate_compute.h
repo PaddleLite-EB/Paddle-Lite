@@ -14,9 +14,9 @@
 
 #pragma once
 #include <string>
+#include "lite/backends/fpga/KD/pes/resize_pe.hpp"
 #include "lite/core/kernel.h"
 #include "lite/core/op_registry.h"
-#include "lite/backends/fpga/KD/pes/resize_pe.hpp"
 
 namespace paddle {
 namespace lite {
@@ -34,12 +34,12 @@ class BilinearInterpCompute
 class NearestInterpCompute
     : public KernelLite<TARGET(kFPGA), PRECISION(kFP16), DATALAYOUT(kNHWC)> {
  public:
-  
   void PrepareForRun() override;
 
   void Run() override;
 
   virtual ~NearestInterpCompute() = default;
+
  private:
   zynqmp::ResizePE pe_;
 };

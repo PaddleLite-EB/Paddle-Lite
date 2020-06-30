@@ -48,7 +48,7 @@ void ConcatCompute::Run() {
 #ifdef FPGA_PRINT_TENSOR
   zynqmp::ConcatParam& concat_param = pe_.param();
   concat_param.output->flush();
-  // Debugger::get_instance().registerOutput("concat", concat_param.output);
+// Debugger::get_instance().registerOutput("concat", concat_param.output);
 #endif
 }
 

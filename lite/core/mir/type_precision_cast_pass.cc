@@ -134,7 +134,6 @@ void PrecisionCastPass::Apply(const std::unique_ptr<SSAGraph>& graph) {
   // Start from inputs of the graph, those should have place set.
   std::list<Node*> nodes;
   for (auto& node : graph->StmtTopologicalOrder()) {
-
     // if (node->IsStmt()) {
     //     auto& s = node->AsStmt();
     //     std::cout << "type_precision type:" << s.op_type() << std::endl;
@@ -145,6 +144,11 @@ void PrecisionCastPass::Apply(const std::unique_ptr<SSAGraph>& graph) {
 
   // record the copied node.
   std::unordered_map<std::string, Node*> cast_nodes;
+
+  // TODO(chonwhite) reconsider this
+  if (graph->valid_places()[0].target == TARGET(kFPGA)) {
+    return;
+  }
 
   for (auto& node : nodes) {
     if (!node->IsStmt() || node->AsStmt().op_type() == "while") continue;
@@ -238,7 +242,7 @@ void PrecisionCastPass::AddCastInst(
     bool in_persist = in->AsArg().is_weight || in->AsArg().is_persist;
     std::string cast_type = in_persist ? "calib_once" : "calib";
 
-    // TODO
+    // TODO(chonwhite) reconsider this;
     cast_type = "calib";
 
     cast_op_output_arg->AsArg().is_persist = in_persist;

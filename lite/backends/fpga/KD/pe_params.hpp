@@ -281,5 +281,11 @@ struct GRUParam : PEParam {
   bool origin_mode = false;
 };
 
+struct CPUParam : PEParam {
+ public:
+  std::vector<Tensor*> inputs;
+  std::vector<Tensor*> outputs;
+};
+
 }  // namespace zynqmp
 }  // namespace paddle

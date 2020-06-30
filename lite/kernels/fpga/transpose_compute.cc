@@ -104,7 +104,7 @@ void Transpose2Compute::Run() {
   // param.x->ZynqTensor()->saveToFile("t_unaligned", true);
   param.x->ZynqTensor()->flush();
   param.x->ZynqTensor()->invalidate();
-  
+
   if (param.x->dims().size() != 4) {
     transposeCompute(param);
     param.output->ZynqTensor()->setAligned(param.x->ZynqTensor()->aligned());
@@ -151,8 +151,9 @@ REGISTER_LITE_KERNEL(transpose2,
                {LiteType::GetTensorTy(TARGET(kFPGA),
                                       PRECISION(kFP16),
                                       DATALAYOUT(kNHWC))})
-    .BindOutput("Out", {LiteType::GetTensorTy(TARGET(kFPGA),
-                                      PRECISION(kFP16),
-                                      DATALAYOUT(kNHWC))})
+    .BindOutput("Out",
+                {LiteType::GetTensorTy(TARGET(kFPGA),
+                                       PRECISION(kFP16),
+                                       DATALAYOUT(kNHWC))})
     .BindOutput("XShape", {LiteType::GetTensorTy(TARGET(kARM))})
     .Finalize();

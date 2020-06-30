@@ -14,8 +14,11 @@ limitations under the License. */
 
 #pragma once
 
+#include <memory>
+
 #include "lite/backends/fpga/KD/pe.hpp"
-#include "lite/backends/fpga/KD/pe_params.hpp"
+#include "lite/backends/fpga/KD/tensor_util.hpp"
+
 namespace paddle {
 namespace zynqmp {
 
@@ -28,29 +31,62 @@ class InputPE : public PE {
     return true;
   }
 
-  bool dispatch() {
-    Tensor* input = param_.input;
-    Tensor* output = param_.output;
+  int config_bypass() {
+    BypassArgs args;
+    args.input_data_type =
+        param_.input->dataType() == FP32 ? DATA_TYPE_FP32 : DATA_TYPE_FP16;
+    args.output_data_type =
+        param_.output->dataType() == FP32 ? DATA_TYPE_FP32 : DATA_TYPE_FP16;
+    args.input_layout_type = LAYOUT_HWC;
+    args.output_layout_type = LAYOUT_HWC;
+    args.image.address = param_.input->data<void>();
+    args.image.scale_address = param_.input->scale();
+    args.image.channels = param_.input->shape().alignedElementCount();
+    args.image.height = 1;
+    args.image.width = 1;
+    args.image.pad_height = 0;
+    args.image.pad_width = 0;
+    args.output.address = param_.output->data<void>();
+    args.output.scale_address = param_.output->scale();
+    args.output_idx = param_.output->scaleIndex(true);
 
-    Tensor* src = input;
+    return perform_bypass(args);
+  }
+
+  void apply() {
+    transaction_.reset(TransactionManager::get_instance().getTransaction());
+    Action* action = new Action(config_bypass());
+    action_.reset(action);
+    transaction_->appendAction(action);
+  }
+
+  bool dispatch() {
+    // we need to align image first;
+    Tensor* input = param_.input;
+    input->alignImage();
     input->flush();
-    Tensor half_tensor;
-    if (input->dataType() == DataType::FP32) {
-      half_tensor.mutableData<void*>(DataType::FP16, input->shape());
-      half_tensor.copyFrom(input);
-      src = &half_tensor;
-    }
-    output->mutableData<void>();
-    src->alignImage();
-    output->copyFrom(src);
-    // src->alignImage(output, true);
-    return true;
+
+    std::cout << "input dispatch \n";
+    // cpu_copy(input, param_.output);
+    // param_.output->flush();
+
+    param_.output->scale()[0] = 1.0 / 127;
+    param_.output->scale()[1] = 127;
+
+    int idx = param_.output->scaleIndex();
+
+    WriteScaleArgs writeScaleArgs;
+    writeScaleArgs.idx = idx;
+    writeScaleArgs.address = (uint64_t)param_.output->scale();
+    // write_scale(writeScaleArgs);
   }
 
   InputParam& param() { return param_; }
 
  private:
   InputParam param_;
+  std::shared_ptr<Transaction> transaction_;
+  std::shared_ptr<Action> action_;
 };
 }  // namespace zynqmp
 }  // namespace paddle

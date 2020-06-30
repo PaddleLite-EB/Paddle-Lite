@@ -12,29 +12,37 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License. */
 
-#include "lite/backends/fpga/KD/dispatch/action.hpp"
-
 #include <algorithm>
 #include <vector>
+
+#include "lite/backends/fpga/KD/dispatch/action.hpp"
+#include "lite/backends/fpga/KD/llapi/zynqmp_api.h"
+
+#pragma once
 
 namespace paddle {
 namespace zynqmp {
 
 class Transaction {
-
-public:
+ public:
   void appendAction(Action* action) {
+    if (!actions_.empty()) {
+      Action* last = actions_.back();
+      link_actions(last->id(), action->id());
+    }
     actions_.push_back(action);
-  };
+  }
 
   void startTraction() {
-    
-  };
+    struct CnnCmdArgs args;
+    Action* action = actions_[0];
+    args.action_id = action->id();
+    start_transaction(args);
+  }
 
-private:
-  std::std::vector<Action*> actions_;
+ private:
+  std::vector<Action*> actions_;
   int id_ = -1;
-}
-
-}
-}
+};
+}  // namespace zynqmp
+}  // namespace paddle

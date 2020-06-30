@@ -160,6 +160,7 @@ void RuntimeProgram::Run() {
       inst.Sync();
     }
 #endif
+    VLOG(4) << "running op:" << inst.op()->DebugString() << std::endl;
     inst.Run();
 #ifdef LITE_WITH_PRECISION_PROFILE
 #ifndef LITE_WITH_FPGA

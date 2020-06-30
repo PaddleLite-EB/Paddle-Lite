@@ -14,8 +14,12 @@ limitations under the License. */
 
 #pragma once
 
+#include <memory>
+
 #include "lite/backends/fpga/KD/pe.hpp"
 #include "lite/backends/fpga/KD/pe_params.hpp"
+
+#include "lite/backends/fpga/KD/pes/cpu_pe.hpp"
 
 namespace paddle {
 namespace zynqmp {
@@ -31,30 +35,40 @@ class ResizePE : public PE {
   void apply() {
     Tensor* input = param_.input;
     Tensor* output = param_.output;
-    ResizeArgs& args = args_;
 
-    int input_width = input->shape().width();
-    int input_height = input->shape().height();
-    int input_channel = input->shape().channel();
+    if (this->cpu_impl_) {
+      pe_.init();
+      pe_.apply();
+    } else {
+      ResizeArgs& args = args_;
+      int input_width = input->shape().width();
+      int input_height = input->shape().height();
+      int input_channel = input->shape().channel();
 
-    int output_width = output->shape().width();
-    int output_height = output->shape().height();
+      int output_width = output->shape().width();
+      int output_height = output->shape().height();
 
-    args.input_width = input_width;
-    args.input_height = input_height;
-    args.image_channel = input_channel;
-    args.output_width = output_width;
-    args.output_height = output_height;
-    float height_ratio = static_cast<float>(input_height) /
-                         static_cast<float>(args.output_height);
-    float width_ratio =
-        static_cast<float>(input_width) / static_cast<float>(args.output_width);
-    args.height_ratio = *reinterpret_cast<uint32_t*>(&height_ratio);
-    args.width_ratio = *reinterpret_cast<uint32_t*>(&width_ratio);
+      args.input_width = input_width;
+      args.input_height = input_height;
+      args.image_channel = input_channel;
+      args.output_width = output_width;
+      args.output_height = output_height;
+      float height_ratio = static_cast<float>(input_height) /
+                           static_cast<float>(args.output_height);
+      float width_ratio = static_cast<float>(input_width) /
+                          static_cast<float>(args.output_width);
+      args.height_ratio = *reinterpret_cast<uint32_t*>(&height_ratio);
+      args.width_ratio = *reinterpret_cast<uint32_t*>(&width_ratio);
 
-    args.input_image_address = input->mutableData<void>();
-    args.output_image_address = output->mutableData<void>();
-    args.output_scale_address = reinterpret_cast<uint32_t*>(output->scale());
+      args.input_image_address = input->mutableData<void>();
+      args.output_image_address = output->mutableData<void>();
+      args.output_scale_address = reinterpret_cast<uint32_t*>(output->scale());
+
+      transaction_.reset(TransactionManager::get_instance().getTransaction());
+      Action* action = new Action(compute_fpga_resize(args));
+      action_.reset(action);
+      transaction_->appendAction(action);
+    }
   }
 
   void compute_scale(Tensor* src, float* scale) {
@@ -84,40 +98,46 @@ class ResizePE : public PE {
 
     param_.input->syncToCPU();
 
-        for (int h = 0; h < in_height; h++) {
-            for (int w = 0; w < in_width; w++) {
-                int src_index = in_width * channel * h + w * channel;
-                float16* src = param_.input->data<float16>() + src_index;
-                // std::cout << "src_index:" << src_index << std::endl;
-                for (int v = 0; v < factor; v++) {
-                    for (int i =0; i < factor; i++) {
-                        int dst_index = out_width * channel * h * factor +
-                            out_width * channel * v +
-                            w * channel * factor +
+    for (int h = 0; h < in_height; h++) {
+      for (int w = 0; w < in_width; w++) {
+        int src_index = in_width * channel * h + w * channel;
+        float16* src = param_.input->data<float16>() + src_index;
+        // std::cout << "src_index:" << src_index << std::endl;
+        for (int v = 0; v < factor; v++) {
+          for (int i = 0; i < factor; i++) {
+            int dst_index = out_width * channel * h * factor +
+                            out_width * channel * v + w * channel * factor +
                             channel * i;
-                        float16* dst = param_.output->data<float16>() + dst_index;
-                        memcpy(dst, src, channel * sizeof(float16));
-                        // std::cout << "dst_index:" << dst_index << std::endl;
-                    }
-                }
-            }
+            float16* dst = param_.output->data<float16>() + dst_index;
+            memcpy(dst, src, channel * sizeof(float16));
+            // std::cout << "dst_index:" << dst_index << std::endl;
+          }
         }
-        param_.output->flush();
-        param_.output->copyScaleFrom(param_.input);
+      }
     }
-
+    param_.output->flush();
+    param_.output->copyScaleFrom(param_.input);
+  }
 
   bool dispatch() {
-    cpu_compute();
-    // bool ret = compute_fpga_resize(args_) == 0;
+    if (this->cpu_impl_) {
+      pe_.dispatch();
+      cpu_compute();
+    }
     return true;
   }
 
   ResizeParam& param() { return param_; }
 
  private:
+  bool cpu_impl_ = true;
   ResizeParam param_;
   ResizeArgs args_;
+
+  CPUPE pe_;
+
+  std::shared_ptr<Transaction> transaction_;
+  std::shared_ptr<Action> action_;
 };
 }  // namespace zynqmp
 }  // namespace paddle

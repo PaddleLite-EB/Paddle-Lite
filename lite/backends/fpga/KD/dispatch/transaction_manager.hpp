@@ -14,13 +14,15 @@ limitations under the License. */
 
 #pragma once
 
+#include "lite/backends/fpga/KD/dispatch/transaction.hpp"
+
 #include <vector>
 
 namespace paddle {
 namespace zynqmp {
 
 class TransactionManager {
-public:
+ public:
   static TransactionManager& get_instance() {
     static TransactionManager s_instance;
     return s_instance;
@@ -32,16 +34,13 @@ public:
       transactions_.push_back(currentTransaction_);
     }
     return currentTransaction_;
-  };
-
-  void endTransaction() {
-    currentTransaction_ = nullptr;
   }
 
-private:
+  void endTransaction() { currentTransaction_ = nullptr; }
+
+ private:
   Transaction* currentTransaction_ = nullptr;
   std::vector<Transaction*> transactions_;
-}
-
-}
-}
+};
+}  // namespace zynqmp
+}  // namespace paddle
