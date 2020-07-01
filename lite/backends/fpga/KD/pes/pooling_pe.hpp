@@ -67,14 +67,14 @@ class PoolingPE : public PE {
     args.kernel.stride_w = param_.strides[1];
     args.out_height = output->shape().height();
     args.out_width = output->shape().width();
+    args.output_idx = output->scaleIndex(true);
     param_.poolingArgs = args;
 
     use_cpu_ = output->shape().width() == 1 && output->shape().height() == 1 &&
                (k_width > 255 || k_height > 255);
     // use_cpu_ = param_.type == AVERAGE;
 
-    // TODO(chonwhite) out_scale_index;
-    transaction_.reset(TransactionManager::get_instance().getTransaction());
+    transaction_ = TransactionManager::get_instance().getTransaction();
     Action* action = new Action(compute_fpga_pool(args));
     action_.reset(action);
     transaction_->appendAction(action);

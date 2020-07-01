@@ -124,10 +124,12 @@ class DepthwiseConvPE : public PE {
     args.output.scale_address = output->scale();
     args.out_width = param.output->shape().width();
     args.out_height = param.output->shape().height();
+    args.dilation_rate = param.dilations[0];
     args.sub_conv_num = 1;
+    args.output_idx = param.output->scaleIndex(true);
     param.args = args;
 
-    transaction_.reset(TransactionManager::get_instance().getTransaction());
+    transaction_ = TransactionManager::get_instance().getTransaction();
     Action* action = new Action(compute_fpga_dwconv(args));
     action_.reset(action);
     transaction_->appendAction(action);
@@ -136,35 +138,7 @@ class DepthwiseConvPE : public PE {
     inplace_.normalize_enable = false;
   }
 
-  bool dispatch() {
-    return true;
-    // param_.input->syncToDevice();
-    // if (param_.activeParam.type == TYPE_RELU) {
-    //   inplace_.relu_enable = true;
-    // } else if (param_.activeParam.type == TYPE_RELU6) {
-    //   inplace_.relu6_enable = true;
-    // } else if (param_.activeParam.type == TYPE_SIGMOID) {
-    //   inplace_.sigmoid_enable = true;
-    // } else if (param_.activeParam.type == TYPE_LEAKY_RELU) {
-    //   inplace_.leaky_relu_enable = true;
-    // }
-
-    // if (inplace_.relu_enable || inplace_.leaky_relu_enable ||
-    //     inplace_.relu6_enable || inplace_.sigmoid_enable) {
-    //   config_inplace(inplace_);
-    // }
-
-    // bool ret = compute_fpga_dwconv(param_.args) == 0;
-    // if (inplace_.relu_enable || inplace_.leaky_relu_enable ||
-    //     inplace_.relu6_enable || inplace_.sigmoid_enable) {
-    //   inplace_.relu_enable = false;
-    //   inplace_.leaky_relu_enable = false;
-    //   inplace_.relu6_enable = false;
-    //   inplace_.sigmoid_enable = false;
-    //   config_inplace(inplace_);
-    // }
-    // return ret;
-  }
+  bool dispatch() { return true; }
 
   DepthwiseConvParam& param() { return param_; }
 

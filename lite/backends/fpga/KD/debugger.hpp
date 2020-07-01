@@ -67,14 +67,14 @@ class Debugger {
 
     for (int i = 0; i < tensors_.size(); i++) {
       std::pair<std::string, zynqmp::Tensor*> p = tensors_[i];
-      p.second->saveToFile(p.first, true);
-
+      
       zynqmp::ReadScaleArgs args;
       args.idx = p.second->scaleIndex(false);
       args.address = reinterpret_cast<uint32_t*>(out_scale);
       read_scale(args);
-      std::cout << "out_scale :" << out_scale[0] << " | " << out_scale[1]
-                << std::endl;
+      p.second->scale()[0] = out_scale[0];
+      p.second->scale()[1] = out_scale[1];
+      p.second->saveToFile(p.first, true);
     }
   }
 

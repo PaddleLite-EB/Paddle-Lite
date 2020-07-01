@@ -315,7 +315,10 @@ int link_actions(int action0, int action1) {
 
 int alloc_scale_reg() {
   GenerateIdxArgs args;
-  return do_ioctl(IOCTL_GENERATE_IDX, &args);
+
+  int a = do_ioctl(IOCTL_GENERATE_IDX, &args);
+  std::cout << "args.idx:" << args.idx << "  a:" << a << std::endl;
+  return a;
 }
 
 int write_scale(struct WriteScaleArgs &args) {  // NOLINT

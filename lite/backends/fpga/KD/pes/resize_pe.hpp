@@ -64,7 +64,7 @@ class ResizePE : public PE {
       args.output_image_address = output->mutableData<void>();
       args.output_scale_address = reinterpret_cast<uint32_t*>(output->scale());
 
-      transaction_.reset(TransactionManager::get_instance().getTransaction());
+      transaction_ = TransactionManager::get_instance().getTransaction();
       Action* action = new Action(compute_fpga_resize(args));
       action_.reset(action);
       transaction_->appendAction(action);

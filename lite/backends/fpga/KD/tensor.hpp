@@ -149,7 +149,7 @@ class Tensor {
   float* scale() { return placeHolder_->scale_; }
 
   int scaleIndex(bool auto_alloc = false) {
-    if (scale_index_ = -1 && auto_alloc) {
+    if (scale_index_ <= 0 && auto_alloc) {
       scale_index_ = alloc_scale_reg();
     }
     return scale_index_;
@@ -390,7 +390,7 @@ class Tensor {
   }
 
   void save_file_with_name(std::string path) {
-    // std::cout << "saving file: " << path << std::endl;
+    std::cout << "saving file: " << path << std::endl;
     std::ofstream ofs;
     ofs.open(path);
     ofs << scale()[0] << " / " << scale()[1] << std::endl;
@@ -414,8 +414,7 @@ class Tensor {
       if (i < 10) {
         std::cout << value << ",";
       }
-
-      ofs << value << std::endl;
+      // ofs << value << std::endl;
     }
     usleep(30000);
     ofs.close();

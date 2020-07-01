@@ -55,7 +55,7 @@ class ElementwiseMulPE : public PE {
     args.output.address = output->data<void>();
     args.output.scale_address = output->scale();
 
-    transaction_.reset(TransactionManager::get_instance().getTransaction());
+    transaction_ = TransactionManager::get_instance().getTransaction();
     Action* action = new Action(compute_fpga_scale(args));
     action_.reset(action);
     transaction_->appendAction(action);

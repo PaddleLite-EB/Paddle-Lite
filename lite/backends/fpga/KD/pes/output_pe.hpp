@@ -57,7 +57,7 @@ class OutputPE : public PE {
   }
 
   void apply() {
-    transaction_.reset(TransactionManager::get_instance().getTransaction());
+    transaction_ = TransactionManager::get_instance().getTransaction();
     Action* action = new Action(config_bypass());
     action_.reset(action);
     transaction_->appendAction(action);

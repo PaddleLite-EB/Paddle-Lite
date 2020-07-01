@@ -76,7 +76,7 @@ class ConvPE : public PE {
     }
 
     // ======================= dispatch =======================
-    transaction_.reset(TransactionManager::get_instance().getTransaction());
+    transaction_ = TransactionManager::get_instance().getTransaction();
     if (split_axis == 0) {
       for (auto conv_param : param_.splitParams()) {
         int action_id = compute_fpga_conv_basic(conv_param->args);

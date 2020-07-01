@@ -36,7 +36,7 @@ class CPUPE : public PE {
   }
 
   void apply() {
-    transaction_.reset(TransactionManager::get_instance().getTransaction());
+    transaction_ = TransactionManager::get_instance().getTransaction();
     TransactionManager::get_instance().endTransaction();
   }
 

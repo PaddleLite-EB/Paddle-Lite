@@ -45,7 +45,9 @@ void ConvCompute::PrepareForRun() {
     conv_param.paddings = std::vector<int>({pad_h, pad_w});
     conv_param.dilations = *param.dilations;
     fill_scale_bias_const(&conv_param);
-    conv_param.bias()->copyFrom(param.bias->ZynqTensor());
+    if (param.bias != nullptr) {
+      conv_param.bias()->copyFrom(param.bias->ZynqTensor());
+    }
 
     if (param.fuse_relu) {
       conv_param.activeParam.type = zynqmp::TYPE_RELU;

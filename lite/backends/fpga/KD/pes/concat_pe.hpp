@@ -20,6 +20,8 @@ limitations under the License. */
 #include "lite/backends/fpga/KD/pe.hpp"
 #include "lite/backends/fpga/KD/pe_params.hpp"
 
+#include "lite/backends/fpga/KD/pes/cpu_pe.hpp"
+
 namespace paddle {
 namespace zynqmp {
 
@@ -29,10 +31,11 @@ class ConcatPE : public PE {
     Tensor* output = param_.output;
     output->setAligned(false);
     output->setDataLocation(CPU);
+    pe_.init();
     return true;
   }
 
-  void apply() {}
+  void apply() { pe_.apply(); }
 
   void concat2D() {
     int offset = 0;
@@ -83,6 +86,7 @@ class ConcatPE : public PE {
   }
 
   bool dispatch() {
+    pe_.dispatch();
     Tensor* output = param_.output;
     Shape& output_shape = output->shape();
 
@@ -129,6 +133,7 @@ class ConcatPE : public PE {
 
  private:
   ConcatParam param_;
+  CPUPE pe_;
 };
 
 }  // namespace zynqmp

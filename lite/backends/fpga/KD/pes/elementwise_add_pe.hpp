@@ -54,10 +54,10 @@ class ElementwiseAddPE : public PE {
     args.image1.pad_width = 0;
     args.output.scale_address = output->scale();
     args.output.address = output->data<float16>();
-    param_.ewargs = args;
+    args.output_idx = output->scaleIndex(true);
+    param_.ewargs = args;  // delete ewargs;
 
-    // TODO(chonwhite) out_scale_index;
-    transaction_.reset(TransactionManager::get_instance().getTransaction());
+    transaction_ = TransactionManager::get_instance().getTransaction();
     Action* action = new Action(compute_fpga_ewadd(args));
     action_.reset(action);
     transaction_->appendAction(action);

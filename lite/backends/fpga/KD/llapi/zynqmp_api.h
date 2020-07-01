@@ -148,7 +148,6 @@ struct ConvArgs {
 };
 
 struct DWconvArgs {
-  // bool relu_enabled;
   void* bias_address;
   void* filter_address;
   struct KernelArgs kernel;
@@ -158,6 +157,7 @@ struct DWconvArgs {
   uint16_t out_height;
   uint16_t sub_conv_num;
   uint32_t dilation_rate;
+  uint32_t output_idx;  // output scale index
   struct ActiveParamterArgs activeParam;
 };
 
@@ -169,18 +169,19 @@ struct PoolingArgs {
   struct ImageOutputArgs output;
   uint16_t out_width;
   uint16_t out_height;
+  uint32_t output_idx;
   struct ActiveParamterArgs activeParam;
 };
 
 // elementwise add arguments
 struct EWAddArgs {
-  bool relu_enabled;
-
   uint32_t const0;  // output0 = const0 x input0 + const1 x input1;
   uint32_t const1;
   struct ImageInputArgs image0;
   struct ImageInputArgs image1;
   struct ImageOutputArgs output;
+  uint32_t output_idx;
+  struct ActiveParamterArgs activeParam;
 };
 
 struct BypassArgs {
@@ -258,11 +259,6 @@ struct NormalizeParameterArgs {
   uint32_t channel;
   uint32_t hight_width;
 };
-
-// struct ActiveParamterArgs {
-//     enum ActiveType  type;
-//     uint16_t leaky_relu_factor;
-// };
 
 struct InplaceArgs {
   bool leaky_relu_enable;
