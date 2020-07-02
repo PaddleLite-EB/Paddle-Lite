@@ -127,6 +127,11 @@ class DepthwiseConvPE : public PE {
     args.dilation_rate = param.dilations[0];
     args.sub_conv_num = 1;
     args.output_idx = param.output->scaleIndex(true);
+
+    args.activeParam.type = param_.activeParam.type;
+    args.activeParam.leaky_relu_factor =
+        fp32_2_fp16(param_.activeParam.leaky_relu_factor);
+
     param.args = args;
 
     transaction_ = TransactionManager::get_instance().getTransaction();

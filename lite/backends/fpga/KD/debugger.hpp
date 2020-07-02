@@ -67,7 +67,7 @@ class Debugger {
 
     for (int i = 0; i < tensors_.size(); i++) {
       std::pair<std::string, zynqmp::Tensor*> p = tensors_[i];
-      
+
       zynqmp::ReadScaleArgs args;
       args.idx = p.second->scaleIndex(false);
       args.address = reinterpret_cast<uint32_t*>(out_scale);

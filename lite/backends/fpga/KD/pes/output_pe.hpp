@@ -53,6 +53,7 @@ class OutputPE : public PE {
     args.output.scale_address = param_.output->scale();
     args.output_idx =
         param_.output->scaleIndex(true);  // TODO(chonwhite) use default index;
+    args.activeParam.type = TYPE_NONE;
     return perform_bypass(args);
   }
 

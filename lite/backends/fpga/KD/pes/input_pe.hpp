@@ -49,6 +49,7 @@ class InputPE : public PE {
     args.output.address = param_.output->data<void>();
     args.output.scale_address = param_.output->scale();
     args.output_idx = param_.output->scaleIndex(true);
+    args.activeParam.type = TYPE_NONE;
 
     return perform_bypass(args);
   }
@@ -66,18 +67,18 @@ class InputPE : public PE {
     input->alignImage();
     input->flush();
 
-    std::cout << "input dispatch \n";
+    // std::cout << "input dispatch \n";
     // cpu_copy(input, param_.output);
     // param_.output->flush();
 
-    param_.output->scale()[0] = 1.0 / 127;
-    param_.output->scale()[1] = 127;
+    // param_.output->scale()[0] = 1.0 / 127;
+    // param_.output->scale()[1] = 127;
 
-    int idx = param_.output->scaleIndex();
+    // int idx = param_.output->scaleIndex();
 
-    WriteScaleArgs writeScaleArgs;
-    writeScaleArgs.idx = idx;
-    writeScaleArgs.address = (uint64_t)param_.output->scale();
+    // WriteScaleArgs writeScaleArgs;
+    // writeScaleArgs.idx = idx;
+    // writeScaleArgs.address = (uint64_t)param_.output->scale();
     // write_scale(writeScaleArgs);
   }
 

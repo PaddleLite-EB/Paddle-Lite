@@ -68,6 +68,11 @@ class PoolingPE : public PE {
     args.out_height = output->shape().height();
     args.out_width = output->shape().width();
     args.output_idx = output->scaleIndex(true);
+
+    args.activeParam.type = param_.activeParam.type;
+    args.activeParam.leaky_relu_factor =
+        fp32_2_fp16(param_.activeParam.leaky_relu_factor);
+
     param_.poolingArgs = args;
 
     use_cpu_ = output->shape().width() == 1 && output->shape().height() == 1 &&

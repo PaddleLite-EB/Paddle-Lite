@@ -89,8 +89,6 @@ void ConvCompute::PrepareForRun() {
     conv_pe_.init();
     conv_pe_.apply();
   }
-  // std::cout << "Leaky_relu_alpha:" << param.activation_param.Leaky_relu_alpha
-  // << std::endl;
 }
 
 void ConvCompute::Run() {

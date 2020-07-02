@@ -79,6 +79,9 @@ class ConvPE : public PE {
     transaction_ = TransactionManager::get_instance().getTransaction();
     if (split_axis == 0) {
       for (auto conv_param : param_.splitParams()) {
+        conv_param->args.activeParam.type = param_.activeParam.type;
+        conv_param->args.activeParam.leaky_relu_factor =
+            fp32_2_fp16(param_.activeParam.leaky_relu_factor);
         int action_id = compute_fpga_conv_basic(conv_param->args);
         Action* action = new Action(action_id);
         actions_.push_back(action);
@@ -134,27 +137,6 @@ class ConvPE : public PE {
     //   return true;
     // }
 
-    // if (param_.activeParam.type == TYPE_RELU) {
-    //   inplace_.relu_enable = true;
-    // } else if (param_.activeParam.type == TYPE_RELU6) {
-    //   inplace_.relu6_enable = true;
-    // } else if (param_.activeParam.type == TYPE_SIGMOID) {
-    //   inplace_.sigmoid_enable = true;
-    // } else if (param_.activeParam.type == TYPE_LEAKY_RELU) {
-    //   inplace_.leaky_relu_enable = true;
-    // }
-
-    // if (inplace_.relu_enable || inplace_.leaky_relu_enable ||
-    //     inplace_.relu6_enable || inplace_.sigmoid_enable) {
-    //   config_inplace(inplace_);
-    //   if (inplace_.leaky_relu_enable) {
-    //     activeParamterArgs.type = TYPE_LEAKY_RELU;
-    //     activeParamterArgs.leaky_relu_factor =
-    //         fp32_2_fp16(param_.activeParam.leaky_relu_factor);
-    //     config_activation(activeParamterArgs);
-    //   }
-    // }
-
     // std::vector<BasicConvParam*>& params = param_.splitParams();
 
     // if (split_channel) {
@@ -164,21 +146,6 @@ class ConvPE : public PE {
     // int ret = 0;
     // for (auto conv_param : params) {
     //   ret |= compute_fpga_conv_basic(conv_param->args);
-    // }
-
-    // if (inplace_.relu_enable || inplace_.leaky_relu_enable ||
-    //     inplace_.relu6_enable || inplace_.sigmoid_enable) {
-    //   inplace_.relu_enable = false;
-    //   inplace_.leaky_relu_enable = false;
-    //   inplace_.relu6_enable = false;
-    //   inplace_.sigmoid_enable = false;
-    //   config_inplace(inplace_);
-
-    //   if (inplace_.leaky_relu_enable) {
-    //     activeParamterArgs.type = TYPE_LEAKY_RELU;
-    //     activeParamterArgs.leaky_relu_factor = fp32_2_fp16(0);
-    //     config_activation(activeParamterArgs);
-    //   }
     // }
 
     // size_t size = params.size();

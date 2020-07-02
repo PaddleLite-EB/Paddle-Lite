@@ -192,6 +192,7 @@ struct BypassArgs {
   struct ImageInputArgs image;
   struct ImageOutputArgs output;
   uint32_t output_idx;  // input scale index
+  struct ActiveParamterArgs activeParam;
 };
 
 struct ScaleArgs {

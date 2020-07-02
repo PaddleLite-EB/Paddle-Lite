@@ -411,12 +411,8 @@ class Tensor {
         value = data<int32_t>()[i];
       }
 
-      if (i < 10) {
-        std::cout << value << ",";
-      }
-      // ofs << value << std::endl;
+      ofs << value << std::endl;
     }
-    usleep(30000);
     ofs.close();
   }
 
