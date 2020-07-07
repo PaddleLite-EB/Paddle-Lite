@@ -136,7 +136,6 @@ bool SoftmaxPE::init() {
   output->setAligned(false);
   output->setDataLocation(CPU);
   output->scaleIndex(true);
-
   return true;
 }
 
@@ -162,14 +161,11 @@ bool SoftmaxPE::dispatch() {
   // float_input.copyFrom(input);
   input_pe_.dispatch();
   cpu_pe_.dispatch();
-
   input->syncToCPU();
-  // input->saveToFile("s_in", true);
 
   softmax(&float_input, output);
   output->flush();
 
-  // output->saveToFile("soft", true);
   // output->copyFrom(&float_output);
   output->flush();
   return true;

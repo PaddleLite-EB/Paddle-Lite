@@ -34,10 +34,12 @@ class Transaction {
   }
 
   void startTraction() {
-    struct CnnCmdArgs args;
-    Action* action = actions_[0];
-    args.action_id = action->id();
-    start_transaction(args);
+    if (actions_.size() > 0) {
+      struct CnnCmdArgs args;
+      Action* action = actions_[0];
+      args.action_id = action->id();
+      start_transaction(args);
+    }
   }
 
  private:
