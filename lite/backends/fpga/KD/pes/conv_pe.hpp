@@ -24,6 +24,7 @@ limitations under the License. */
 #include "lite/backends/fpga/KD/pes/concat_pe.hpp"
 #include "lite/backends/fpga/KD/pes/conv_pe.hpp"
 #include "lite/backends/fpga/KD/pes/conv_process.hpp"
+#include "lite/backends/fpga/KD/pes/cpu_pe.hpp"
 #include "lite/backends/fpga/KD/pes/elementwise_add_pe.hpp"
 #include "lite/backends/fpga/KD/pes/scale_pe.hpp"
 #include "lite/backends/fpga/KD/pes/split_pe.hpp"
@@ -45,6 +46,22 @@ class ConvPE : public PE {
   void apply() {
     split_axis = fill_split_arg(param_);
     split_channel = param_.groups != 1 && param_.splitParams().size() > 1;
+
+    // ======================= dispatch =======================
+    transaction_ = TransactionManager::get_instance().getTransaction();
+    if (split_axis == 0) {
+      for (auto conv_param : param_.splitParams()) {
+        conv_param->args.activeParam.type = param_.activeParam.type;
+        conv_param->args.activeParam.leaky_relu_factor =
+            fp32_2_fp16(param_.activeParam.leaky_relu_factor);
+        int action_id = compute_fpga_conv_basic(conv_param->args);
+        Action* action = new Action(action_id);
+        actions_.push_back(action);
+        transaction_->appendAction(action);
+      }
+    }
+
+    // ======================= concat =======================
     if (split_axis == 0 && param_.splitParams().size() > 1) {
       ConcatParam& concat_param = concatPE_.param();
       for (auto conv_param : param_.splitParams()) {
@@ -69,24 +86,12 @@ class ConvPE : public PE {
         param_.input->shape().dimSize() == 4 &&
         param_.input->shape().width() == 1 &&
         param_.input->shape().channel() >= 2048) {
-      use_cpu_ = true;
-    }
-    if (!use_cpu_) {
-      // param_.filter->releaseData();
+      // use_cpu_ = true;
+      cpu_pe_.reset(new CPUPE());
     }
 
-    // ======================= dispatch =======================
-    transaction_ = TransactionManager::get_instance().getTransaction();
-    if (split_axis == 0) {
-      for (auto conv_param : param_.splitParams()) {
-        conv_param->args.activeParam.type = param_.activeParam.type;
-        conv_param->args.activeParam.leaky_relu_factor =
-            fp32_2_fp16(param_.activeParam.leaky_relu_factor);
-        int action_id = compute_fpga_conv_basic(conv_param->args);
-        Action* action = new Action(action_id);
-        actions_.push_back(action);
-        transaction_->appendAction(action);
-      }
+    if (!use_cpu_) {
+      // param_.filter->releaseData();
     }
   }
 
@@ -129,29 +134,22 @@ class ConvPE : public PE {
   }
 
   bool dispatch() {
-    return true;
+    if (use_cpu_) {
+      cpu_pe_->dispatch();
+      cpu_compute();
+      return true;
+    }
 
-    // fpga_reset();
-    // if (use_cpu_) {
-    //   cpu_compute();
-    //   return true;
-    // }
-
-    // std::vector<BasicConvParam*>& params = param_.splitParams();
-
+    std::vector<BasicConvParam*>& params = param_.splitParams();
     // if (split_channel) {
     //   splitPE_.dispatch();
     // }
 
-    // int ret = 0;
-    // for (auto conv_param : params) {
-    //   ret |= compute_fpga_conv_basic(conv_param->args);
-    // }
+    size_t size = params.size();
+    if (split_axis == 0 && size > 1) {
+      concatPE_.dispatch();
+    }
 
-    // size_t size = params.size();
-    // if (split_axis == 0 && ret == 0 && size > 1) {
-    //   concatPE_.dispatch();
-    // }
     // if (split_axis == 1 && ret == 0 && size > 1) {
     //   // for (int n = 0; n < size - 1; n++) {
     //   ElementwiseAddParam& add_param = addPE_.param();
@@ -162,6 +160,8 @@ class ConvPE : public PE {
     //   addPE_.dispatch();
     // }
     // return ret == 0;
+
+    return true;
   }
 
   ConvParam& param() { return param_; }
@@ -188,6 +188,7 @@ class ConvPE : public PE {
   // =================
   std::shared_ptr<Transaction> transaction_;
   std::vector<Action*> actions_;
+  std::shared_ptr<CPUPE> cpu_pe_;
 };
 
 }  // namespace zynqmp

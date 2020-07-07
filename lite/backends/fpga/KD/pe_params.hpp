@@ -39,17 +39,20 @@ struct PEParam {
   ActiveParam activeParam;
 };
 
-struct InputParam : PEParam {
+struct BypassParam : PEParam {
  public:
   Tensor* input = nullptr;
   Tensor* output = nullptr;
 };
 
-struct OutputParam : PEParam {
- public:
-  Tensor* input = nullptr;
-  Tensor* output = nullptr;
-};
+using InputParam = BypassParam;
+using OutputParam = BypassParam;
+
+// struct OutputParam : PEParam {
+//  public:
+//   Tensor* input = nullptr;
+//   Tensor* output = nullptr;
+// };
 
 struct BatchnormParam : PEParam {
  public:

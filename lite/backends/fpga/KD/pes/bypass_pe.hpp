@@ -16,21 +16,18 @@ limitations under the License. */
 
 #include <memory>
 
-#include "lite/backends/fpga/KD/llapi/zynqmp_api.h"
 #include "lite/backends/fpga/KD/pe.hpp"
-#include "lite/backends/fpga/KD/pe_params.hpp"
-
-#include "lite/backends/fpga/KD/debugger.hpp"
 #include "lite/backends/fpga/KD/tensor_util.hpp"
 
 namespace paddle {
 namespace zynqmp {
 
-class OutputPE : public PE {
+class BypassPE : public PE {
  public:
   bool init() {
     Tensor* output = param_.output;
-    output->setAligned(false);
+    output->setAligned(true);
+    output->setDataLocation(Device);
     return true;
   }
 
@@ -51,9 +48,9 @@ class OutputPE : public PE {
     args.image.pad_width = 0;
     args.output.address = param_.output->data<void>();
     args.output.scale_address = param_.output->scale();
-    args.output_idx =
-        param_.output->scaleIndex(true);  // TODO(chonwhite) use default index;
+    args.output_idx = param_.output->scaleIndex(true);
     args.activeParam.type = TYPE_NONE;
+
     return perform_bypass(args);
   }
 
@@ -62,30 +59,14 @@ class OutputPE : public PE {
     Action* action = new Action(config_bypass());
     action_.reset(action);
     transaction_->appendAction(action);
-    TransactionManager::get_instance().endTransaction();
   }
 
-  bool dispatch() {
-    Tensor* input = param_.input;
-    Tensor* output = param_.output;
-    input->saveToFile("fetch_in", true);
-    transaction_->startTraction();
-    output->saveToFile("fetch_out", true);
-    output->invalidate();
-    if (input->aligned()) {
-      output->unalignImage();
-    }
+  bool dispatch() { return true; }
 
-    lite::Debugger::get_instance().commit();
-
-    return true;
-  }
-
-  OutputParam& param() { return param_; }
+  BypassParam& param() { return param_; }
 
  private:
-  // bool last_ = true;
-  OutputParam param_;
+  BypassParam param_;
   std::shared_ptr<Transaction> transaction_;
   std::shared_ptr<Action> action_;
 };

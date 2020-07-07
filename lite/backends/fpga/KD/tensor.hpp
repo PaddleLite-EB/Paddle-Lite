@@ -148,6 +148,22 @@ class Tensor {
 
   float* scale() { return placeHolder_->scale_; }
 
+  void readScale() {
+    zynqmp::ReadScaleArgs args;
+    args.idx = scaleIndex(false);
+    args.address = reinterpret_cast<uint32_t*>(placeHolder_->scale_);
+    read_scale(args);
+  }
+
+  void writeScale(float scale_value) {
+    scale()[0] = scale_value;
+    scale()[1] = 1.0 / scale_value;
+    WriteScaleArgs writeScaleArgs;
+    writeScaleArgs.idx = scaleIndex();
+    writeScaleArgs.address = (uint64_t)scale();
+    write_scale(writeScaleArgs);
+  }
+
   int scaleIndex(bool auto_alloc = false) {
     if (scale_index_ <= 0 && auto_alloc) {
       scale_index_ = alloc_scale_reg();

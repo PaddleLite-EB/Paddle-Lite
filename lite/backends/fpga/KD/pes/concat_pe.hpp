@@ -19,7 +19,6 @@ limitations under the License. */
 
 #include "lite/backends/fpga/KD/pe.hpp"
 #include "lite/backends/fpga/KD/pe_params.hpp"
-
 #include "lite/backends/fpga/KD/pes/cpu_pe.hpp"
 
 namespace paddle {
@@ -31,6 +30,7 @@ class ConcatPE : public PE {
     Tensor* output = param_.output;
     output->setAligned(false);
     output->setDataLocation(CPU);
+    output->scaleIndex(true);
     pe_.init();
     return true;
   }
@@ -87,18 +87,18 @@ class ConcatPE : public PE {
 
   bool dispatch() {
     pe_.dispatch();
+
     Tensor* output = param_.output;
     Shape& output_shape = output->shape();
-
     float scale = 0;
     for (unsigned int n = 0; n < param_.inputs.size(); n++) {
       Tensor* input = param_.inputs[n];
       input->syncToCPU();
       input->unalignImage();
+      input->readScale();
       scale = std::max(scale, input->scale()[0]);
     }
-    output->scale()[0] = scale;
-    output->scale()[1] = 1.0f / scale;
+    output->writeScale(scale);
 
     if (output_shape.dimSize() == 3) {
       concat3D();
@@ -126,6 +126,7 @@ class ConcatPE : public PE {
       channel_sum += input_shape.channel();
     }
     output->flush();
+    // output->saveToFile("concat_out", true);
     return true;
   }
 

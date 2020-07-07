@@ -130,10 +130,10 @@ class KernelPlaceCorrectPass : public DebugPass {
         std::cout << "concat p:"
                   << PrecisionToStr(inst.kernels()[0]->precision())
                   << std::endl;
-        if (p != PrecisionType::kFP16) {
-          UpdateTarget(inst, TargetType::kARM);
-          UpdateTensor(inst, in, out, TargetType::kARM);
-        }
+        // if (p != PrecisionType::kFP16) {
+        //   UpdateTarget(inst, TargetType::kARM);
+        //   UpdateTensor(inst, in, out, TargetType::kARM);
+        // }
       }
 
       // if (inst.op_type() == "elementwise_mul") {
@@ -255,7 +255,7 @@ class KernelPlaceCorrectPass : public DebugPass {
     // std::endl;
   }
 
-  void UpdateTensor(mir::Node::Stmt& inst,
+  void UpdateTensor(mir::Node::Stmt& inst,  // NOLINT
                     Node* in,
                     Node* out,
                     TargetType new_target = TargetType::kUnk) {

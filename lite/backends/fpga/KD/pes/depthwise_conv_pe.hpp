@@ -138,9 +138,6 @@ class DepthwiseConvPE : public PE {
     Action* action = new Action(compute_fpga_dwconv(args));
     action_.reset(action);
     transaction_->appendAction(action);
-
-    inplace_.power_enable = false;
-    inplace_.normalize_enable = false;
   }
 
   bool dispatch() { return true; }
@@ -150,7 +147,6 @@ class DepthwiseConvPE : public PE {
  private:
   DepthwiseConvParam param_;
   Tensor bias_;
-  InplaceArgs inplace_ = {0};
 
   std::shared_ptr<Transaction> transaction_;
   std::shared_ptr<Action> action_;

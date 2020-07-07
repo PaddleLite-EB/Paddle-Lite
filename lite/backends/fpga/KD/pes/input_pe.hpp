@@ -66,20 +66,7 @@ class InputPE : public PE {
     Tensor* input = param_.input;
     input->alignImage();
     input->flush();
-
-    // std::cout << "input dispatch \n";
-    // cpu_copy(input, param_.output);
-    // param_.output->flush();
-
-    // param_.output->scale()[0] = 1.0 / 127;
-    // param_.output->scale()[1] = 127;
-
-    // int idx = param_.output->scaleIndex();
-
-    // WriteScaleArgs writeScaleArgs;
-    // writeScaleArgs.idx = idx;
-    // writeScaleArgs.address = (uint64_t)param_.output->scale();
-    // write_scale(writeScaleArgs);
+    return true;
   }
 
   InputParam& param() { return param_; }

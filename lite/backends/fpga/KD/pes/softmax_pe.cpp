@@ -131,29 +131,46 @@ static void softmax(Tensor *X, Tensor *Y) {
 }
 
 bool SoftmaxPE::init() {
+  Tensor *input = param_.input;
   Tensor *output = param_.output;
   output->setAligned(false);
   output->setDataLocation(CPU);
+  output->scaleIndex(true);
+
   return true;
+}
+
+void SoftmaxPE::apply() {
+  Tensor *input = param_.input;
+  float_input.mutableData<float>(DataType::FP32, input->shape());
+  float_output.mutableData<float>(DataType::FP32, input->shape());
+
+  BypassParam &input_param = input_pe_.param();
+  input_param.input = param_.input;
+  input_param.output = &float_input;
+  input_pe_.init();
+  input_pe_.apply();
+
+  cpu_pe_.init();
+  cpu_pe_.apply();
 }
 
 bool SoftmaxPE::dispatch() {
   Tensor *input = param_.input;
   Tensor *output = param_.output;
+
+  // float_input.copyFrom(input);
+  input_pe_.dispatch();
+  cpu_pe_.dispatch();
+
   input->syncToCPU();
+  // input->saveToFile("s_in", true);
 
-  Tensor float_input;
-  Tensor float_output;
-  float_input.mutableData<float>(DataType::FP32, input->shape());
-  float_input.copyFrom(input);
+  softmax(&float_input, output);
+  output->flush();
 
-  float *out_data =
-      float_output.mutableData<float>(DataType::FP32, input->shape());
-
-  softmax(&float_input, &float_output);
-  float_output.flush();
-
-  output->copyFrom(&float_output);
+  // output->saveToFile("soft", true);
+  // output->copyFrom(&float_output);
   output->flush();
   return true;
 }

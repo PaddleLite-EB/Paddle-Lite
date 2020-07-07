@@ -132,6 +132,8 @@ class ScalePE : public PE {
     dw_param.kernelSize = {1, 1};
     dw_param.dilations = {1, 1};
 
+    dw_param.activeParam.type = zynqmp::TYPE_NONE;
+
     dw_pe_.init();
     dw_pe_.apply();
   }
@@ -189,10 +191,10 @@ class ScalePE : public PE {
     //   dw_param.quantizedFilter()->flush();
     // }
     // param_.input->syncToDevice();
-    // return dw_pe_.dispatch();
+    return dw_pe_.dispatch();
 
-    cpu_compute();
-    return true;
+    // cpu_compute();
+    // return true;
   }
 
   ScaleParam& param() { return param_; }

@@ -25,6 +25,8 @@ limitations under the License. */
 
 #include "lite/backends/fpga/KD/pe.hpp"
 #include "lite/backends/fpga/KD/pe_params.hpp"
+#include "lite/backends/fpga/KD/pes/bypass_pe.hpp"
+#include "lite/backends/fpga/KD/pes/cpu_pe.hpp"
 
 namespace paddle {
 namespace zynqmp {
@@ -32,12 +34,19 @@ namespace zynqmp {
 class SoftmaxPE : public PE {
  public:
   bool init();
+  void apply();
   bool dispatch();
 
   SoftmaxParam& param();
 
  private:
+  Tensor float_input;
+  Tensor float_output;
+
   SoftmaxParam param_;
+  CPUPE cpu_pe_;
+  BypassPE input_pe_;
+  BypassPE output_pe_;
 };
 
 }  // namespace zynqmp
