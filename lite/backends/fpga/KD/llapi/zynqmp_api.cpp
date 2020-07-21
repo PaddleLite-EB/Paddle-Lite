@@ -175,19 +175,6 @@ int compute_fpga_conv_basic(const struct ConvArgs &args) {
   return do_ioctl(IOCTL_CONFIG_CONV, &args);
 }
 
-int compute_fpga_conv(const struct SplitConvArgs &args) {
-  int split_num = args.split_num;
-  int ret = -1;
-  for (int i = 0; i < split_num; i++) {
-    ret = compute_fpga_conv_basic(args.conv_arg[i]);
-  }
-
-  if (split_num > 1) {
-    exit(-1);
-  }
-  return ret;
-}
-
 int compute_fpga_pool(const struct PoolingArgs &args) {
   return do_ioctl(IOCTL_CONFIG_POOLING, &args);
 }
@@ -196,7 +183,7 @@ int compute_fpga_ewadd(const struct EWAddArgs &args) {
   return do_ioctl(IOCTL_CONFIG_EW, &args);
 }
 
-int get_device_info(const struct DeviceInfo &args) {
+int get_device_info(const struct DeviceInfoArgs &args) {
   int ret = do_ioctl(IOCTL_DEVICE_INFO, &args);
   return ret;
 }
@@ -330,29 +317,30 @@ int start_transaction(const struct CnnCmdArgs &args) {  // NOLINT
   return do_ioctl(IOCTL_CNN_CMD, &args);
 }
 
-int16_t fp32_2_fp16(float fp32_num) {
-  unsigned long tmp = *(unsigned long *)(&fp32_num);  // NOLINT
-  auto t = (int16_t)(((tmp & 0x007fffff) >> 13) | ((tmp & 0x80000000) >> 16) |
-                     (((tmp & 0x7f800000) >> 13) - (112 << 10)));
-  if (tmp & 0x1000) {
-    t++;  // roundoff
-  }
-  return t;
-}
+// int16_t fp32_2_fp16(float fp32_num) {
+//   unsigned long tmp = *(unsigned long *)(&fp32_num);  // NOLINT
+//   auto t = (int16_t)(((tmp & 0x007fffff) >> 13) | ((tmp & 0x80000000) >> 16)
+//   |
+//                      (((tmp & 0x7f800000) >> 13) - (112 << 10)));
+//   if (tmp & 0x1000) {
+//     t++;  // roundoff
+//   }
+//   return t;
+// }
 
-float fp16_2_fp32(int16_t fp16_num) {
-  if (0 == fp16_num) {
-    return 0;
-  }
-  int frac = (fp16_num & 0x3ff);
-  int exp = ((fp16_num & 0x7c00) >> 10) + 112;
-  int s = fp16_num & 0x8000;
-  int tmp = 0;
-  float fp32_num = 0;
-  tmp = s << 16 | exp << 23 | frac << 13;
-  fp32_num = *(float *)&tmp;  // NOLINT
-  return fp32_num;
-}
+// float fp16_2_fp32(int16_t fp16_num) {
+//   if (0 == fp16_num) {
+//     return 0;
+//   }
+//   int frac = (fp16_num & 0x3ff);
+//   int exp = ((fp16_num & 0x7c00) >> 10) + 112;
+//   int s = fp16_num & 0x8000;
+//   int tmp = 0;
+//   float fp32_num = 0;
+//   tmp = s << 16 | exp << 23 | frac << 13;
+//   fp32_num = *(float *)&tmp;  // NOLINT
+//   return fp32_num;
+// }
 
 }  // namespace zynqmp
 }  // namespace paddle

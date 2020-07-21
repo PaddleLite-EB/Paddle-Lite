@@ -50,10 +50,18 @@ class ConvPE : public PE {
     // ======================= dispatch =======================
     transaction_ = TransactionManager::get_instance().getTransaction();
     if (split_axis == 0) {
-      for (auto conv_param : param_.splitParams()) {
-        conv_param->args.activeParam.type = param_.activeParam.type;
-        conv_param->args.activeParam.leaky_relu_factor =
-            fp32_2_fp16(param_.activeParam.leaky_relu_factor);
+      for (int i = 0; i < param_.splitParams().size(); i++) {
+        auto conv_param = param_.splitParams()[i];
+        if (i == 0) {
+          conv_param->args.inplace.findmax_restart = true;
+          conv_param->args.output_idx = param_.output->scaleIndex(true);
+        } else {
+          conv_param->args.inplace.findmax_restart = false;
+          conv_param->args.output_idx = 0;
+        }
+        conv_param->args.inplace.active_param.type = param_.activeParam.type;
+        conv_param->args.inplace.active_param.leaky_relu_factor =
+            float_to_half(param_.activeParam.leaky_relu_factor);
         int action_id = compute_fpga_conv_basic(conv_param->args);
         Action* action = new Action(action_id);
         actions_.push_back(action);
@@ -70,6 +78,7 @@ class ConvPE : public PE {
       concat_param.output = param_.output;
       concatPE_.init();
       concatPE_.apply();
+      concatPE_.setMergeScale(false);
     }
 
     if (split_channel) {
@@ -147,7 +156,10 @@ class ConvPE : public PE {
 
     size_t size = params.size();
     if (split_axis == 0 && size > 1) {
+      param_.output->readScale();
+      float scale = param_.output->scale()[0];
       concatPE_.dispatch();
+      param_.output->writeScale(scale);
     }
 
     // if (split_axis == 1 && ret == 0 && size > 1) {

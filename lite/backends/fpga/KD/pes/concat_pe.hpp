@@ -95,10 +95,14 @@ class ConcatPE : public PE {
       Tensor* input = param_.inputs[n];
       input->syncToCPU();
       input->unalignImage();
-      input->readScale();
-      scale = std::max(scale, input->scale()[0]);
+      if (merge_scale_) {
+        input->readScale();
+        scale = std::max(scale, input->scale()[0]);
+      }
     }
-    output->writeScale(scale);
+    if (merge_scale_) {
+      output->writeScale(scale);
+    }
 
     if (output_shape.dimSize() == 3) {
       concat3D();
@@ -132,9 +136,14 @@ class ConcatPE : public PE {
 
   ConcatParam& param() { return param_; }
 
+  void setMergeScale(bool merge) {
+    merge_scale_ = merge;
+  }
+
  private:
   ConcatParam param_;
   CPUPE pe_;
+  bool merge_scale_ = true;
 };
 
 }  // namespace zynqmp

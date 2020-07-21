@@ -42,7 +42,7 @@ class Debugger {
     std::pair<std::string, zynqmp::Tensor*> p;
     p.first = op_type;
     p.second = tensor;
-    // tensors_.push_back(p);
+    tensors_.push_back(p);
   }
 
   void tick(std::string key) {

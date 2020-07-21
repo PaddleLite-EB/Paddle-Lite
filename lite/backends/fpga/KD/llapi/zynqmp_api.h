@@ -50,7 +50,7 @@ enum ActiveType {
   TYPE_SIGMOID = 4,
 };
 
-struct DeviceInfo {
+struct DeviceInfoArgs {
   uint32_t filter_cap;
   uint32_t version;
   uint16_t device_type;
@@ -88,6 +88,18 @@ struct ActiveParamterArgs {
   uint16_t leaky_relu_factor;
 };
 
+struct NormalizeParameterArgs {
+  uint32_t channel;
+  uint32_t hight_width;
+  bool enabled;
+};
+
+struct InplaceArgs {
+  bool findmax_restart;
+  struct ActiveParamterArgs active_param;
+  struct NormalizeParameterArgs normalize_param;
+};
+
 struct BNArgs {
   bool enabled;
   void* bias_address;
@@ -119,8 +131,7 @@ struct ImageOutputArgs {
   float* scale_address;  // output scale address;
 };
 
-// TODO(zhulin) consider renaming it;
-struct ConvDeconvArgs {
+struct DeconvArgs {
   bool enabled;
   uint16_t sub_kernel_num;   // which is the stride of deconv, means that deconv
                              // will be divided into several sub conv operation
@@ -129,22 +140,20 @@ struct ConvDeconvArgs {
 };
 
 struct ConvArgs {
-  // bool                    relu_enabled;
   void* sb_address;  // scale and bias are interlaced;
   void* filter_address;
   void* filter_scale_address;
   uint32_t filter_num;
   uint32_t group_num;
   uint32_t dilation;
-
   uint32_t output_idx;  // output scale index
   uint32_t input_idx;   // input scale index
 
-  struct ConvDeconvArgs deconv;
+  struct DeconvArgs deconv;
   struct KernelArgs kernel;
   struct ImageInputArgs image;  // input image;
   struct ImageOutputArgs output;
-  struct ActiveParamterArgs activeParam;
+  struct InplaceArgs inplace;
 };
 
 struct DWconvArgs {
@@ -158,7 +167,7 @@ struct DWconvArgs {
   uint16_t sub_conv_num;
   uint32_t dilation_rate;
   uint32_t output_idx;  // output scale index
-  struct ActiveParamterArgs activeParam;
+  struct InplaceArgs inplace;
 };
 
 struct PoolingArgs {
@@ -169,19 +178,21 @@ struct PoolingArgs {
   struct ImageOutputArgs output;
   uint16_t out_width;
   uint16_t out_height;
-  uint32_t output_idx;
-  struct ActiveParamterArgs activeParam;
+  uint32_t output_idx;  // output scale index
+  struct InplaceArgs inplace;
 };
 
 // elementwise add arguments
 struct EWAddArgs {
+  // bool                    relu_enabled;
+
   uint32_t const0;  // output0 = const0 x input0 + const1 x input1;
   uint32_t const1;
   struct ImageInputArgs image0;
   struct ImageInputArgs image1;
   struct ImageOutputArgs output;
-  uint32_t output_idx;
-  struct ActiveParamterArgs activeParam;
+  uint32_t output_idx;  // output scale index
+  struct InplaceArgs inplace;
 };
 
 struct BypassArgs {
@@ -191,8 +202,8 @@ struct BypassArgs {
   enum DLayoutType output_layout_type;
   struct ImageInputArgs image;
   struct ImageOutputArgs output;
-  uint32_t output_idx;  // input scale index
-  struct ActiveParamterArgs activeParam;
+  uint32_t output_idx;  // output scale index
+  struct InplaceArgs inplace;
 };
 
 struct ScaleArgs {
@@ -212,6 +223,8 @@ struct NormalizeArgs {
   uint32_t image_height;
   uint32_t image_channel;
   uint32_t* output_scale_address;
+  uint32_t output_idx;  // output scale index
+  struct InplaceArgs inplace;
 };
 
 struct PreprocessArgs {
@@ -256,20 +269,6 @@ struct PowerParameterArgs {
   uint16_t power;
 };
 
-struct NormalizeParameterArgs {
-  uint32_t channel;
-  uint32_t hight_width;
-};
-
-struct InplaceArgs {
-  bool leaky_relu_enable;
-  bool relu_enable;
-  bool sigmoid_enable;
-  bool relu6_enable;
-  bool power_enable;
-  bool normalize_enable;
-};
-
 struct FpgaRegWriteArgs {
   uint64_t address;  //
   uint64_t value;
@@ -305,6 +304,14 @@ struct WriteScaleArgs {
 struct ReadScaleArgs {
   uint32_t idx;
   uint32_t* address;
+};
+
+struct ReleaseActionArgs {
+  uint32_t action_id;
+};
+
+struct ReleaseIdxArgs {
+  uint32_t idx_id;
 };
 
 #define IOCTL_FPGA_MAGIC (('F' + 'P' + 'G' + 'A') / 4)
@@ -343,66 +350,19 @@ struct ReadScaleArgs {
 #define IOCTL_FPGA_REG_WRITE _IOW(IOCTL_FPGA_MAGIC, 51, struct FpgaRegWriteArgs)
 #define IOCTL_FPGA_RESET _IOW(IOCTL_FPGA_MAGIC, 52, struct FpgaResetArgs)
 #define IOCTL_CNN_CMD _IOW(IOCTL_FPGA_MAGIC, 90, struct CnnCmdArgs)
-#define IOCTL_DEVICE_INFO _IOW(IOCTL_FPGA_MAGIC, 100, struct DeviceInfo)
+#define IOCTL_DEVICE_INFO _IOW(IOCTL_FPGA_MAGIC, 100, struct DeviceInfoArgs)
 #define IOCTL_LINK_ACTION _IOW(IOCTL_FPGA_MAGIC, 150, struct LinkActionArgs)
 #define IOCTL_GENERATE_IDX _IOW(IOCTL_FPGA_MAGIC, 151, struct GenerateIdxArgs)
 #define IOCTL_WRITE_SCALE_IDX _IOW(IOCTL_FPGA_MAGIC, 152, struct WriteScaleArgs)
 #define IOCTL_READ_SCALE_IDX _IOW(IOCTL_FPGA_MAGIC, 153, struct ReadScaleArgs)
+#define IOCTL_RELEASE_ACTION \
+  _IOW(IOCTL_FPGA_MAGIC, 154, struct ReleaseActionArgs)
+#define IOCTL_RELEASE_IDX _IOW(IOCTL_FPGA_MAGIC, 155, struct ReleaseIdxArgs)
 
 #define IOCTL_SEPARATOR_2 200
 #define IOCTL_PREPROCESS _IOW(IOCTL_FPGA_MAGIC, 201, struct PreprocessArgs)
 
 //============================== API =============================
-
-struct DeconvArgs {
-  uint32_t sub_conv_num;
-  uint32_t group_num;
-  uint32_t filter_num;
-  uint32_t omit_size;
-  uint32_t sub_output_width;
-  uint32_t sub_output_height;
-  struct ImageOutputArgs output;
-  struct SplitConvArgs* split_conv_args;
-};
-
-struct SplitArgs {
-  uint32_t image_num;
-  int16_t* image_in;
-  float* scale_in;
-  void** images_out;
-  float** scales_out;
-  uint32_t* out_channel_nums;
-  uint32_t height;
-  uint32_t width;
-};
-
-struct ConcatArgs {
-  uint32_t image_num;
-  half** images_in;
-  float** scales_in;
-  void* image_out;
-  float* scale_out;
-  uint32_t* channel_num;
-  uint32_t height;
-  uint32_t width;
-};
-
-struct SplitConvArgs {
-  uint32_t split_num;
-  uint32_t group_num;
-  uint32_t filter_num;
-  struct ImageOutputArgs output;
-  struct ConvArgs* conv_arg;
-  struct ConcatArgs concat_arg;
-};
-
-struct GroupConvArgs {
-  uint32_t group_num;
-  uint32_t filter_num;
-  struct ImageOutputArgs output;
-  struct SplitConvArgs* conv_args;
-  struct ConcatArgs concat_arg;
-};
 
 inline int align_to_x(int num, int x) { return (num + x - 1) / x * x; }
 int open_device();
@@ -420,7 +380,7 @@ void fpga_copy(void* dst, const void* src, int size);
 int fpga_flush(void* address, size_t size);
 int fpga_invalidate(void* address, size_t size);
 
-int get_device_info(const struct DeviceInfo& args);
+int get_device_info(const struct DeviceInfoArgs& args);
 
 int perform_bypass(const struct BypassArgs& args);
 int compute_fpga_conv_basic(const struct ConvArgs& args);
@@ -433,11 +393,11 @@ int compute_fpga_resize(const struct ResizeArgs& args);
 
 int config_activation(const struct ActiveParamterArgs& args);
 int config_power(const struct PowerArgs& args);
-int compute_fpga_dwconv(const struct DWconvArgs& args);
-int config_norm_param(const struct NormalizeParameterArgs& args);
-int compute_norm(const struct NormalizeArgs& args);
-
 int config_inplace(const struct InplaceArgs& args);
+int config_norm_param(const struct NormalizeParameterArgs& args);
+
+int compute_fpga_dwconv(const struct DWconvArgs& args);
+int compute_norm(const struct NormalizeArgs& args);
 
 //=======
 int link_actions(int action0, int action1);
@@ -455,8 +415,8 @@ int write_scale(struct WriteScaleArgs& args);  // NOLINT
 
 int read_scale(struct ReadScaleArgs& args);  // NOLINT
 
-int16_t fp32_2_fp16(float fp32_num);
-float fp16_2_fp32(int16_t fp16_num);
+// int16_t fp32_2_fp16(float fp32_num);
+// float fp16_2_fp32(int16_t fp16_num);
 }  // namespace zynqmp
 }  // namespace paddle
 

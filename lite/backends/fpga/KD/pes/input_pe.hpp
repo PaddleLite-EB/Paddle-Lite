@@ -49,7 +49,10 @@ class InputPE : public PE {
     args.output.address = param_.output->data<void>();
     args.output.scale_address = param_.output->scale();
     args.output_idx = param_.output->scaleIndex(true);
-    args.activeParam.type = TYPE_NONE;
+
+    args.inplace.findmax_restart = true;
+    args.inplace.active_param.type = TYPE_NONE;
+    args.inplace.normalize_param.enabled = false;
 
     return perform_bypass(args);
   }

@@ -24,15 +24,9 @@ limitations under the License. */
 namespace paddle {
 namespace zynqmp {
 
-struct ReLUParam {
- public:
-  bool enabled = false;
-  float leaky_relu_factor = 0.0f;
-};
-
 struct ActiveParam {
   enum ActiveType type = TYPE_NONE;
-  float leaky_relu_factor;
+  float leaky_relu_factor = 0.0f;
 };
 
 struct PEParam {
@@ -47,12 +41,6 @@ struct BypassParam : PEParam {
 
 using InputParam = BypassParam;
 using OutputParam = BypassParam;
-
-// struct OutputParam : PEParam {
-//  public:
-//   Tensor* input = nullptr;
-//   Tensor* output = nullptr;
-// };
 
 struct BatchnormParam : PEParam {
  public:

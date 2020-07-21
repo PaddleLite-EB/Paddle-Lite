@@ -487,7 +487,7 @@ class Tensor {
  private:
   bool released = false;
   int offset = 0;
-  int scale_index_ = -1;
+  int scale_index_ = 0;
   float mem_scale_factor_ = 1.0f;
   std::shared_ptr<PlaceHolder> placeHolder_;
   std::shared_ptr<Shape> shape_;

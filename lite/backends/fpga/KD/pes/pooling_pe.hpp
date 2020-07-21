@@ -51,7 +51,7 @@ class PoolingPE : public PE {
 
     PoolingArgs args = {0};
     args.mode = param_.type;
-    args.kernel_reciprocal = fp32_2_fp16(1.0f / (k_width * k_height));
+    args.kernel_reciprocal = float_to_half(1.0f / (k_width * k_height));
     args.image.address = input->data<float16>();
     args.image.channels = input->shape().channel();
     args.image.height = input->shape().height();
@@ -69,9 +69,10 @@ class PoolingPE : public PE {
     args.out_width = output->shape().width();
     args.output_idx = output->scaleIndex(true);
 
-    args.activeParam.type = param_.activeParam.type;
-    args.activeParam.leaky_relu_factor =
-        fp32_2_fp16(param_.activeParam.leaky_relu_factor);
+    args.inplace.findmax_restart = true;
+    args.inplace.active_param.type = param_.activeParam.type;
+    args.inplace.active_param.leaky_relu_factor =
+        float_to_half(param_.activeParam.leaky_relu_factor);
 
     param_.poolingArgs = args;
 

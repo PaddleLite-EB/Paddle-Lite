@@ -32,38 +32,90 @@ class NormPE : public PE {
     return true;
   }
 
+  int config_bypass() {
+    BypassArgs args;
+    args.input_data_type =
+        param_.input->dataType() == FP32 ? DATA_TYPE_FP32 : DATA_TYPE_FP16;
+    args.output_data_type =
+        param_.output->dataType() == FP32 ? DATA_TYPE_FP32 : DATA_TYPE_FP16;
+    args.input_layout_type = LAYOUT_HWC;
+    args.output_layout_type = LAYOUT_HWC;
+    args.image.address = param_.input->data<void>();
+    args.image.scale_address = param_.input->scale();
+    args.image.channels = param_.input->shape().alignedElementCount();
+    args.image.height = 1;
+    args.image.width = 1;
+    args.image.pad_height = 0;
+    args.image.pad_width = 0;
+    args.output.address = param_.output->data<void>();
+    args.output.scale_address = param_.output->scale();
+    args.output_idx = param_.output->scaleIndex(true);
+    args.inplace.findmax_restart = true;
+    args.inplace.active_param.type = TYPE_NONE;
+
+    return perform_bypass(args);
+  }
+
   void apply() {
-    inplace_args_.relu_enable = false;
-    inplace_args_.power_enable = false;
-    inplace_args_.normalize_enable = true;
+    transaction_ = TransactionManager::get_instance().getTransaction();
 
-    Shape& input_shape = param_.input->shape();
+    Tensor* input = param_.input;
+    Tensor* output = param_.output;
 
-    norm_param_args_.channel = input_shape.channel();
-    norm_param_args_.hight_width = input_shape.height() * input_shape.width();
+    Shape& input_shape = input->shape();
+    float16* tmp_out_data =
+        tmp_out_.mutableData<float16>(FP16, output->shape());
 
-    float16* mid_data =
-        mid_out_.mutableData<float16>(FP16, param_.output->shape());
+    ImageInputArgs imageInputArgs = {
+        .address = input->data<float16>(),
+        .scale_address = input->scale(),
+        .channels = static_cast<uint32_t>(input->shape().channel()),
+        .width = static_cast<uint32_t>(input->shape().width()),
+        .height = static_cast<uint32_t>(input->shape().height()),
+        .pad_width = 0,
+        .pad_height = 0,
+    };
 
-    bypass_args_.input_data_type = DATA_TYPE_FP16;
-    bypass_args_.output_data_type = DATA_TYPE_FP16;
-    bypass_args_.input_layout_type = LAYOUT_HWC;
-    bypass_args_.output_layout_type = LAYOUT_HWC;
-    bypass_args_.image.address = param_.input->data<void>();
-    bypass_args_.image.scale_address = param_.input->scale();
-    bypass_args_.image.channels = input_shape.channel();
-    bypass_args_.image.height = input_shape.height();
-    bypass_args_.image.width = input_shape.width();
-    bypass_args_.output.address = mid_out_.data<void>();
-    bypass_args_.output.scale_address = mid_out_.scale();
+    ImageOutputArgs BypassOutput = {
+        .address = tmp_out_.data<float16>(), .scale_address = tmp_out_.scale(),
+    };
 
-    norm_args_.input_image_address = mid_data;
-    norm_args_.image_width = input_shape.width();
-    norm_args_.image_height = input_shape.height();
-    norm_args_.image_channel = input_shape.channel();
-    norm_args_.output_image_address = param_.output->data<float>();
-    norm_args_.output_scale_address =
-        reinterpret_cast<uint32_t*>(param_.output->scale());
+    BypassArgs bypassArgs = {
+        .input_data_type = DATA_TYPE_FP16,
+        .output_data_type = DATA_TYPE_FP16,
+        .input_layout_type = LAYOUT_HWC,
+        .output_layout_type = LAYOUT_HWC,
+        .image = imageInputArgs,
+        .output = BypassOutput,
+    };
+
+    bypassArgs.inplace.active_param.type = param_.activeParam.type;
+    bypassArgs.inplace.normalize_param.channel = input->shape().channel();
+    int height = input->shape().height();
+    int width = input->shape().width();
+
+    bypassArgs.inplace.normalize_param.hight_width = height * width;
+    bypassArgs.inplace.normalize_param.enabled = 1;
+
+    Action* bypass_action = new Action(perform_bypass(bypassArgs));
+    bypass_action_.reset(bypass_action);
+    transaction_->appendAction(bypass_action);
+
+    NormalizeArgs args = {0};
+    args.input_image_address = tmp_out_.data<float16>();
+    args.image_channel = input->shape().channel();
+    args.image_height = input->shape().height();
+    args.image_width = input->shape().width();
+    args.output_image_address = output->data<float16>();
+    args.inplace.active_param.type = param_.activeParam.type;
+    args.inplace.normalize_param.channel = 0;
+    args.inplace.normalize_param.hight_width = 0;
+    args.inplace.normalize_param.enabled = 0;
+
+    // uint32_t action_id2 = compute_norm(args);
+    Action* norm_action = new Action(compute_norm(args));
+    norm_action_.reset(norm_action);
+    transaction_->appendAction(norm_action);
   }
 
   void cpuCompute() {
@@ -107,7 +159,8 @@ class NormPE : public PE {
   }
 
   bool dispatch() {
-    cpuCompute();
+    std::cout << "Norm\n";
+    // cpuCompute();
     // std::cout << "CPU normalize ---------------------" << std::endl;
 
     // param_.input->syncToDevice();
@@ -129,12 +182,11 @@ class NormPE : public PE {
 
  private:
   NormParam param_;
-  Tensor mid_out_;
-  InplaceArgs inplace_args_ = {0};
-  NormalizeParameterArgs norm_param_args_ = {0};
-  BypassArgs bypass_args_;
+  Tensor tmp_out_;
 
-  NormalizeArgs norm_args_ = {0};
+  std::shared_ptr<Transaction> transaction_;
+  std::shared_ptr<Action> bypass_action_;
+  std::shared_ptr<Action> norm_action_;
 };
 }  // namespace zynqmp
 }  // namespace paddle
