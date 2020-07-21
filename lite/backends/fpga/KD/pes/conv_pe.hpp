@@ -156,10 +156,10 @@ class ConvPE : public PE {
 
     size_t size = params.size();
     if (split_axis == 0 && size > 1) {
-      param_.output->readScale();
+      // param_.output->readScale();
       float scale = param_.output->scale()[0];
       concatPE_.dispatch();
-      param_.output->writeScale(scale);
+      // param_.output->writeScale(scale);
     }
 
     // if (split_axis == 1 && ret == 0 && size > 1) {
