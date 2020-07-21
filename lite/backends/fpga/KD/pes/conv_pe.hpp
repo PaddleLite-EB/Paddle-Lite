@@ -52,13 +52,8 @@ class ConvPE : public PE {
     if (split_axis == 0) {
       for (int i = 0; i < param_.splitParams().size(); i++) {
         auto conv_param = param_.splitParams()[i];
-        if (i == 0) {
-          conv_param->args.inplace.findmax_restart = true;
-          conv_param->args.output_idx = param_.output->scaleIndex(true);
-        } else {
-          conv_param->args.inplace.findmax_restart = false;
-          conv_param->args.output_idx = 0;
-        }
+        conv_param->args.output_idx = param_.output->scaleIndex(true);
+        conv_param->args.inplace.findmax_restart = i == 0;
         conv_param->args.inplace.active_param.type = param_.activeParam.type;
         conv_param->args.inplace.active_param.leaky_relu_factor =
             float_to_half(param_.activeParam.leaky_relu_factor);
