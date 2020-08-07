@@ -19,7 +19,7 @@ add_kernel(elementwise_compute_fpga FPGA basic SRCS elementwise_compute.cc DEPS 
 
 add_kernel(interpolate_compute_fpga FPGA basic SRCS interpolate_compute.cc DEPS ${fpga_deps})
 
-add_kernel(fc_compute_fpga FPGA basic SRCS fc_compute.cc DEPS ${fpga_deps})
+# add_kernel(fc_compute_fpga FPGA basic SRCS fc_compute.cc DEPS ${fpga_deps})
 add_kernel(gru_compute_fpga FPGA extra SRCS gru_compute.cc DEPS ${fpga_deps})
 
 # add_kernel(mul_compute_fpga FPGA basic SRCS mul_compute.cc DEPS ${fpga_deps})
@@ -43,6 +43,7 @@ add_kernel(feed_compute_fpga FPGA basic SRCS feed_compute.cc DEPS ${fpga_deps})
 add_kernel(fetch_compute_fpga FPGA basic SRCS fetch_compute.cc DEPS ${fpga_deps})
 
 add_kernel(yolo_box_compute_fpga FPGA basic SRCS yolo_box_compute.cc DEPS ${fpga_deps})
+add_kernel(batch_norm_compute_fpga FPGA basic SRCS batch_norm_compute.cc DEPS ${fpga_deps})
 
 # add_kernel(while_compute_fpga FPGA extra SRCS while_compute.cc DEPS ${fpga_deps})
 # add_kernel(write_to_array_compute_fpga FPGA extra SRCS write_to_array_compute.cc DEPS ${fpga_deps})
