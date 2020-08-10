@@ -39,7 +39,7 @@ void SoftmaxCompute::Run() {
   pe_.dispatch();
 #ifdef FPGA_PRINT_TENSOR
   zynqmp::SoftmaxParam& softmax_param = pe_.param();
-  Debugger::get_instance().registerOutput("softmax_in", softmax_param.output);
+  Debugger::get_instance().registerOutput("softmax_in", softmax_param.input);
   Debugger::get_instance().registerOutput("softmax", softmax_param.output);
 #endif
 }

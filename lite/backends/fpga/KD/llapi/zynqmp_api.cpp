@@ -418,6 +418,12 @@ int link_actions(int action0, int action1) {
   return do_ioctl(IOCTL_LINK_ACTION, &args);
 }
 
+void release_action(int action_id) {
+  ReleaseActionArgs args;
+  args.action_id = action_id;
+  do_ioctl(IOCTL_RELEASE_ACTION, &args);
+}
+
 int compute_preprocess(const struct PreprocessArgs &args) {
   return do_ioctl(IOCTL_PREPROCESS, &args);
 }
@@ -425,6 +431,12 @@ int compute_preprocess(const struct PreprocessArgs &args) {
 int alloc_scale_reg() {
   GenerateIdxArgs args;
   return do_ioctl(IOCTL_GENERATE_IDX, &args);
+}
+
+void release_scale_reg(int scale_index) {
+  ReleaseIdxArgs args;
+  args.idx_id = scale_index = scale_index;
+  do_ioctl(IOCTL_RELEASE_IDX, &args);
 }
 
 int write_scale(struct WriteScaleArgs &args) {  // NOLINT

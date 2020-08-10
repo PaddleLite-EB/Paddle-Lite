@@ -14,6 +14,8 @@ limitations under the License. */
 
 #pragma once
 
+#include "lite/backends/fpga/KD/llapi/zynqmp_api.h"
+
 namespace paddle {
 namespace zynqmp {
 
@@ -22,6 +24,12 @@ class Action {
   explicit Action(int id) { id_ = id; }
 
   int id() { return id_; }
+
+  ~Action() {
+    if (id_ > 0) {
+      release_action(id_);
+    }
+  }
 
  private:
   int id_ = -1;

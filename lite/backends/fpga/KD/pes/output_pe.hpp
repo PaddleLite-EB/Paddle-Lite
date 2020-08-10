@@ -70,10 +70,8 @@ class OutputPE : public PE {
   bool dispatch() {
     Tensor* input = param_.input;
     Tensor* output = param_.output;
-    // input->saveToFile("fetch_in", true);
     transaction_->startTraction();
     output->invalidate();
-    output->saveToFile("fetch_out", true);
     if (input->aligned()) {
       output->unalignImage();
     }

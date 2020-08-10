@@ -385,45 +385,6 @@ struct ReleaseIdxArgs {
 
 //============================== API =============================
 
-struct SplitArgs {
-  uint32_t image_num;
-  int16_t* image_in;
-  float* scale_in;
-  void** images_out;
-  float** scales_out;
-  uint32_t* out_channel_nums;
-  uint32_t height;
-  uint32_t width;
-};
-
-struct ConcatArgs {
-  uint32_t image_num;
-  half** images_in;
-  float** scales_in;
-  void* image_out;
-  float* scale_out;
-  uint32_t* channel_num;
-  uint32_t height;
-  uint32_t width;
-};
-
-struct SplitConvArgs {
-  uint32_t split_num;
-  uint32_t group_num;
-  uint32_t filter_num;
-  struct ImageOutputArgs output;
-  struct ConvArgs* conv_arg;
-  struct ConcatArgs concat_arg;
-};
-
-struct GroupConvArgs {
-  uint32_t group_num;
-  uint32_t filter_num;
-  struct ImageOutputArgs output;
-  struct SplitConvArgs* conv_args;
-  struct ConcatArgs concat_arg;
-};
-
 inline int align_to_x(int num, int x) { return (num + x - 1) / x * x; }
 int open_device();
 void close_device();
@@ -462,11 +423,13 @@ int compute_norm(const struct NormalizeArgs& args);
 
 //=======
 int link_actions(int action0, int action1);
+void release_action(int action_id);
 
 int flush_cache(void* addr, int size);
 int invalidate_cache(void* addr, int size);
 
 int alloc_scale_reg();
+void release_scale_reg(int scale_index);
 
 int start_transaction(const struct CnnCmdArgs& args);  // NOLINT
 
@@ -477,8 +440,6 @@ int write_scale(struct WriteScaleArgs& args);  // NOLINT
 
 int read_scale(struct ReadScaleArgs& args);  // NOLINT
 
-// int16_t fp32_2_fp16(float fp32_num);
-// float fp16_2_fp32(int16_t fp16_num);
 }  // namespace zynqmp
 }  // namespace paddle
 

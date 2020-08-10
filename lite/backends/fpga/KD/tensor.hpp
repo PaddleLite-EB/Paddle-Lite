@@ -512,6 +512,12 @@ class Tensor {
     }
   }
 
+  ~Tensor() {
+    if (release_scale_reg > 0) {
+      release_scale_reg(scale_index_);
+    }
+  }
+
  private:
   bool released = false;
   int offset_ = 0;

@@ -159,31 +159,12 @@ bool SoftmaxPE::dispatch() {
   Tensor *input = param_.input;
   Tensor *output = param_.output;
 
-  Tensor float_input;
-  Tensor float_output;
   float_input.mutableData<float>(DataType::FP32, input->shape());
-  // input->saveToFile("in", true);
   input->syncToDevice();
-  float_input.copyFrom(input);
-  // float_input.invalidate();
-  // float_input.saveToFile("fin", true);
-
-  // input->syncToCPU();
-  // float16 *in_data = input->data<float16>();
-  // float *f_data = float_input.data<float>();
-  // for (int i = 0; i < input->shape().channel(); i++) {
-  //   f_data[i] = half_to_float(in_data[i]);
-  // }
-
-  // float_input.copyFrom(input);
   input_pe_.dispatch();
   cpu_pe_.dispatch();
-  input->syncToCPU();
 
   softmax(&float_input, output);
-  output->flush();
-
-  // output->copyFrom(&float_output);
   output->flush();
   return true;
 }
