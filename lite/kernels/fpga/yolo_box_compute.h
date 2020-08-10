@@ -13,49 +13,30 @@
 // limitations under the License.
 
 #pragma once
-#include <algorithm>
-#include <memory>
-
 #include "lite/core/kernel.h"
 #include "lite/core/op_registry.h"
 
-#include "lite/backends/fpga/KD/pes/bypass_pe.hpp"
-#include "lite/backends/fpga/KD/pes/cpu_pe.hpp"
+#include "lite/backends/fpga/KD/float16.hpp"
+#include "lite/backends/fpga/KD/pes/elementwise_add_pe.hpp"
+#include "lite/backends/fpga/KD/pes/yolobox_pe.hpp"
 
 namespace paddle {
 namespace lite {
 namespace kernels {
 namespace fpga {
 
-class ReshapeCompute
+using float16 = zynqmp::float16;
+
+class YoloBoxCompute
     : public KernelLite<TARGET(kFPGA), PRECISION(kFP16), DATALAYOUT(kNHWC)> {
  public:
   void PrepareForRun() override;
   void Run() override;
 
-  virtual ~ReshapeCompute() = default;
-};
-
-class FlattenCompute
-    : public KernelLite<TARGET(kFPGA), PRECISION(kFP16), DATALAYOUT(kNHWC)> {
- public:
-  void PrepareForRun() override;
-  void Run() override;
-
-  virtual ~FlattenCompute() = default;
+  virtual ~YoloBoxCompute() {}
 
  private:
-  std::shared_ptr<zynqmp::CPUPE> cpu_pe_;
-  zynqmp::BypassPE bypass_pe_;
-};
-
-class ReshapeComputeFpgaToHost
-    : public KernelLite<TARGET(kFPGA), PRECISION(kFP16), DATALAYOUT(kNHWC)> {
- public:
-  void PrepareForRun() override;
-  void Run() override;
-
-  virtual ~ReshapeComputeFpgaToHost() = default;
+  zynqmp::YoloBoxPE pe_;
 };
 
 }  // namespace fpga

@@ -51,7 +51,11 @@ class PoolingPE : public PE {
 
     PoolingArgs args = {0};
     args.mode = param_.type;
-    args.kernel_reciprocal = float_to_half(1.0f / (k_width * k_height));
+    if (param_.globalPooling) {
+      args.kernel_reciprocal = float_to_half(1.0f);
+    } else {
+      args.kernel_reciprocal = float_to_half(1.0f / (k_width * k_height));
+    }
     args.image.address = input->data<float16>();
     args.image.channels = input->shape().channel();
     args.image.height = input->shape().height();
@@ -127,15 +131,16 @@ class PoolingPE : public PE {
         for (int c = 0; c < image_channels; ++c) {
           const int pool_index = (ph * pooled_width_ + pw) * image_channels + c;
           float sum = 0;
-          // const int index =
-          //     (hstart * image_width + wstart) * image_channels + c;
+
           for (int h = hstart; h < hend; ++h) {
             for (int w = wstart; w < wend; ++w) {
               const int index = (h * image_width + w) * image_channels + c;
               float value = image_addr[index];
+              // ofs_out << value << std::endl;
               sum += value;
             }
           }
+
           float value = sum / kernel;
           if (value > max) {
             max = value;

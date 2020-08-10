@@ -136,9 +136,7 @@ class ConcatPE : public PE {
 
   ConcatParam& param() { return param_; }
 
-  void setMergeScale(bool merge) {
-    merge_scale_ = merge;
-  }
+  void setMergeScale(bool merge) { merge_scale_ = merge; }
 
  private:
   ConcatParam param_;

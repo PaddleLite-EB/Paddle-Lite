@@ -15,6 +15,7 @@ limitations under the License. */
 #pragma once
 
 #include <cstring>
+#include <memory>
 #include <vector>
 
 #include "lite/backends/fpga/KD/float16.hpp"
@@ -23,6 +24,7 @@ limitations under the License. */
 
 namespace paddle {
 namespace zynqmp {
+
 class NormPE : public PE {
  public:
   bool init() {
@@ -155,7 +157,6 @@ class NormPE : public PE {
     float_out.flush();
     // float_out.saveToFile("normalize_", true);
     param_.output->copyFrom(&float_out);
-    param_.output->flush();
   }
 
   bool dispatch() {
@@ -175,6 +176,17 @@ class NormPE : public PE {
     // compute_norm(norm_args_);
     // param_.output->saveToFile("normalize_fpga_", true);
     // std::cout << "FPGA normalize ---------------------" << std::endl;
+
+    // param_.input->syncToDevice();
+    // config_norm_param(norm_param_args_);
+    // inplace_args_.normalize_enable = true;
+    // config_inplace(inplace_args_);
+
+    // perform_bypass(bypass_args_);
+    // inplace_args_.normalize_enable = false;
+    // config_inplace(inplace_args_);
+    // compute_norm(norm_args_);
+
     return true;
   }
 
@@ -188,5 +200,6 @@ class NormPE : public PE {
   std::shared_ptr<Action> bypass_action_;
   std::shared_ptr<Action> norm_action_;
 };
+
 }  // namespace zynqmp
 }  // namespace paddle

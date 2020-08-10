@@ -29,6 +29,9 @@ typedef int16_t half;
 
 #define IMAGE_ALIGNMENT 16           // Aligned to 16
 #define FILTER_ELEMENT_ALIGNMENT 16  // Filter element number aligned to 16
+// #define FILTER_NUM_ALIGNMENT 32      // Filter number aligned to 32  replace
+// by filter.hpp "get_filter_num_alignment()"
+// #define FILTER_ELEMENT_ALIGNMENT 64  // Filter element number aligned to 64
 #define BS_NUM_ALIGNMENT 8
 #define BIAS_NUM_ALIGNMENT 16
 
@@ -269,6 +272,20 @@ struct PowerParameterArgs {
   uint16_t power;
 };
 
+struct GlobalPoolArgs {
+  uint16_t global_pool_factor;
+};
+
+// struct InplaceArgs {
+//   bool leaky_relu_enable;
+//   bool relu_enable;
+//   bool sigmoid_enable;
+//   bool relu6_enable;
+//   bool power_enable;
+//   bool normalize_enable;
+//   bool global_pool_en;
+// };
+
 struct FpgaRegWriteArgs {
   uint64_t address;  //
   uint64_t value;
@@ -345,6 +362,8 @@ struct ReleaseIdxArgs {
   _IOW(IOCTL_FPGA_MAGIC, 42, struct NormalizeParameterArgs)
 #define IOCTL_CONFIG_ACTIVATION_PARAMETER \
   _IOW(IOCTL_FPGA_MAGIC, 43, struct ActiveParamterArgs)
+#define IOCTL_CONFIG_GLOBAL_POOL_PARAMETER \
+  _IOW(IOCTL_FPGA_MAGIC, 44, struct GlobalPoolArgs)
 
 #define IOCTL_FPGA_REG_READ _IOW(IOCTL_FPGA_MAGIC, 50, struct FpgaRegReadArgs)
 #define IOCTL_FPGA_REG_WRITE _IOW(IOCTL_FPGA_MAGIC, 51, struct FpgaRegWriteArgs)
@@ -362,7 +381,48 @@ struct ReleaseIdxArgs {
 #define IOCTL_SEPARATOR_2 200
 #define IOCTL_PREPROCESS _IOW(IOCTL_FPGA_MAGIC, 201, struct PreprocessArgs)
 
+#define IOCTL_DEVICE_INFO _IOW(IOCTL_FPGA_MAGIC, 100, struct DeviceInfoArgs)
+
 //============================== API =============================
+
+struct SplitArgs {
+  uint32_t image_num;
+  int16_t* image_in;
+  float* scale_in;
+  void** images_out;
+  float** scales_out;
+  uint32_t* out_channel_nums;
+  uint32_t height;
+  uint32_t width;
+};
+
+struct ConcatArgs {
+  uint32_t image_num;
+  half** images_in;
+  float** scales_in;
+  void* image_out;
+  float* scale_out;
+  uint32_t* channel_num;
+  uint32_t height;
+  uint32_t width;
+};
+
+struct SplitConvArgs {
+  uint32_t split_num;
+  uint32_t group_num;
+  uint32_t filter_num;
+  struct ImageOutputArgs output;
+  struct ConvArgs* conv_arg;
+  struct ConcatArgs concat_arg;
+};
+
+struct GroupConvArgs {
+  uint32_t group_num;
+  uint32_t filter_num;
+  struct ImageOutputArgs output;
+  struct SplitConvArgs* conv_args;
+  struct ConcatArgs concat_arg;
+};
 
 inline int align_to_x(int num, int x) { return (num + x - 1) / x * x; }
 int open_device();
@@ -392,6 +452,7 @@ int compute_fpga_concat(const struct ConcatArgs& args);
 int compute_fpga_resize(const struct ResizeArgs& args);
 
 int config_activation(const struct ActiveParamterArgs& args);
+int config_global_pool(const struct GlobalPoolArgs& args);
 int config_power(const struct PowerArgs& args);
 int config_inplace(const struct InplaceArgs& args);
 int config_norm_param(const struct NormalizeParameterArgs& args);
@@ -410,6 +471,7 @@ int alloc_scale_reg();
 int start_transaction(const struct CnnCmdArgs& args);  // NOLINT
 
 int fpga_reset();
+int compute_preprocess(const struct PreprocessArgs& args);
 
 int write_scale(struct WriteScaleArgs& args);  // NOLINT
 

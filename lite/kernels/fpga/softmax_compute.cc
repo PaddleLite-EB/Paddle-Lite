@@ -14,6 +14,7 @@
 
 #include "lite/kernels/fpga/softmax_compute.h"
 #include "lite/backends/arm/math/funcs.h"
+#include "lite/backends/fpga/KD/debugger.hpp"
 
 namespace paddle {
 namespace lite {

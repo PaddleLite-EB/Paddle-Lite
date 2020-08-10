@@ -25,7 +25,7 @@ namespace fpga {
 
 using float16 = zynqmp::float16;
 
-void copy_properties(operators::IoCopyParam& param) {
+void copy_properties(operators::IoCopyParam& param) {  // NOLINT
   param.y->set_persistable(param.x->persistable());
   auto out_lod = param.y->mutable_lod();
   *out_lod = param.x->lod();
@@ -139,12 +139,18 @@ class IoCopyFpgaToHostCHWCompute
     CHECK(param.x->target() == TARGET(kHost) ||
           param.x->target() == TARGET(kFPGA));
 
+    param.x->ZynqTensor()->syncToDevice();
+    if (param.x->ZynqTensor()->dataType() == zynqmp::INT32) {
+      param.y->mutable_data<int32_t>();
+      param.y->ZynqTensor()->copyFrom(param.x->ZynqTensor());
+      return;
+    }
+
     Tensor hwc;
     hwc.Resize(param.y->dims());
     float* hwc_data = hwc.mutable_data<float>();
     float* chw_data = param.y->mutable_data<float>();
     param.y->ZynqTensor()->setDataType(zynqmp::FP32);
-    param.x->ZynqTensor()->syncToDevice();
 
     hwc.ZynqTensor()->setDataLocation(zynqmp::CPU);
     param.y->ZynqTensor()->setDataLocation(zynqmp::CPU);
@@ -196,6 +202,7 @@ class IoCopyFpgaToHostCHWCompute
                dims.height(),
                dims.width());
 
+    // param.y->ZynqTensor()->copyFrom(hwc.ZynqTensor());
     // param.y->ZynqTensor()->copyScaleFrom(param.x->ZynqTensor());
     param.y->ZynqTensor()->flush();
     copy_properties(param);
