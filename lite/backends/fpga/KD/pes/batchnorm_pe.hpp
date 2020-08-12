@@ -77,6 +77,7 @@ class BatchnormPE : public PE {
   void apply() { scalePE_.apply(); }
 
   bool dispatch() {
+    FPGALock lock;
     if (param_.activeParam.type == TYPE_RELU) {
       inplace_.relu_enable = true;
     } else if (param_.activeParam.type == TYPE_RELU6) {

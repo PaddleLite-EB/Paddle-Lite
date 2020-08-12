@@ -176,6 +176,7 @@ class ScalePE : public PE {
   }
 
   bool dispatch() {
+    FPGALock lock;
     if (param_.scale->dataType() == FP16) {
       DepthwiseConvParam& dw_param = dw_pe_.param();
       memcpy(dw_param.quantizedFilter()->mutableData<float16>(),
@@ -189,7 +190,7 @@ class ScalePE : public PE {
     return dw_pe_.dispatch();
 
     // cpu_compute();
-    return true;
+    // return true;
   }
 
   ScaleParam& param() { return param_; }

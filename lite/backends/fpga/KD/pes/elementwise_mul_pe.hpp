@@ -61,6 +61,7 @@ class ElementwiseMulPE : public PE {
   }
 
   bool dispatch() {
+    FPGALock lock;
     compute_fpga_scale(args_) == 0;
     return true;
   }

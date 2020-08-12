@@ -29,6 +29,7 @@ class InputPE : public PE {
   }
 
   bool dispatch() {
+    FPGALock lock;
     Tensor* input = param_.input;
     Tensor* output = param_.output;
 
