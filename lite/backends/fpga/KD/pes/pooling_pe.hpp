@@ -218,6 +218,7 @@ class PoolingPE : public PE {
       compute();
       return true;
     }
+    FPGALock lock;
     // param_.input->syncToDevice();
     if (param_.globalPooling) {
       inplace_.relu_enable = false;

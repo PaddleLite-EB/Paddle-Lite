@@ -12,6 +12,7 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License. */
 
+#include "lite/backends/fpga/KD/llapi/zynqmp_api.h"
 #include <fcntl.h>
 #include <sys/ioctl.h>
 #include <sys/mman.h>
@@ -22,8 +23,6 @@ limitations under the License. */
 #include <cstring>
 #include <map>
 #include <utility>
-
-#include "lite/backends/fpga/KD/llapi/zynqmp_api.h"
 
 namespace paddle {
 namespace zynqmp {
@@ -68,8 +67,6 @@ void reset_device() {
 
 // memory management;
 void *fpga_malloc(size_t size) {
-// std::cout << "fpga malloc:"  << size  << std::endl;
-// size << ") - ";
 #ifdef ENABLE_DEBUG
 // std::cout << "fpga_malloc:" << size << std::endl;
 #endif
@@ -160,9 +157,6 @@ int fpga_flush(void *address, size_t size) {
 }
 
 int fpga_invalidate(void *address, size_t size) {
-  // std::cout <<
-  // "=================================================================================="
-  // << std::endl;
   struct MemoryCacheArgs args;
   args.address = address;
   args.size = size;
@@ -221,8 +215,6 @@ int ioctl_conv(const struct ConvArgs &args) {
 #endif
 
   return do_ioctl(IOCTL_CONFIG_CONV, &args);
-
-  // return 0;
 }
 
 int compute_fpga_conv_basic(const struct ConvArgs &args) {
@@ -269,10 +261,6 @@ int compute_fpga_conv(const struct SplitConvArgs &args) {
     ret = compute_fpga_conv_basic(args.conv_arg[i]);
   }
 
-  if (split_num > 1) {
-    std::cout << "Split num > 1 !!!!!!!!!!!!!!!!!!" << std::endl;
-    exit(-1);
-  }
   return ret;
 }
 
@@ -286,9 +274,8 @@ int compute_fpga_ewadd(const struct EWAddArgs &args) {
 
 int get_device_info(const struct DeviceInfoArgs &args) {
   // DeviceInfo info;
-  // struct DeviceInfo* a = &info;
   int ret = do_ioctl(IOCTL_DEVICE_INFO, &args);
-  // std::cout << "a." << a->filter_cap << std::endl;
+
   return ret;
 }
 
@@ -428,6 +415,13 @@ int compute_fpga_resize(const struct ResizeArgs &args) {
 
 int compute_preprocess(const struct PreprocessArgs &args) {
   return do_ioctl(IOCTL_PREPROCESS, &args);
+}
+
+int lock(const struct CNNLockArgs &args) {
+  return do_ioctl(IOCTL_LOCK_TRY_LOCKING, &args);
+}
+int unlock(const struct CNNLockArgs &args) {
+  return do_ioctl(IOCTL_LOCK_UNLOCK, &args);
 }
 
 int16_t fp32_2_fp16(float fp32_num) {

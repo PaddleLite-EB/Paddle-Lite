@@ -130,6 +130,7 @@ class DepthwiseConvPE : public PE {
   }
 
   bool dispatch() {
+    FPGALock lock;
     param_.input->syncToDevice();
     if (param_.activeParam.type == TYPE_RELU) {
       inplace_.relu_enable = true;

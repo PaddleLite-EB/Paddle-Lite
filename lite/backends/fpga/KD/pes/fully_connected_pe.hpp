@@ -120,6 +120,7 @@ class FullyConnectedPE : public PE {
     //   cpu_compute();
     //   return 1;
     // } else {
+    FPGALock lock;
     return convPE_.dispatch();
     // }
   }
