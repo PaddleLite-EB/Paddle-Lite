@@ -369,7 +369,7 @@ class Tensor {
   void saveToFile() {
     // std::string path = std::to_string(id_) + ".txt";
     std::string path = dimsFileName();
-    // saveToFile(path);
+    saveToFile(path);
   }
 
   void saveToFile(std::string prefix, bool with_shape) {

@@ -30,7 +30,7 @@ static std::map<std::string, zynqmp::ActiveType> activation_map = {
     {"relu", zynqmp::TYPE_RELU},
     {"relu6", zynqmp::TYPE_RELU6},
     {"leaky_relu", zynqmp::TYPE_LEAKY_RELU},
-    {"sigmoid", zynqmp::TYPE_SIGMOID},
+    // {"sigmoid", zynqmp::TYPE_SIGMOID},
     {"", zynqmp::TYPE_NONE}};
 
 class ReluCompute

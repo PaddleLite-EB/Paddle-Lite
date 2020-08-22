@@ -65,7 +65,7 @@ class Monitor {
           tensor_names.end()) {
         return true;
       }
-      return false;
+      return true;
     };
 
     auto out_args = op_info->output_names();
@@ -85,7 +85,7 @@ class Monitor {
           VLOG(4) << "\n out_tensor:::" << name;
           // tensor->ZynqTensor()->saveToFile(name, true);
           if (tensor->ZynqTensor() != nullptr && should_print(name)) {
-            tensor->ZynqTensor()->saveToFile(name, true);
+            // tensor->ZynqTensor()->saveToFile(name, true);
           }
         }
       }
