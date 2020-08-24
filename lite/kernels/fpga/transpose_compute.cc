@@ -94,25 +94,34 @@ void TransposeCompute::Run() {
   }
 }
 
+void Transpose2Compute::PrepareForRun() {
+  cpu_pe_.reset(new zynqmp::CPUPE());
+  cpu_pe_->init();
+  cpu_pe_->apply();
+}
+
 // Transpose2
 void Transpose2Compute::Run() {
+  cpu_pe_->dispatch();
   auto& param = this->Param<param_t>();
   param.output->mutable_data<float16>();
-  // param.x->ZynqTensor()->syncToCPU();
+
+  param.x->ZynqTensor()->syncToCPU();
+  param.x->ZynqTensor()->saveToFile("tin", true);
   param.x->ZynqTensor()->unalignImage();
   param.x->ZynqTensor()->flush();
-  param.x->ZynqTensor()->invalidate();
+  // param.x->ZynqTensor()->invalidate();
 
   if (param.x->dims().size() != 4) {
     transposeCompute(param);
-    param.output->ZynqTensor()->setAligned(param.x->ZynqTensor()->aligned());
+    // param.output->ZynqTensor()->setAligned(param.x->ZynqTensor()->aligned());
   } else {
     param.output->ZynqTensor()->copyFrom(param.x->ZynqTensor());
   }
 
   // param.output->ZynqTensor()->copyFrom(param.x->ZynqTensor());
   param.output->ZynqTensor()->flush();
-  // param.output->ZynqTensor()->saveToFile("Transpose2", true);
+  param.output->ZynqTensor()->saveToFile("Transpose2", true);
 }
 
 }  // namespace fpga

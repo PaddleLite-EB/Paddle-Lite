@@ -264,7 +264,6 @@ bool PriorBoxPE::dispatch() {
   param_.outputVariances->copyFrom(this->cachedVariances_);
 
   param_.outputBoxes->flush();
-  // param_.outputBoxes->syncToCPU();
   param_.outputVariances->flush();
   return true;
 }

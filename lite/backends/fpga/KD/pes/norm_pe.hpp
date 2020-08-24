@@ -197,8 +197,8 @@ class NormPE : public PE {
   Tensor tmp_out_;
 
   std::shared_ptr<Transaction> transaction_;
-  std::shared_ptr<Action> bypass_action_;
-  std::shared_ptr<Action> norm_action_;
+  std::unique_ptr<Action> bypass_action_;
+  std::unique_ptr<Action> norm_action_;
 };
 
 }  // namespace zynqmp

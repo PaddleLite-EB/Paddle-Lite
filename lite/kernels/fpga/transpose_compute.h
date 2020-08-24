@@ -14,7 +14,10 @@
 
 #pragma once
 #include <algorithm>
+#include <memory>
+
 #include "lite/backends/fpga/KD/float16.hpp"
+#include "lite/backends/fpga/KD/pes/cpu_pe.hpp"
 #include "lite/core/kernel.h"
 #include "lite/operators/transpose_op.h"
 
@@ -40,9 +43,14 @@ class Transpose2Compute
  public:
   using param_t = operators::TransposeParam;
 
+  void PrepareForRun() override;
+
   void Run() override;
 
   virtual ~Transpose2Compute() = default;
+
+ private:
+  std::unique_ptr<zynqmp::CPUPE> cpu_pe_;
 };
 
 }  // namespace fpga

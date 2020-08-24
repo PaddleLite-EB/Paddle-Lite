@@ -277,58 +277,7 @@ int get_device_info(const struct DeviceInfoArgs &args) {
 }
 
 int perform_bypass(const struct BypassArgs &args) {
-  int ret = -1;
-  int size = args.image.channels * args.image.width * args.image.height;
-  int max_size = 1 << 21;
-
-  float times = 1.0 * size / max_size;
-  int count = static_cast<int>(times);
-
-  void *input_address = args.image.address;
-  int type_size =
-      args.input_data_type == DATA_TYPE_FP32 ? sizeof(float) : sizeof(int16_t);
-
-  void *output_address = args.output.address;
-  int out_type_size =
-      args.output_data_type == DATA_TYPE_FP32 ? sizeof(float) : sizeof(int16_t);
-
-  float scales[2];
-  struct BypassArgs bypassArgs = args;
-  bypassArgs.image.width = 1;
-  bypassArgs.image.height = 1;
-  bypassArgs.output.scale_address = scales;
-
-  float scale = 0;
-  for (int i = 0; i < count; ++i) {
-    bypassArgs.image.channels = max_size;
-    bypassArgs.image.address =
-        reinterpret_cast<char *>(input_address + i * max_size * type_size);
-    bypassArgs.output.address =
-        reinterpret_cast<char *>(output_address + i * max_size * out_type_size);
-    ret = do_ioctl(IOCTL_CONFIG_BYPASS, &bypassArgs);
-    scale = std::max(scale, scales[0]);
-
-    if (ret != 0) {
-      return ret;
-    }
-  }
-
-  // TODO(chonwhite) size should include type_size;
-  int remainder = size - max_size * count;
-  // std::cout << "remainder:" << remainder << std::endl;
-  if (remainder > 0) {
-    bypassArgs.image.channels = remainder;
-    bypassArgs.image.address =
-        reinterpret_cast<char *>(input_address + count * max_size * type_size);
-    bypassArgs.output.address = reinterpret_cast<char *>(
-        output_address + count * max_size * out_type_size);
-    ret = do_ioctl(IOCTL_CONFIG_BYPASS, &bypassArgs);
-    scale = std::max(scale, scales[0]);
-  }
-
-  args.output.scale_address[0] = scale;
-  args.output.scale_address[1] = 1.0f / scale;
-  return ret;
+  return do_ioctl(IOCTL_CONFIG_BYPASS, &args);
 }
 
 int compute_fpga_concat(const struct ConcatArgs &args) { return -1; }

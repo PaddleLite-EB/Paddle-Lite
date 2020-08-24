@@ -58,7 +58,7 @@ class ElementwiseAddPE : public PE {
 
     args.inplace.findmax_restart = true;
     args.inplace.active_param.type = param_.activeParam.type;
-    ;
+
     args.inplace.active_param.leaky_relu_factor =
         float_to_half(param_.activeParam.leaky_relu_factor);
 
@@ -79,7 +79,7 @@ class ElementwiseAddPE : public PE {
   InplaceArgs inplace_ = {0};
 
   std::shared_ptr<Transaction> transaction_;
-  std::shared_ptr<Action> action_;
+  std::unique_ptr<Action> action_;
 };
 
 }  // namespace zynqmp

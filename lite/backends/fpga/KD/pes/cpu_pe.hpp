@@ -32,9 +32,6 @@ class CPUPE : public PE {
     for (Tensor* t : param_.outputs) {
       t->scaleIndex(true);
     }
-    // Tensor* output = param_.output;
-    // output->setAligned(false);
-    // output->setDataLocation(CPU);
     return true;
   }
 

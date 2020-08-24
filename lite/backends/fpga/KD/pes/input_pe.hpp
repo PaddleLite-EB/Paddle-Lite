@@ -17,6 +17,7 @@ limitations under the License. */
 #include <memory>
 
 #include "lite/backends/fpga/KD/pe.hpp"
+#include "lite/backends/fpga/KD/pes/bypass_pe.hpp"
 #include "lite/backends/fpga/KD/tensor_util.hpp"
 
 namespace paddle {
@@ -32,11 +33,20 @@ class InputPE : public PE {
   }
 
   int config_bypass() {
-    BypassArgs args;
-    args.input_data_type =
+    DDataType in_type =
         param_.input->dataType() == FP32 ? DATA_TYPE_FP32 : DATA_TYPE_FP16;
-    args.output_data_type =
+    DDataType out_type =
         param_.output->dataType() == FP32 ? DATA_TYPE_FP32 : DATA_TYPE_FP16;
+    switch (param_.output->dataType()) {
+      case INT32:
+        in_type = DATA_TYPE_FP32;
+        out_type = DATA_TYPE_FP32;  // hack;
+        break;
+    }
+
+    BypassArgs args;
+    args.input_data_type = in_type;
+    args.output_data_type = out_type;
     args.input_layout_type = LAYOUT_HWC;
     args.output_layout_type = LAYOUT_HWC;
     args.image.address = param_.input->data<void>();
@@ -62,6 +72,13 @@ class InputPE : public PE {
     Action* action = new Action(config_bypass());
     action_.reset(action);
     transaction_->appendAction(action);
+
+    // BypassParam& bypass_param = bypass_pe_.param();
+    // bypass_param.input = param_.input;
+    // bypass_param.output = param_.output;
+
+    // bypass_pe_.init();
+    // bypass_pe_.apply();
   }
 
   bool dispatch() {
@@ -69,6 +86,7 @@ class InputPE : public PE {
     Tensor* input = param_.input;
     input->alignImage();
     input->flush();
+    // return bypass_pe_.dispatch();
     return true;
   }
 
@@ -76,6 +94,8 @@ class InputPE : public PE {
 
  private:
   InputParam param_;
+  // BypassPE bypass_pe_;
+
   std::shared_ptr<Transaction> transaction_;
   std::shared_ptr<Action> action_;
 };

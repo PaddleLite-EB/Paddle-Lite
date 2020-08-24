@@ -70,9 +70,8 @@ void FetchCompute::Run() {
 
   Tensor& out = param.fetch_list->at(param.col);
   resize_output(param.input, out);
-  // out.Resize(param.input->dims());
-
   pe_.dispatch();
+// fetch_param.output->saveToFile("fetch", true);
 
 #ifdef FPGA_PRINT_TENSOR
   zynqmp::OutputParam& fetch_param = pe_.param();

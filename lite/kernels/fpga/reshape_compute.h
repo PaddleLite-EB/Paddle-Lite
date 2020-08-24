@@ -34,6 +34,10 @@ class ReshapeCompute
   void Run() override;
 
   virtual ~ReshapeCompute() = default;
+
+ private:
+  std::unique_ptr<zynqmp::CPUPE> cpu_pe_;
+  zynqmp::BypassPE bypass_pe_;
 };
 
 class FlattenCompute

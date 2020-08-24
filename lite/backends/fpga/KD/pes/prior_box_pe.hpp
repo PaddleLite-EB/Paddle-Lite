@@ -14,6 +14,8 @@ limitations under the License. */
 
 #pragma once
 
+#include <memory>
+
 #include "lite/backends/fpga/KD/pe.hpp"
 #include "lite/backends/fpga/KD/pe_params.hpp"
 namespace paddle {
@@ -44,6 +46,7 @@ class PriorBoxPE : public PE {
 
  private:
   PriorBoxParam param_;
+
   Tensor* cachedBoxes_ = nullptr;
   Tensor* cachedVariances_ = nullptr;
 

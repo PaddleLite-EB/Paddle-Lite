@@ -300,7 +300,7 @@ class ConvPE : public PE {
   // =================
   std::shared_ptr<Transaction> transaction_;
   std::vector<Action*> actions_;
-  std::shared_ptr<CPUPE> cpu_pe_;
+  std::unique_ptr<CPUPE> cpu_pe_;
 };
 
 }  // namespace zynqmp

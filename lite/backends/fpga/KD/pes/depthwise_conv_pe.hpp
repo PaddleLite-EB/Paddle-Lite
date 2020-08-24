@@ -149,7 +149,7 @@ class DepthwiseConvPE : public PE {
   Tensor bias_;
 
   std::shared_ptr<Transaction> transaction_;
-  std::shared_ptr<Action> action_;
+  std::unique_ptr<Action> action_;
 };
 
 }  // namespace zynqmp

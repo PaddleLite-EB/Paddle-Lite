@@ -80,7 +80,7 @@ class ElementwiseMulPE : public PE {
   Tensor bias_tensor;
 
   std::shared_ptr<Transaction> transaction_;
-  std::shared_ptr<Action> action_;
+  std::unique_ptr<Action> action_;
 };
 
 }  // namespace zynqmp

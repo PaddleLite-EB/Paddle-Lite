@@ -171,7 +171,7 @@ class PoolingPE : public PE {
   bool use_cpu_;
 
   std::shared_ptr<Transaction> transaction_;
-  std::shared_ptr<Action> action_;
+  std::unique_ptr<Action> action_;
 };
 
 }  // namespace zynqmp
