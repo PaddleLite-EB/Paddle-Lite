@@ -13,11 +13,13 @@ See the License for the specific language governing permissions and
 limitations under the License. */
 
 #include "lite/backends/fpga/KD/dl_engine.hpp"
+#include "lite/backendsfpga/KD/llapi/zynqmp_api.h"
 
 namespace paddle {
 namespace zynqmp {
 
 DLEngine::DLEngine() {
+  FPGALock lock;
   open_device();
   int ret = get_device_info(info_);
   filter::set_filter_capacity(info_.filter_cap);
