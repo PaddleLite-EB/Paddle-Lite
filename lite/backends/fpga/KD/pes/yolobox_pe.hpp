@@ -204,7 +204,6 @@ class YoloBoxPE : public PE {
 
     boxes->copyFrom(&boxes_float);
     scores->copyFrom(&scores_float);
-    input->setAligned(true);
   }
 
   void apply() {}
