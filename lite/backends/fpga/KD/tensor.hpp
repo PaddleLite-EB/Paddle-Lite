@@ -274,6 +274,8 @@ class Tensor {
       flush();
       return;
     }
+
+    int count = src->aligned_ ? src->shape().alignedElementCount() : src->shape().numel();
     BypassArgs args;
     args.input_data_type =
         src->dataType_ == FP32 ? DATA_TYPE_FP32 : DATA_TYPE_FP16;
@@ -282,7 +284,7 @@ class Tensor {
     args.output_layout_type = LAYOUT_HWC;
     args.image = {.address = src->data<void>(),
                   .scale_address = src->scale(),
-                  .channels = (uint32_t)src->shape().numel(),
+                  .channels = (uint32_t)count,
                   .width = 1,
                   .height = 1,
                   .pad_width = 0u,
@@ -292,7 +294,7 @@ class Tensor {
     };
     src->syncToDevice();
     size_t aligned_remainder = src->shape().numel() % 16;
-    if (aligned_remainder > 0) {
+    if (!(src->aligned_) && aligned_remainder > 0) {
       size_t dtype_size = CellSize(src->dataType_);
 
       // size_t dtype_size =

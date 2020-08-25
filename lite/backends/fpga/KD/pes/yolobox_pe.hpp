@@ -119,12 +119,14 @@ class YoloBoxPE : public PE {
     std::copy(anchors.begin(), anchors.end(), anchors_data);
 
     input->syncToCPU();
-    input->unalignImage();
-    // input->setAligned(false);
+
     Tensor input_float;
     input_float.setDataLocation(CPU);
     float* input_data = input_float.mutableData<float>(FP32, input->shape());
     input_float.copyFrom(input);
+    input_float.setAligned(input->aligned());
+    input_float.unalignImage();
+    input_float.setAligned(false);
 
     int32_t* imgsize_data = imgsize->mutableData<int32_t>();
     // imgsize->saveToFile("img_size", true);
@@ -154,8 +156,6 @@ class YoloBoxPE : public PE {
     // int img_width = imgsize_data[2 * i + 1];
     int img_height = imgsize_data[0];
     int img_width = imgsize_data[1];
-    std::cout << "YoloBoxPE imgsize:" << img_height << "," << img_width
-              << std::endl;
 
     int channel = input_float.shape().channel();
     int count = 0;
@@ -205,7 +205,6 @@ class YoloBoxPE : public PE {
 
     boxes->copyFrom(&boxes_float);
     scores->copyFrom(&scores_float);
-    input->setAligned(true);
   }
 
   void apply() {}
