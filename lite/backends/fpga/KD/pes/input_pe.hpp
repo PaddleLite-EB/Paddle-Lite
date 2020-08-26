@@ -69,9 +69,12 @@ class InputPE : public PE {
 
   void apply() {
     transaction_ = TransactionManager::get_instance().getTransaction();
+
     Action* action = new Action(config_bypass());
     action_.reset(action);
     transaction_->appendAction(action);
+
+    // TransactionManager::get_instance().endTransaction();
 
     // BypassParam& bypass_param = bypass_pe_.param();
     // bypass_param.input = param_.input;
@@ -86,7 +89,6 @@ class InputPE : public PE {
     Tensor* input = param_.input;
     input->alignImage();
     input->flush();
-    // return bypass_pe_.dispatch();
     return true;
   }
 
@@ -97,7 +99,7 @@ class InputPE : public PE {
   // BypassPE bypass_pe_;
 
   std::shared_ptr<Transaction> transaction_;
-  std::shared_ptr<Action> action_;
+  std::unique_ptr<Action> action_;
 };
 }  // namespace zynqmp
 }  // namespace paddle

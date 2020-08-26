@@ -49,7 +49,7 @@ class FlattenCompute
   virtual ~FlattenCompute() = default;
 
  private:
-  std::shared_ptr<zynqmp::CPUPE> cpu_pe_;
+  std::unique_ptr<zynqmp::CPUPE> cpu_pe_;
   zynqmp::BypassPE bypass_pe_;
 };
 

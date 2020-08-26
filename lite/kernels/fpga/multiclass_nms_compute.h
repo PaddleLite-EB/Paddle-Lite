@@ -17,6 +17,8 @@
 #include "lite/core/kernel.h"
 #include "lite/core/op_registry.h"
 
+#include "lite/backends/fpga/KD/pes/cpu_pe.hpp"
+
 namespace paddle {
 namespace lite {
 namespace kernels {
@@ -25,9 +27,13 @@ namespace fpga {
 class MulticlassNmsCompute
     : public KernelLite<TARGET(kFPGA), PRECISION(kFP16), DATALAYOUT(kNHWC)> {
  public:
+  void PrepareForRun() override;
   void Run() override;
 
   virtual ~MulticlassNmsCompute() = default;
+
+ private:
+  zynqmp::CPUPE cpu_pe_;
 };
 
 }  // namespace fpga

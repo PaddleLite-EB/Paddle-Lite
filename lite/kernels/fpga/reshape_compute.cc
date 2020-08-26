@@ -128,18 +128,18 @@ void ReshapeCompute::Run() {
 
   auto output_dims = output->dims();
   if (param.inplace) {
-    output->ShareDataWith(*x);
+    // output->ShareDataWith(*x);
   } else {
     // output->CopyDataFrom(*x);
   }
 
   if (cpu_pe_) {
-    // cpu_pe_->dispatch();
-    // output->ZynqTensor()->invalidate();
-    // output->ZynqTensor()->setAligned(true);
-    // output->ZynqTensor()->unalignImage();
-    // output->ZynqTensor()->flush();
-    // output->ZynqTensor()->setAligned(false);
+    cpu_pe_->dispatch();
+    output->ZynqTensor()->invalidate();
+    output->ZynqTensor()->setAligned(true);
+    output->ZynqTensor()->unalignImage();
+    output->ZynqTensor()->flush();
+    output->ZynqTensor()->setAligned(false);
   }
 
   output->ZynqTensor()->flush();
