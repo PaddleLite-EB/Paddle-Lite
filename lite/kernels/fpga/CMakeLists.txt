@@ -35,6 +35,7 @@ add_kernel(scale_compute_fpga FPGA basic SRCS scale_compute.cc DEPS ${fpga_deps}
 add_kernel(softmax_compute_fpga FPGA basic SRCS softmax_compute.cc DEPS ${fpga_deps})
 add_kernel(split_compute_fpga FPGA basic SRCS split_compute.cc DEPS ${fpga_deps})
 add_kernel(transpose_compute_fpga FPGA basic SRCS transpose_compute.cc DEPS ${fpga_deps})
+add_kernel(slice_compute_fpga FPGA basic SRCS slice_compute.cc DEPS ${fpga_deps})
 
 add_kernel(io_copy_compute_fpga FPGA basic SRCS io_copy_compute.cc DEPS ${fpga_deps})
 add_kernel(calib_compute_fpga FPGA basic SRCS calib_compute.cc DEPS ${fpga_deps})
@@ -44,6 +45,8 @@ add_kernel(fetch_compute_fpga FPGA basic SRCS fetch_compute.cc DEPS ${fpga_deps}
 
 add_kernel(yolo_box_compute_fpga FPGA basic SRCS yolo_box_compute.cc DEPS ${fpga_deps})
 add_kernel(batch_norm_compute_fpga FPGA basic SRCS batch_norm_compute.cc DEPS ${fpga_deps})
+add_kernel(density_prior_box_compute_fpga FPGA basic SRCS density_prior_box_compute.cc DEPS ${fpga_deps} math_arm)
+
 
 # add_kernel(while_compute_fpga FPGA extra SRCS while_compute.cc DEPS ${fpga_deps})
 # add_kernel(write_to_array_compute_fpga FPGA extra SRCS write_to_array_compute.cc DEPS ${fpga_deps})
