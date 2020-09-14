@@ -123,8 +123,8 @@ class YoloBoxPE : public PE {
     Tensor input_float;
     input_float.setDataLocation(CPU);
     float* input_data = input_float.mutableData<float>(FP32, input->shape());
-    input_float.copyFrom(input);
     input_float.setAligned(input->aligned());
+    input_float.copyFrom(input);
     input_float.unalignImage();
     input_float.setAligned(false);
 
@@ -164,7 +164,6 @@ class YoloBoxPE : public PE {
         for (int n = 0; n < an_num; n++) {
           int obj_idx =
               channel * width * h + channel * w + n * (5 + class_num) + 4;
-          // std::cout << obj_idx << " ";
           float conf = sigmoid(input_data[obj_idx]);
           if (conf < conf_thresh) {
             count++;
