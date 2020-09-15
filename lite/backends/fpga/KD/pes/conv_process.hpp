@@ -350,13 +350,16 @@ inline void split_filter_num(const ConvParam& c_param) {
   Tensor* input = param.input;
   Tensor* out = param.output;
   Tensor* filter = param.filter;
-  auto channel = out->shape().channel();
+  auto out_channel = out->shape().channel();
   int split_num = get_split_num(param.filter);
   int filter_num_per_div = get_filter_num_per_div(filter, param.groups);
+  param.cpu_concat = out_channel % 16 != 0 && split_num > 1 && out->shape().width() != 1;
 
   float max = find_max(*filter);
 
   Shape& out_shape = out->shape();
+  float16*  tmp_address = nullptr;
+
   for (int i = 0; i < split_num; i++) {
     BasicConvParam* conv_param = new BasicConvParam();
     conv_param->output.setDataLocation(Device);
@@ -368,19 +371,32 @@ inline void split_filter_num(const ConvParam& c_param) {
 
     ConvArgs& args = conv_param->args;
 
-    if (split_num == 1) {
-      out_address = out->data<float16>();
-      out_scale_address = out->scale();
+    if (i == split_num - 1) {
+        filter_num = out_channel - (split_num - 1) * filter_num_per_div;
+    } else {
+        filter_num = filter_num_per_div;
     }
-    filter_num = i == split_num - 1
-                     ? channel - (split_num - 1) * filter_num_per_div  // NOLINT
-                     : filter_num_per_div;
 
-    if (split_num != 1) {
-      Shape shape(NHWC, {1, out_shape.height(), out_shape.width(), filter_num});
-      out_address = conv_param->output.mutableData<float16>(FP16, shape);
-      out_scale_address = conv_param->output.scale();
+    int offset = i*filter_num_per_div; 
+	
+	if (param.cpu_concat) {
+        if (i == 0) {
+            Shape shape(NHWC, {1, out_shape.height(), out_shape.width(), filter_num_per_div*(split_num - 1)});
+            tmp_address = conv_param->output.mutableData<float16>(FP16, shape);  
+        }
+        if (i == split_num - 1) {
+            Shape extra_shape(NHWC, {1, out_shape.height(), out_shape.width(), filter_num});
+            out_address = conv_param->output.mutableData<float16>(FP16, extra_shape);
+        } else {
+            out_address = tmp_address + offset;
+        }
+    }       
+    else {
+        out_address = out->data<float16>() + offset;    
     }
+	
+	out_scale_address = &conv_param->output_scale;
+	
     Shape f_shape(NCHW,
                   {filter_num,
                    filter->shape().channel(),
@@ -446,7 +462,11 @@ inline void split_filter_num(const ConvParam& c_param) {
     args.image.pad_width = param.paddings[1];
     args.image.pad_height = param.paddings[0];
     args.dilation = param.dilations[0];
+    args.deconv.enabled = false;
+    args.stride.rd_enabled = false; 
 
+    args.stride.wr_enabled = (split_num != 1 && (param.cpu_concat == false || i != split_num - 1));
+    args.stride.wr_offset = param.cpu_concat ? filter_num_per_div*(split_num - 1) : out_channel;
     args.output.address = out_address;
     args.output.scale_address = out_scale_address;
     param.splitParams().push_back(conv_param);
@@ -485,7 +505,6 @@ inline void pack_channel_filter(const ConvParam& c_param) {
 
     if (pack_num == 1) {
       out_address = out->data<float16>();
-      out_scale_address = out->scale();
     }
 
     int new_group = param.groups;
@@ -514,8 +533,10 @@ inline void pack_channel_filter(const ConvParam& c_param) {
           NHWC,
           {1, out_shape.height(), out_shape.width(), filter_current_pack});
       out_address = conv_param->output.mutableData<float16>(FP16, shape);
-      out_scale_address = conv_param->output.scale();
     }
+	
+	out_scale_address = &conv_param->output_scale;
+	
     Shape f_shape(NCHW,
                   {filter_current_pack,
                    filter->shape().channel(),
@@ -594,7 +615,10 @@ inline void pack_channel_filter(const ConvParam& c_param) {
     args.image.pad_width = param.paddings[1];
     args.image.pad_height = param.paddings[0];
     args.dilation = param.dilations[0];
-
+    args.deconv.enabled = false;
+    args.stride.rd_enabled = false; 
+    args.stride.wr_enabled = false; 
+	
     args.output.address = out_address;
     args.output.scale_address = out_scale_address;
     param.splitParams().push_back(conv_param);
@@ -701,7 +725,7 @@ inline int fill_split_arg(const ConvParam& c_param) {
     return 0;
   } else {
     pack_channel_filter(c_param);
-    return 0;
+    return 2;
   }
   // split_filter_num(c_param);
 }
