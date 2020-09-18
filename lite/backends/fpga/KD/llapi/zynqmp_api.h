@@ -142,6 +142,13 @@ struct DeconvArgs {
                              // each row directly in FPGA
 };
 
+struct StrideArgs {
+    bool     wr_enabled;
+    uint32_t wr_offset;
+    bool     rd_enabled;
+    uint32_t rd_offset;
+};
+
 struct ConvArgs {
   void* sb_address;  // scale and bias are interlaced;
   void* filter_address;
@@ -154,6 +161,7 @@ struct ConvArgs {
 
   struct DeconvArgs deconv;
   struct KernelArgs kernel;
+  struct StrideArgs stride;
   struct ImageInputArgs image;  // input image;
   struct ImageOutputArgs output;
   struct InplaceArgs inplace;
@@ -386,6 +394,8 @@ struct ReleaseIdxArgs {
 //============================== API =============================
 
 inline int align_to_x(int num, int x) { return (num + x - 1) / x * x; }
+inline int align_to_x_floor(int num, int x) { return (num / x) * x; }
+
 int open_device();
 void close_device();
 void reset_device();

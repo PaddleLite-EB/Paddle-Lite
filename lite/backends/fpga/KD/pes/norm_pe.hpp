@@ -160,7 +160,7 @@ class NormPE : public PE {
   }
 
   bool dispatch() {
-    std::cout << "Norm\n";
+    // std::cout << "Norm\n";
     // cpuCompute();
     // std::cout << "CPU normalize ---------------------" << std::endl;
 

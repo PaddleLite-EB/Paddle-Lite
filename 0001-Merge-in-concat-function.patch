@@ -1,0 +1,362 @@
+From b8f7c91c6927bf3e21bd26a5752c15d7c2a80b55 Mon Sep 17 00:00:00 2001
+From: wenmingzheng <zhengwenming@baidu.com>
+Date: Fri, 18 Sep 2020 06:44:41 +0000
+Subject: [PATCH] Merge in concat function.
+
+---
+ lite/backends/fpga/KD/llapi/filter.cpp     | 14 ++++++-
+ lite/backends/fpga/KD/llapi/zynqmp_api.h   | 10 +++++
+ lite/backends/fpga/KD/pe_params.hpp        |  2 +
+ lite/backends/fpga/KD/pes/conv_pe.hpp      | 57 +++++++++++++++++++--------
+ lite/backends/fpga/KD/pes/conv_process.hpp | 63 +++++++++++++++++++++++++++---
+ lite/backends/fpga/KD/pes/norm_pe.hpp      |  2 +-
+ 6 files changed, 122 insertions(+), 26 deletions(-)
+
+diff --git a/lite/backends/fpga/KD/llapi/filter.cpp b/lite/backends/fpga/KD/llapi/filter.cpp
+index d5e6b0b..fb5d42b 100755
+--- a/lite/backends/fpga/KD/llapi/filter.cpp
++++ b/lite/backends/fpga/KD/llapi/filter.cpp
+@@ -26,6 +26,7 @@ namespace filter {
+ 
+ static int FILTER_SIZE = 2048;
+ static int COLUMN = 4;
++static int DMA_UNIT = 128;
+ 
+ void saveToFile(std::string name, void* data_in, int size) {
+   // std::ofstream ofs;
+@@ -65,7 +66,14 @@ int calc_division_capacity(int chw) {
+ }
+ 
+ int calc_split_num(int num, int division_capacity) {
+-  return (num + division_capacity - 1) / division_capacity;
++  int dc_align = division_capacity < DMA_UNIT ? division_capacity 
++                                              : align_to_x_floor(division_capacity, DMA_UNIT);
++  if (num > division_capacity) {
++    return (num + dc_align - 1)/dc_align;
++  }
++  else {
++    return 1;
++  }
+ }
+ 
+ int calc_division_number(int num, int group_num, int division_capacity) {
+@@ -76,7 +84,9 @@ int calc_division_number(int num, int group_num, int division_capacity) {
+ int calc_num_per_div(int num, int group_num, int division_capacity) {
+   if (group_num == 1) {
+     if (num > division_capacity) {
+-      return division_capacity;
++      int dc_align = division_capacity < DMA_UNIT ? division_capacity 
++                                                  : align_to_x_floor(division_capacity, DMA_UNIT);
++      return dc_align;
+     } else {
+       return num;
+     }
+diff --git a/lite/backends/fpga/KD/llapi/zynqmp_api.h b/lite/backends/fpga/KD/llapi/zynqmp_api.h
+index 655ef3d..f46d8b1 100644
+--- a/lite/backends/fpga/KD/llapi/zynqmp_api.h
++++ b/lite/backends/fpga/KD/llapi/zynqmp_api.h
+@@ -142,6 +142,13 @@ struct DeconvArgs {
+                              // each row directly in FPGA
+ };
+ 
++struct StrideArgs {
++    bool     wr_enabled;
++    uint32_t wr_offset;
++    bool     rd_enabled;
++    uint32_t rd_offset;
++};
++
+ struct ConvArgs {
+   void* sb_address;  // scale and bias are interlaced;
+   void* filter_address;
+@@ -154,6 +161,7 @@ struct ConvArgs {
+ 
+   struct DeconvArgs deconv;
+   struct KernelArgs kernel;
++  struct StrideArgs stride;
+   struct ImageInputArgs image;  // input image;
+   struct ImageOutputArgs output;
+   struct InplaceArgs inplace;
+@@ -386,6 +394,8 @@ struct ReleaseIdxArgs {
+ //============================== API =============================
+ 
+ inline int align_to_x(int num, int x) { return (num + x - 1) / x * x; }
++inline int align_to_x_floor(int num, int x) { return (num / x) * x; }
++
+ int open_device();
+ void close_device();
+ void reset_device();
+diff --git a/lite/backends/fpga/KD/pe_params.hpp b/lite/backends/fpga/KD/pe_params.hpp
+index 29efabe..8a987fd 100644
+--- a/lite/backends/fpga/KD/pe_params.hpp
++++ b/lite/backends/fpga/KD/pe_params.hpp
+@@ -60,6 +60,7 @@ struct BasicConvParam {
+   Tensor filter;
+   Tensor scaleBias;
+   ConvArgs args;
++  float output_scale = 0;
+ };
+ 
+ struct ConvParam : PEParam {
+@@ -70,6 +71,7 @@ struct ConvParam : PEParam {
+ 
+   int groups = 1;
+   bool deconv = false;
++  bool cpu_concat = false;
+   std::vector<int> strides;
+   std::vector<int> paddings;
+   std::vector<int> kernelSize;
+diff --git a/lite/backends/fpga/KD/pes/conv_pe.hpp b/lite/backends/fpga/KD/pes/conv_pe.hpp
+index 150f1fb..a5e2680 100644
+--- a/lite/backends/fpga/KD/pes/conv_pe.hpp
++++ b/lite/backends/fpga/KD/pes/conv_pe.hpp
+@@ -147,7 +147,10 @@ class ConvPE : public PE {
+   void apply() {
+     if (param_.deconv == false) {
+       split_axis = fill_split_arg(param_);
+-      split_channel = param_.groups != 1 && param_.splitParams().size() > 1;
++	  pack_channel = split_axis == 2 && param_.splitParams().size() > 1;
++      split_cpu_concat = split_axis == 0 && param_.cpu_concat;
++	  
++	  // std::cout << " concat:" << split_cpu_concat << " pack:" << pack_channel << std::endl; //zwm add 
+ 
+       // ======================= dispatch =======================
+       transaction_ = TransactionManager::get_instance().getTransaction();
+@@ -165,10 +168,9 @@ class ConvPE : public PE {
+           transaction_->appendAction(action);
+         }
+       }
+-    }
+-
++	  
+     // ======================= concat =======================
+-    if (split_axis == 0 && param_.splitParams().size() > 1) {
++    if (pack_channel) {
+       ConcatParam& concat_param = concatPE_.param();
+       for (auto conv_param : param_.splitParams()) {
+         concat_param.inputs.push_back(&conv_param->output);
+@@ -176,17 +178,32 @@ class ConvPE : public PE {
+       concat_param.output = param_.output;
+       concatPE_.init();
+       concatPE_.apply();
+-      concatPE_.setMergeScale(false);
+-    }
++      concatPE_.setMergeScale(false);  //zwm: currently don't need handle scale, find_max not restart
++    }else if (split_cpu_concat) {
++		
++        ConcatParam& concat_param = concatPE_.param();
++       
++        BasicConvParam* first = param_.splitParams().front();
++        concat_param.inputs.push_back(&(first->output));
++
++        BasicConvParam* last = param_.splitParams().back();
++        concat_param.inputs.push_back(&(last->output));
++
++        concat_param.output = param_.output;
++        concatPE_.init();
++        concatPE_.apply();
++        concatPE_.setMergeScale(false);  //???
++      }
+ 
+-    if (split_channel) {
+-      SplitParam& split_param = splitPE_.param();
+-      split_param.input = param_.input;
+-      for (auto conv_param : param_.splitParams()) {
+-        split_param.outputs.push_back(&conv_param->input);
++      if (pack_channel) {
++        SplitParam& split_param = splitPE_.param();
++        split_param.input = param_.input;
++        for (auto conv_param : param_.splitParams()) {
++          split_param.outputs.push_back(&conv_param->input);
++        }
++        splitPE_.init();
++        splitPE_.apply();
+       }
+-      splitPE_.init();
+-      splitPE_.apply();
+     }
+ 
+     if (DLEngine::get_instance().isZU3() &&
+@@ -250,16 +267,21 @@ class ConvPE : public PE {
+     }
+ 
+     std::vector<BasicConvParam*>& params = param_.splitParams();
+-    // if (split_channel) {
+-    //   splitPE_.dispatch();
++    // if (pack_channel && !param_.deconv) {   //zwm: pack not support in dispatch
++      // splitPE_.dispatch();
+     // }
+ 
+-    size_t size = params.size();
++    /* size_t size = params.size(); //zwm: comment buhe change
+     if (split_axis == 0 && size > 1) {
+       // param_.output->readScale();
+       float scale = param_.output->scale()[0];
+       concatPE_.dispatch();
+       // param_.output->writeScale(scale);
++    } */
++	if ((pack_channel || split_cpu_concat) && !param_.deconv) {
++	  float scale = param_.output->scale()[0];
++	  std::cout << "conv concat dispatch!" << std::endl;
++      concatPE_.dispatch();
+     }
+ 
+     // if (split_axis == 1 && ret == 0 && size > 1) {
+@@ -288,7 +310,8 @@ class ConvPE : public PE {
+ 
+  private:
+   bool use_cpu_ = false;
+-  bool split_channel = false;
++  bool pack_channel = false;
++  bool split_cpu_concat = false;
+   ConvParam param_;
+   ConcatPE concatPE_;
+   SplitPE splitPE_;
+diff --git a/lite/backends/fpga/KD/pes/conv_process.hpp b/lite/backends/fpga/KD/pes/conv_process.hpp
+index 85448ab..c85af89 100755
+--- a/lite/backends/fpga/KD/pes/conv_process.hpp
++++ b/lite/backends/fpga/KD/pes/conv_process.hpp
+@@ -349,13 +349,16 @@ inline void split_filter_num(const ConvParam& c_param) {
+   Tensor* input = param.input;
+   Tensor* out = param.output;
+   Tensor* filter = param.filter;
+-  auto channel = out->shape().channel();
++  auto out_channel = out->shape().channel();
+   int split_num = get_split_num(param.filter);
+   int filter_num_per_div = get_filter_num_per_div(filter, param.groups);
++  param.cpu_concat = out_channel % 16 != 0 && split_num > 1 && out->shape().width() != 1;
+ 
+   float max = find_max(*filter);
+ 
+   Shape& out_shape = out->shape();
++  float16*  tmp_address = nullptr;
++  
+   for (int i = 0; i < split_num; i++) {
+     BasicConvParam* conv_param = new BasicConvParam();
+     conv_param->output.setDataLocation(Device);
+@@ -367,8 +370,9 @@ inline void split_filter_num(const ConvParam& c_param) {
+     int out_scale_index = -1;
+ 
+     ConvArgs& args = conv_param->args;
+-
+-    if (split_num == 1) {
++	
++    //zwm: comment buhe change
++    /* if (split_num == 1) {  
+       out_address = out->data<float16>();
+       out_scale_address = out->scale();
+       out_scale_index =
+@@ -384,7 +388,42 @@ inline void split_filter_num(const ConvParam& c_param) {
+       out_scale_address = conv_param->output.scale();
+       out_scale_index = conv_param->output.scaleIndex(
+           true);  // TODO(chonwhite) reconsider this
++    } */
++	
++	if (i == split_num - 1) {
++        filter_num = out_channel - (split_num - 1) * filter_num_per_div;
++    } else {
++        filter_num = filter_num_per_div;
++    }
++	
++	int offset = i*filter_num_per_div;    
++
++    if (param.cpu_concat) {
++        if (i == 0) {
++            Shape shape(NHWC, {1, out_shape.height(), out_shape.width(), filter_num_per_div*(split_num - 1)});
++            tmp_address = conv_param->output.mutableData<float16>(FP16, shape);  
++        }
++        if (i == split_num - 1) {
++            Shape extra_shape(NHWC, {1, out_shape.height(), out_shape.width(), filter_num});
++            out_address = conv_param->output.mutableData<float16>(FP16, extra_shape);
++        } else {
++            out_address = tmp_address + offset;
++        }
++    }       
++    else {
++        out_address = out->data<float16>() + offset;    
+     }
++
++    out_scale_address = &conv_param->output_scale;
++	
++	if (split_num == 1) {  //zwm: handle scale_index after merge concat
++      out_scale_index =
++          out->scaleIndex(true);  // TODO(chonwhite) reconsider this
++    } else {
++		out_scale_index = conv_param->output.scaleIndex(
++          true);  // TODO(chonwhite) reconsider this
++    } 
++	
+     Shape f_shape(NCHW,
+                   {filter_num,
+                    filter->shape().channel(),
+@@ -452,7 +491,13 @@ inline void split_filter_num(const ConvParam& c_param) {
+     args.image.pad_width = param.paddings[1];
+     args.image.pad_height = param.paddings[0];
+     args.dilation = param.dilations[0];
++    
++	args.deconv.enabled = false;
++    args.stride.rd_enabled = false; 
+ 
++    args.stride.wr_enabled = (split_num != 1 && (param.cpu_concat == false || i != split_num - 1));
++    args.stride.wr_offset = param.cpu_concat ? filter_num_per_div*(split_num - 1) : out_channel;
++	
+     args.output.address = out_address;
+     args.output.scale_address = out_scale_address;
+     args.output_idx = out_scale_index;
+@@ -490,7 +535,7 @@ inline void pack_channel_filter(const ConvParam& c_param) {
+ 
+     if (pack_num == 1) {
+       out_address = out->data<float16>();
+-      out_scale_address = out->scale();
++      // out_scale_address = out->scale();
+     }
+ 
+     int new_group = param.groups;
+@@ -519,8 +564,11 @@ inline void pack_channel_filter(const ConvParam& c_param) {
+           NHWC,
+           {1, out_shape.height(), out_shape.width(), filter_current_pack});
+       out_address = conv_param->output.mutableData<float16>(FP16, shape);
+-      out_scale_address = conv_param->output.scale();
++      // out_scale_address = conv_param->output.scale();
+     }
++	
++	out_scale_address = &conv_param->output_scale;
++	
+     Shape f_shape(NCHW,
+                   {filter_current_pack,
+                    filter->shape().channel(),
+@@ -599,6 +647,9 @@ inline void pack_channel_filter(const ConvParam& c_param) {
+     args.image.pad_width = param.paddings[1];
+     args.image.pad_height = param.paddings[0];
+     args.dilation = param.dilations[0];
++	args.deconv.enabled = false;
++    args.stride.rd_enabled = false; 
++    args.stride.wr_enabled = false; 
+ 
+     args.output.address = out_address;
+     args.output.scale_address = out_scale_address;
+@@ -708,7 +759,7 @@ inline int fill_split_arg(const ConvParam& c_param) {
+     return 0;
+   } else {
+     pack_channel_filter(c_param);
+-    return 0;
++    return 2;
+   }
+   // split_filter_num(c_param);
+ }
+diff --git a/lite/backends/fpga/KD/pes/norm_pe.hpp b/lite/backends/fpga/KD/pes/norm_pe.hpp
+index cd8a399..3b9abdb 100644
+--- a/lite/backends/fpga/KD/pes/norm_pe.hpp
++++ b/lite/backends/fpga/KD/pes/norm_pe.hpp
+@@ -160,7 +160,7 @@ class NormPE : public PE {
+   }
+ 
+   bool dispatch() {
+-    std::cout << "Norm\n";
++    // std::cout << "Norm\n";
+     // cpuCompute();
+     // std::cout << "CPU normalize ---------------------" << std::endl;
+ 
+-- 
+2.7.4
+

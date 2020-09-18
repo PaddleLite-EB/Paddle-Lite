@@ -147,8 +147,9 @@ class ConvPE : public PE {
   void apply() {
     if (param_.deconv == false) {
       split_axis = fill_split_arg(param_);
-      split_channel = param_.groups != 1 && param_.splitParams().size() > 1;
-
+      pack_channel = split_axis == 2 && param_.splitParams().size() > 1;
+      split_cpu_concat = split_axis == 0 && param_.cpu_concat;
+	  
       // ======================= dispatch =======================
       transaction_ = TransactionManager::get_instance().getTransaction();
       if (split_axis == 0) {
@@ -165,10 +166,9 @@ class ConvPE : public PE {
           transaction_->appendAction(action);
         }
       }
-    }
-
+	  
     // ======================= concat =======================
-    if (split_axis == 0 && param_.splitParams().size() > 1) {
+    if (pack_channel) {
       ConcatParam& concat_param = concatPE_.param();
       for (auto conv_param : param_.splitParams()) {
         concat_param.inputs.push_back(&conv_param->output);
@@ -176,17 +176,32 @@ class ConvPE : public PE {
       concat_param.output = param_.output;
       concatPE_.init();
       concatPE_.apply();
-      concatPE_.setMergeScale(false);
-    }
+      concatPE_.setMergeScale(false);  //currently don't need handle scale, find_max not restart
+    }else if (split_cpu_concat) {
+		
+        ConcatParam& concat_param = concatPE_.param();
+       
+        BasicConvParam* first = param_.splitParams().front();
+        concat_param.inputs.push_back(&(first->output));
 
-    if (split_channel) {
-      SplitParam& split_param = splitPE_.param();
-      split_param.input = param_.input;
-      for (auto conv_param : param_.splitParams()) {
-        split_param.outputs.push_back(&conv_param->input);
+        BasicConvParam* last = param_.splitParams().back();
+        concat_param.inputs.push_back(&(last->output));
+
+        concat_param.output = param_.output;
+        concatPE_.init();
+        concatPE_.apply();
+        concatPE_.setMergeScale(false);  //???
       }
-      splitPE_.init();
-      splitPE_.apply();
+
+      if (pack_channel) {
+        SplitParam& split_param = splitPE_.param();
+        split_param.input = param_.input;
+        for (auto conv_param : param_.splitParams()) {
+          split_param.outputs.push_back(&conv_param->input);
+        }
+        splitPE_.init();
+        splitPE_.apply();
+      }
     }
 
     if (DLEngine::get_instance().isZU3() &&
@@ -250,16 +265,21 @@ class ConvPE : public PE {
     }
 
     std::vector<BasicConvParam*>& params = param_.splitParams();
-    // if (split_channel) {
-    //   splitPE_.dispatch();
+    // if (pack_channel && !param_.deconv) {   //pack not support in dispatch
+      // splitPE_.dispatch();
     // }
 
-    size_t size = params.size();
+    /* size_t size = params.size(); 
     if (split_axis == 0 && size > 1) {
       // param_.output->readScale();
       float scale = param_.output->scale()[0];
       concatPE_.dispatch();
       // param_.output->writeScale(scale);
+    } */
+	if ((pack_channel || split_cpu_concat) && !param_.deconv) {
+	  float scale = param_.output->scale()[0];
+	  std::cout << "conv concat dispatch!" << std::endl;
+      concatPE_.dispatch();
     }
 
     // if (split_axis == 1 && ret == 0 && size > 1) {
@@ -288,7 +308,8 @@ class ConvPE : public PE {
 
  private:
   bool use_cpu_ = false;
-  bool split_channel = false;
+  bool pack_channel = false;
+  bool split_cpu_concat = false;
   ConvParam param_;
   ConcatPE concatPE_;
   SplitPE splitPE_;
