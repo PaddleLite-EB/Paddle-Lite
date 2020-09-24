@@ -20,6 +20,7 @@ cmake .. \
         -DLITE_WITH_X86=OFF \
         -DLITE_WITH_ARM=ON \
         -DLITE_WITH_FPGA=ON \
+        -DLITE_WITH_CV=ON \
         -DLITE_WITH_OPENMP=ON \
         -DLITE_WITH_LIGHT_WEIGHT_FRAMEWORK=ON \
         -DWITH_TESTING=OFF \
