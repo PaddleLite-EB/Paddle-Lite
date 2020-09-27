@@ -61,9 +61,11 @@ class OutputPE : public PE {
 
   void apply() {
     transaction_ = TransactionManager::get_instance().getTransaction();
-    Action* action = new Action(config_bypass());
-    action_.reset(action);
-    transaction_->appendAction(action);
+    if (param_.input->dataType() == FP16) {
+      Action* action = new Action(config_bypass());
+      action_.reset(action);
+      transaction_->appendAction(action);
+    }
     TransactionManager::get_instance().endTransaction();
   }
 
@@ -71,6 +73,10 @@ class OutputPE : public PE {
     Tensor* input = param_.input;
     Tensor* output = param_.output;
     transaction_->startTraction();
+    if (input->dataType() == FP32) {
+      memcpy(output->mutableData<void>(), input->data<void>(), input->memorySize());
+      output->flush();
+    }
     output->invalidate();
     if (input->aligned()) {
       output->unalignImage();
