@@ -44,14 +44,16 @@ class InputPE : public PE {
         break;
     }
 
+    tmp_tensor_.mutableData<void>(param_.input->dataType(), param_.input->shape());
+
     BypassArgs args;
     args.input_data_type = in_type;
     args.output_data_type = out_type;
     args.input_layout_type = LAYOUT_HWC;
     args.output_layout_type = LAYOUT_HWC;
-    args.image.address = param_.input->data<void>();
-    args.image.scale_address = param_.input->scale();
-    args.image.channels = param_.input->shape().alignedElementCount();
+    args.image.address = tmp_tensor_.data<void>();
+    args.image.scale_address = tmp_tensor_.scale();
+    args.image.channels = tmp_tensor_.shape().alignedElementCount();
     args.image.height = 1;
     args.image.width = 1;
     args.image.pad_height = 0;
@@ -75,7 +77,6 @@ class InputPE : public PE {
     transaction_->appendAction(action);
 
     // TransactionManager::get_instance().endTransaction();
-
     // BypassParam& bypass_param = bypass_pe_.param();
     // bypass_param.input = param_.input;
     // bypass_param.output = param_.output;
@@ -87,8 +88,9 @@ class InputPE : public PE {
   bool dispatch() {
     // we need to align image first;
     Tensor* input = param_.input;
-    input->alignImage();
-    input->flush();
+    memcpy(tmp_tensor_.data<void>(), input->data<void>(), tmp_tensor_.memorySize());
+    tmp_tensor_.alignImage();
+    tmp_tensor_.flush();
     return true;
   }
 
@@ -96,6 +98,7 @@ class InputPE : public PE {
 
  private:
   InputParam param_;
+  Tensor tmp_tensor_;
   // BypassPE bypass_pe_;
 
   std::shared_ptr<Transaction> transaction_;
