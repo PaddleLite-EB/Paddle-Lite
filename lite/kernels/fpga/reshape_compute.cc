@@ -79,21 +79,29 @@ void FlattenCompute::Run() {
 void ReshapeCompute::PrepareForRun() {
   auto& param = Param<operators::ReshapeParam>();
   auto output = param.output;
-  output->mutable_data<float16>();
+
+  
   auto* input = param.x->ZynqTensor();
+
+  if (input->dataType() == zynqmp::FP16) {
+    output->mutable_data<float16>();
+  } else {
+    output->mutable_data<float>();
+  }
+  
 
   zynqmp::BypassParam& bypass_param = bypass_pe_.param();
   bypass_param.input = input;
   bypass_param.output = output->ZynqTensor();
   bypass_pe_.init();
   bypass_pe_.apply();
-  if (input->aligned() && input->shape().shouldAlign()) {
+  // if (input->aligned() && input->shape().shouldAlign()) {
     cpu_pe_.reset(new zynqmp::CPUPE());
     zynqmp::CPUParam& cpu_param = cpu_pe_->param();
     cpu_param.outputs.push_back(output->ZynqTensor());
     cpu_pe_->init();
     cpu_pe_->apply();
-  }
+  // }
 }
 
 void ReshapeCompute::Run() {
@@ -136,7 +144,7 @@ void ReshapeCompute::Run() {
   if (cpu_pe_) {
     cpu_pe_->dispatch();
     output->ZynqTensor()->invalidate();
-    output->ZynqTensor()->setAligned(true);
+    // output->ZynqTensor()->setAligned(true);
     output->ZynqTensor()->unalignImage();
     output->ZynqTensor()->flush();
     output->ZynqTensor()->setAligned(false);

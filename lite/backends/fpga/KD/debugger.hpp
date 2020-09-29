@@ -27,7 +27,7 @@
 namespace paddle {
 namespace lite {
 
-#define FPGA_PRINT_TENSOR
+// #define FPGA_PRINT_TENSOR
 
 class Debugger {
  public:

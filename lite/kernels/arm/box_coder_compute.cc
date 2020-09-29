@@ -16,6 +16,7 @@
 #include <string>
 #include <vector>
 #include "lite/backends/arm/math/funcs.h"
+#include "lite/backends/fpga/KD/pes/cpu_pe.hpp"
 
 namespace paddle {
 namespace lite {
@@ -157,6 +158,24 @@ void DecodeCenterSize(const Tensor* target_box,
   }
 }
 
+void BoxCoderCompute::PrepareForRun() {
+  auto& param = Param<operators::BoxCoderParam>();
+
+  target_box_.Resize(param.target_box->dims());
+  target_box_.mutable_data<float>();
+  
+  bypass_pe_.reset(new zynqmp::BypassPE());
+  zynqmp::BypassParam& bypass_param = bypass_pe_->param();
+  bypass_param.input = param.target_box->ZynqTensor();
+  bypass_param.output = target_box_.ZynqTensor();
+  bypass_pe_->init();
+  bypass_pe_->apply();
+
+  cpu_pe_.reset(new zynqmp::CPUPE());
+  cpu_pe_->init();
+  cpu_pe_->apply();
+}
+
 void BoxCoderCompute::Run() {
   /*
   auto& param = Param<operators::BoxCoderParam>();
@@ -172,10 +191,18 @@ void BoxCoderCompute::Run() {
                              box_normalized,
                              axis);
   */
+  bypass_pe_->dispatch();
+  cpu_pe_->dispatch();
   auto& param = Param<operators::BoxCoderParam>();
   auto* prior_box = param.prior_box;
   auto* prior_box_var = param.prior_box_var;
-  auto* target_box = param.target_box;
+  auto* target_box = &target_box_;
+  target_box->ZynqTensor()->invalidate();
+
+  // prior_box->ZynqTensor()->saveToFile("pb", true);
+  // prior_box_var->ZynqTensor()->saveToFile("pbv", true);
+  // target_box->ZynqTensor()->saveToFile("tb", true);
+
   auto* output_box = param.proposals;
   std::vector<float> variance = param.variance;
   const int axis = param.axis;

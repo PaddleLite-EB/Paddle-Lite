@@ -265,6 +265,10 @@ bool PriorBoxPE::dispatch() {
 
   param_.outputBoxes->flush();
   param_.outputVariances->flush();
+
+  // param_.outputBoxes->saveToFile("ob", true);
+  // param_.outputVariances->saveToFile("ov", true);
+
   return true;
 }
 

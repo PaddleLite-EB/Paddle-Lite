@@ -15,6 +15,8 @@
 #pragma once
 #include "lite/core/kernel.h"
 #include "lite/core/op_registry.h"
+#include "lite/backends/fpga/KD/pes/cpu_pe.hpp"
+#include "lite/backends/fpga/KD/pes/bypass_pe.hpp"
 
 namespace paddle {
 namespace lite {
@@ -25,9 +27,14 @@ class BoxCoderCompute : public KernelLite<TARGET(kARM), PRECISION(kFloat)> {
  public:
   using param_t = operators::BoxCoderParam;
 
+  void PrepareForRun() override;
   void Run() override;
 
   virtual ~BoxCoderCompute() = default;
+ private:
+  std::unique_ptr<zynqmp::CPUPE> cpu_pe_;
+  std::unique_ptr<zynqmp::BypassPE> bypass_pe_;
+  Tensor target_box_;
 };
 
 }  // namespace arm
