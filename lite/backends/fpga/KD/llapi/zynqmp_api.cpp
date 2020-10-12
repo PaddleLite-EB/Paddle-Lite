@@ -22,6 +22,7 @@ limitations under the License. */
 #include <cstring>
 #include <map>
 #include <utility>
+#include <mutex>
 
 #include "lite/backends/fpga/KD/llapi/zynqmp_api.h"
 
@@ -36,6 +37,7 @@ static std::map<void *, size_t> memory_map;
 
 static size_t memory_size_max = 0;
 static size_t memory_size = 0;
+static std::mutex g_mutex;
 
 static inline int do_ioctl(uint64_t req, const void *arg) {
 #ifdef PADDLE_MOBILE_OS_LINUX
@@ -102,7 +104,7 @@ void *fpga_malloc(size_t size) {
               << std::endl;
     throw(-1);
   }
-
+  const std::lock_guard<std::mutex> lock(g_mutex);
   memory_map.insert(std::make_pair(ptr, size));
   memory_size += size;
 
@@ -116,14 +118,21 @@ void *fpga_malloc(size_t size) {
 #endif
 }
 
-size_t fpga_get_memory_size(void *ptr) { return memory_map[ptr]; }
+size_t fpga_get_memory_size(void *ptr) {
+  const std::lock_guard<std::mutex> lock(g_mutex);
+  return memory_map[ptr];
+}
 
-size_t fpga_get_memory_size_max() { return memory_size_max; }
+size_t fpga_get_memory_size_max() {
+  const std::lock_guard<std::mutex> lock(g_mutex);
+  return memory_size_max;
+}
 
 size_t fpga_diagnose_memory(int detailed) {
   size_t total = 0;
   //        size_t size = 0;
   //        int i = 0;
+  const std::lock_guard<std::mutex> lock(g_mutex);
   auto iter = memory_map.begin();  // std::map<void *, size_t>::iterator
   while (iter != memory_map.end()) {
     total += iter->second;
@@ -134,6 +143,7 @@ size_t fpga_diagnose_memory(int detailed) {
 
 void fpga_free(void *ptr) {
   size_t size = 0;
+  const std::lock_guard<std::mutex> lock(g_mutex);
   auto iter = memory_map.find(ptr);  // std::map<void *, size_t>::iterator
   if (iter != memory_map.end()) {
     size = iter->second;
