@@ -141,13 +141,32 @@ class LITE_API ConfigBase {
   }
 };
 
+class LITE_API ModelBuffer {
+ public:
+  ModelBuffer(const char* model_buffer,
+              size_t model_buffer_size,
+              const char* param_buffer,
+              size_t param_buffer_size);
+  ModelBuffer(std::string&& model_buffer, std::string&& param_buffer);
+  std::string release_model();
+  std::string release_param();
+
+  ModelBuffer() = default;
+  ModelBuffer(const ModelBuffer&) = delete;
+  ModelBuffer& operator=(const ModelBuffer&) = delete;
+
+ private:
+  std::string model_;
+  std::string param_;
+};
+
 /// CxxConfig is the config for the Full feature predictor.
 class LITE_API CxxConfig : public ConfigBase {
   std::vector<Place> valid_places_;
   std::string model_file_;
   std::string param_file_;
+  std::shared_ptr<ModelBuffer> model_buffer_{nullptr};
   std::vector<std::string> passes_internal_{};
-  bool model_from_memory_{false};
 #ifdef LITE_WITH_X86
   int x86_math_library_math_threads_ = 1;
 #endif
@@ -171,10 +190,17 @@ class LITE_API CxxConfig : public ConfigBase {
                         size_t model_buffer_size,
                         const char* param_buffer,
                         size_t param_buffer_size) {
-    model_file_ = std::string(model_buffer, model_buffer + model_buffer_size);
-    param_file_ = std::string(param_buffer, param_buffer + param_buffer_size);
-    model_from_memory_ = true;
+    model_buffer_.reset(new ModelBuffer(
+        model_buffer, model_buffer_size, param_buffer, param_buffer_size));
   }
+
+  void set_model_buffer(std::shared_ptr<ModelBuffer> model_buffer) {
+    model_buffer_ = model_buffer;
+  }
+  std::shared_ptr<ModelBuffer> get_model_buffer() const {
+    return model_buffer_;
+  }
+
   // internal inference to choose passes for model optimizing,
   // it's designed for internal developer and not recommanded
   // for comman users.
@@ -188,7 +214,7 @@ class LITE_API CxxConfig : public ConfigBase {
   const std::vector<Place>& valid_places() const { return valid_places_; }
   std::string model_file() const { return model_file_; }
   std::string param_file() const { return param_file_; }
-  bool model_from_memory() const { return model_from_memory_; }
+  bool model_from_memory() const { return static_cast<bool>(model_buffer_); }
 
 #ifdef LITE_WITH_X86
   void set_x86_math_library_num_threads(int threads) {

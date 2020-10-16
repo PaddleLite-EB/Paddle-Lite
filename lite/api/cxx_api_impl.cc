@@ -67,6 +67,7 @@ void CxxPaddleApiImpl::Init(const lite_api::CxxConfig &config) {
     passes = {"type_layout_cast_preprocess_pass"};
     VLOG(1) << "add pass:" << passes[0];
   }
+
   raw_predictor_.Build(config, places, passes);
   mode_ = config.power_mode();
   threads_ = config.threads();

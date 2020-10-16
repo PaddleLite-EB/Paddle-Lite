@@ -13,6 +13,7 @@
 // limitations under the License.
 
 #include "lite/api/paddle_api.h"
+#include <utility>
 #include "lite/core/context.h"
 #include "lite/core/device_info.h"
 #include "lite/core/target_wrapper.h"
@@ -61,6 +62,11 @@ const int32_t *Tensor::data() const {
   return ctensor(raw_tensor_)->data<int32_t>();
 }
 
+template <>
+const int16_t *Tensor::data() const {
+  return ctensor(raw_tensor_)->data<int16_t>();
+}
+
 // Tensor::mutable_data
 template <>
 int *Tensor::mutable_data(TargetType type) const {
@@ -81,6 +87,10 @@ uint8_t *Tensor::mutable_data(TargetType type) const {
 template <>
 int64_t *Tensor::mutable_data(TargetType type) const {
   return tensor(raw_tensor_)->mutable_data<int64_t>(type);
+}
+template <>
+int16_t *Tensor::mutable_data(TargetType type) const {
+  return tensor(raw_tensor_)->mutable_data<int16_t>(type);
 }
 
 template <typename T, TargetType type>
@@ -216,6 +226,30 @@ void ConfigBase::set_threads(int threads) {
   mode_ = lite::DeviceInfo::Global().mode();
   threads_ = lite::DeviceInfo::Global().threads();
 #endif
+}
+
+ModelBuffer::ModelBuffer(const char *model_buffer,
+                         size_t model_buffer_size,
+                         const char *param_buffer,
+                         size_t param_buffer_size) {
+  model_ = std::string(model_buffer, model_buffer + model_buffer_size);
+  param_ = std::string(param_buffer, param_buffer + param_buffer_size);
+}
+
+ModelBuffer::ModelBuffer(std::string &&model_buffer,
+                         std::string &&param_buffer) {
+  model_ = std::forward<std::string>(model_buffer);
+  param_ = std::forward<std::string>(param_buffer);
+}
+
+std::string ModelBuffer::release_model() {
+  CHECK(!model_.empty());
+  return std::move(model_);
+}
+
+std::string ModelBuffer::release_param() {
+  CHECK(!param_.empty());
+  return std::move(param_);
 }
 
 #ifdef LITE_WITH_MLU

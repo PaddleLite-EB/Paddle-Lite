@@ -31,11 +31,15 @@ if ((NOT LITE_ON_TINY_PUBLISH) AND (LITE_WITH_CUDA OR LITE_WITH_X86 OR LITE_WITH
         target_link_libraries(paddle_full_api_shared ${math_cuda} "-Wl,--whole-archive" ${cuda_kernels} "-Wl,--no-whole-archive")
     endif(LITE_WITH_CUDA)
 
+    if(LITE_WITH_CV)
+        target_link_libraries(paddle_full_api_shared "-Wl,--whole-archive" paddle_cv_arm "-Wl,--no-whole-archive")
+    endif(LITE_WITH_CV)
+
     #light api dynamic library
     lite_cc_library(paddle_light_api_shared SHARED SRCS paddle_api.cc light_api.cc light_api_impl.cc
                   DEPS ${light_lib_DEPS}
                   ARM_DEPS ${arm_kernels}
-                  CV_DEPS paddle_cv_arm
+                  CV_DEPS ${paddle_cv_arm}
                   NPU_DEPS ${npu_kernels}
                   APU_DEPS ${apu_kernels}
                   RKNPU_DEPS ${rknpu_kernels}
@@ -136,7 +140,7 @@ if (NOT LITE_ON_TINY_PUBLISH)
                         X86_DEPS ${x86_kernels}
                         CUDA_DEPS ${cuda_kernels}
                         ARM_DEPS ${arm_kernels}
-                        CV_DEPS paddle_cv_arm
+                        CV_DEPS ${paddle_cv_arm}
                         NPU_DEPS ${npu_kernels}
                         XPU_DEPS ${xpu_kernels}
                         APU_DEPS ${apu_kernels}
@@ -159,7 +163,7 @@ lite_cc_library(light_api SRCS light_api.cc
         CUDA_DEPS ${cuda_kernels}
         X86_DEPS ${x86_kernels}
         ARM_DEPS ${arm_kernels}
-        CV_DEPS paddle_cv_arm
+        CV_DEPS ${paddle_cv_arm}
         NPU_DEPS ${npu_kernels}
         APU_DEPS ${apu_kernels}
         XPU_DEPS ${xpu_kernels}
@@ -181,7 +185,7 @@ if(WITH_TESTING)
            X86_DEPS ${x86_kernels}
            CUDA_DEPS ${cuda_kernels}
            ARM_DEPS ${arm_kernels}
-           CV_DEPS paddle_cv_arm
+           CV_DEPS ${paddle_cv_arm}
            NPU_DEPS ${npu_kernels}
            APU_DEPS ${apu_kernels}
            XPU_DEPS ${xpu_kernels}
