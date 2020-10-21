@@ -381,6 +381,7 @@ void fpga_copy(void* dst, const void* src, int size);
 int fpga_flush(void* address, size_t size);
 int fpga_invalidate(void* address, size_t size);
 
+int get_version(const struct VersionArgs& args);
 int get_device_info(const struct DeviceInfoArgs& args);
 
 int perform_bypass(const struct BypassArgs& args);

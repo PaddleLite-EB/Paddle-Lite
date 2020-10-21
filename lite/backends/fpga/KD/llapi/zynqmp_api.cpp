@@ -284,6 +284,10 @@ int compute_fpga_ewadd(const struct EWAddArgs &args) {
   return do_ioctl(IOCTL_CONFIG_EW, &args);
 }
 
+int get_version(const struct VersionArgs &args) {
+  return do_ioctl(IOCTL_VERSION, &args);
+}
+
 int get_device_info(const struct DeviceInfoArgs &args) {
   // DeviceInfo info;
   // struct DeviceInfo* a = &info;
