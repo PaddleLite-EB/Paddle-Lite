@@ -56,6 +56,7 @@ class ElementwiseAddPE : public PE {
   }
 
   bool dispatch() {
+    FPGALock lock;
     param_.inputs[0]->syncToDevice();
     param_.inputs[1]->syncToDevice();
     // InplaceArgs inplace_ = {0};

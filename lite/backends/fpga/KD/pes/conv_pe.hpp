@@ -234,6 +234,9 @@ class ConvPE : public PE {
       cpu_compute();
       return true;
     }
+
+    FPGALock lock;
+    
     inplace_.global_pool_en = false;
     if (param_.activeParam.type == TYPE_RELU) {
       inplace_.relu_enable = true;

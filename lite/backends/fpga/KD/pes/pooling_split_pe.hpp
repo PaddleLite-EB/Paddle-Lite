@@ -168,6 +168,7 @@ class PoolingSplitPE : public PE {
       return true;
     }
 
+    FPGALock lock;
     if (splitParams_.size() > 1) {
       splitPE_.dispatch();
     }

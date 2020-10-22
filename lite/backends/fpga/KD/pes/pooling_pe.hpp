@@ -202,6 +202,7 @@ class PoolingPE : public PE {
       compute();
       return true;
     }
+    FPGALock lock;
     if (param_.globalPooling) {
       inplace_.relu_enable = false;
       inplace_.leaky_relu_enable = false;
