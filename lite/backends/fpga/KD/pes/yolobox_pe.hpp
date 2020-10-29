@@ -124,9 +124,10 @@ class YoloBoxPE : public PE {
     Tensor input_float;
     input_float.setDataLocation(CPU);
     float* input_data = input_float.mutableData<float>(FP32, input->shape());
-    input_float.setAligned(input->aligned());
     input_float.copyFrom(input);
+    input_float.setAligned(input->aligned());
     input_float.unalignImage();
+    input_float.setAligned(false);
 
     int32_t* imgsize_data = imgsize->mutableData<int32_t>();
     // imgsize->saveToFile("img_size", true);
@@ -143,7 +144,6 @@ class YoloBoxPE : public PE {
     float* scores_float_data =
         scores_float.mutableData<float>(FP32, scores->shape());
     memset(scores_float_data, 0, scores->shape().numel() * sizeof(float));
-
     // float* boxes_data = boxes->mutableData<float>();
     // memset(boxes_data, 0, boxes->shape().numel() * sizeof(float));
 
@@ -204,7 +204,7 @@ class YoloBoxPE : public PE {
 
     boxes->copyFrom(&boxes_float);
     scores->copyFrom(&scores_float);
-    input->setAligned(true);
+    // input->setAligned(true);
   }
 
   void apply() {}
