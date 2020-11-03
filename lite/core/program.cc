@@ -24,6 +24,10 @@
 #include "lite/core/profile/precision_profiler.h"
 #endif
 
+#ifdef LITE_WITH_FPGA
+#include "lite/backends/fpga/monitor.hpp"
+#endif
+
 namespace paddle {
 namespace lite {
 
@@ -271,6 +275,11 @@ void RuntimeProgram::Run() {
                                  lite::Color::Engine);
   }
 #endif
+
+#ifdef LITE_WITH_FPGA
+  Monitor& monitor = Monitor::get_instance();
+#endif
+
   int idx = -1;
   auto& insts = instructions_[kRootBlockIdx];
   for (auto& inst : insts) {
@@ -290,7 +299,17 @@ void RuntimeProgram::Run() {
       inst.Sync();
     }
 #endif
+
+#ifdef LITE_WITH_FPGA
+    monitor.preRun(inst);
+#endif
+
     inst.Run();
+
+#ifdef LITE_WITH_FPGA
+    monitor.postRun(inst);
+#endif
+
 #ifdef LITE_WITH_PRECISION_PROFILE
 #ifndef LITE_WITH_FPGA
     precision_profiler_summary +=
