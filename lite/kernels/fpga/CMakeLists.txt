@@ -13,6 +13,7 @@ add_kernel(cast_compute_fpga FPGA basic SRCS cast_compute.cc DEPS ${fpga_deps})
 add_kernel(concat_compute_fpga FPGA basic SRCS concat_compute.cc DEPS ${fpga_deps})
 
 add_kernel(conv_compute_fpga FPGA basic SRCS conv_compute.cc DEPS ${fpga_deps})
+add_kernel(conv_transpose_compute_fpga FPGA basic SRCS conv_transpose_compute.cc DEPS ${fpga_deps})
 # add_kernel(density_prior_box_compute_fpga FPGA basic SRCS density_prior_box_compute.cc DEPS ${fpga_deps})
 add_kernel(dropout_compute_fpga FPGA basic SRCS dropout_compute.cc DEPS ${fpga_deps})
 add_kernel(elementwise_compute_fpga FPGA basic SRCS elementwise_compute.cc DEPS ${fpga_deps})
