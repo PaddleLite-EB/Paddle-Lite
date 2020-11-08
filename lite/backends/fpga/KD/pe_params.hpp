@@ -311,5 +311,11 @@ struct GRUParam : PEParam {
   bool origin_mode = false;
 };
 
+struct BypassParam : PEParam {
+ public:
+  Tensor* input = nullptr;
+  Tensor* output = nullptr;
+};
+
 }  // namespace zynqmp
 }  // namespace paddle
