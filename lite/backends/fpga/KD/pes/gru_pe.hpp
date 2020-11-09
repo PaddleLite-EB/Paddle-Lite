@@ -84,7 +84,7 @@ class GRUPE : public PE {
     mul_pe_.apply();
   }
 
-  bool dispatch() { return true; }
+  bool dispatch(FPGALock* lock = nullptr) { return true; }
 
   void gru_unit_reset_act(const lite_api::ActivationType active_gate,
                           GRUTensors& value,  // NOLINT

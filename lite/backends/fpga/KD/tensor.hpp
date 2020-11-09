@@ -266,7 +266,7 @@ class Tensor {
     shape_ = new Shape(const_cast<Shape&>(shape));
   }
 
-  void copyFrom(Tensor* src) {
+  void copyFrom(Tensor* src, FPGALock* lock = nullptr) {
     if (src->dataType_ == dataType_) {
       src->syncToCPU();
       memcpy(data<void>(), src->data<void>(), memorySize());
@@ -274,6 +274,10 @@ class Tensor {
       flush();
       return;
     }
+
+    FPGALock fpga_lock(lock);
+    fpga_lock.lock();
+
     int count = src->aligned_ ? src->shape().alignedElementCount()
                               : src->shape().numel();
     BypassArgs args;

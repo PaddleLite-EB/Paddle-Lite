@@ -17,7 +17,7 @@ limitations under the License. */
 namespace paddle {
 namespace zynqmp {
 
-bool CropPE::dispatch() {
+bool CropPE::dispatch(FPGALock* lock) {
   Tensor* input = param_.input;
   input->syncToCPU();
   const auto axis = param_.axis;

@@ -82,7 +82,9 @@ class ConcatPE : public PE {
     output->flush();
   }
 
-  bool dispatch() {
+  bool dispatch(FPGALock* lock = nullptr) {
+    // FPGALock fpga_lock(lock);
+    // fpga_lock.lock();
     Tensor* output = param_.output;
     Shape& output_shape = output->shape();
 

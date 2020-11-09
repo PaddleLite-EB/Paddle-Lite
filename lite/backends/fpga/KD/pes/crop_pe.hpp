@@ -35,7 +35,7 @@ class CropPE : public PE {
 
   void apply() {}
 
-  bool dispatch();
+  bool dispatch(FPGALock* lock = nullptr);
 
   CropParam& param() { return param_; }
 

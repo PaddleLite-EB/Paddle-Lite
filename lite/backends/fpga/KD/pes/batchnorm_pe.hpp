@@ -75,7 +75,9 @@ class BatchnormPE : public PE {
 
   void apply() { scalePE_.apply(); }
 
-  bool dispatch() {
+  bool dispatch(FPGALock* lock = nullptr) {
+    FPGALock fpga_lock(lock);
+    fpga_lock.lock();
     if (param_.activeParam.type == TYPE_RELU) {
       inplace_.relu_enable = true;
     } else if (param_.activeParam.type == TYPE_RELU6) {
@@ -94,7 +96,7 @@ class BatchnormPE : public PE {
     ScaleParam& scale_param = scalePE_.param();
     float16* input = scale_param.input->mutableData<float16>();
 
-    bool ret = scalePE_.dispatch();
+    bool ret = scalePE_.dispatch(&fpga_lock);
     // bool ret = cpu_compute();
     if (inplace_.relu_enable || inplace_.leaky_relu_enable ||
         inplace_.relu6_enable || inplace_.sigmoid_enable) {

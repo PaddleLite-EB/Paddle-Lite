@@ -28,7 +28,9 @@ class PE {
 
   virtual void apply() {}
 
-  virtual bool dispatch() { return false; }
+  // virtual bool dispatch() { return false; }
+
+  virtual bool dispatch(FPGALock* lock = nullptr) { return false; }
 
   virtual ~PE() {}
 };

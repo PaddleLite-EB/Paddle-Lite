@@ -29,7 +29,9 @@ class InputPE : public PE {
     return true;
   }
 
-  bool dispatch() {
+  bool dispatch(FPGALock* lock = nullptr) {
+    FPGALock fpga_lock(lock);
+    fpga_lock.lock();
     Tensor* input = param_.input;
     Tensor* output = param_.output;
 
@@ -52,7 +54,7 @@ class InputPE : public PE {
         bypassPE_.param().output = output;
         bypassPE_.init();
         bypassPE_.apply();
-        bypassPE_.dispatch();
+        bypassPE_.dispatch(&fpga_lock);
         break;
       default:
         output->mutableData<void>();

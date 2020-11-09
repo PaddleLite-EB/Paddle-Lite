@@ -106,10 +106,12 @@ class NormPE : public PE {
     param_.output->copyFrom(&float_out);
   }
 
-  bool dispatch() {
+  bool dispatch(FPGALock* lock = nullptr) {
     cpuCompute();
     // std::cout << "FPGA normalize ---------------------" << std::endl;
 
+    // FPGALock fpga_lock(lock);
+    // fpga_lock.lock();
     // param_.input->syncToDevice();
     // config_norm_param(norm_param_args_);
     // inplace_args_.normalize_enable = true;

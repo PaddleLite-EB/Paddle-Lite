@@ -160,6 +160,11 @@ class PoolingSplitPE : public PE {
   }
 
   bool dispatch() {
+    FPGALock* lock = nullptr;
+    dispatch(lock);
+  }
+
+  bool dispatch(FPGALock* lock) {
     Tensor* output = param_.output;
     param_.input->syncToDevice();
 
@@ -168,8 +173,11 @@ class PoolingSplitPE : public PE {
       return true;
     }
 
+    FPGALock fpga_lock(lock);
+    fpga_lock.lock();
+
     if (splitParams_.size() > 1) {
-      splitPE_.dispatch();
+      splitPE_.dispatch(&fpga_lock);
     }
 
     int ret = 0;
@@ -211,7 +219,7 @@ class PoolingSplitPE : public PE {
     }
 
     if (splitParams_.size() > 1) {
-      concatPE_.dispatch();
+      concatPE_.dispatch(&fpga_lock);
     }
 
     return ret;

@@ -71,7 +71,9 @@ class DepthwiseConvSplitPE : public PE {
     }
   }
 
-  bool dispatch() {
+  bool dispatch(FPGALock* lock = nullptr) {
+    FPGALock fpga_lock(lock);
+    fpga_lock.lock();
     param_.input->syncToDevice();
     if (param_.activeParam.type == TYPE_RELU) {
       inplace_.relu_enable = true;
@@ -121,12 +123,6 @@ class DepthwiseConvSplitPE : public PE {
   ConcatPE concatPE_;
   SplitPE splitPE_;
   InplaceArgs inplace_ = {0};
-};
-
-private:
-DepthwiseConvParam param_;
-Tensor bias_;
-InplaceArgs inplace_ = {0};
 };
 
 }  // namespace zynqmp

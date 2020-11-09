@@ -129,7 +129,14 @@ class DepthwiseConvPE : public PE {
     inplace_.normalize_enable = false;
   }
 
-  bool dispatch() {
+  // bool dispatch() {
+  //   FPGALock* lock = nullptr;
+  //   dispatch(lock);
+  // }
+
+  bool dispatch(FPGALock* lock = nullptr) {
+    FPGALock fpga_lock(lock);
+    fpga_lock.lock();
     param_.input->syncToDevice();
     if (param_.activeParam.type == TYPE_RELU) {
       inplace_.relu_enable = true;

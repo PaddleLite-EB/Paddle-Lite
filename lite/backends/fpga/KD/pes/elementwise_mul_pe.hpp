@@ -60,7 +60,9 @@ class ElementwiseMulPE : public PE {
     }
   }
 
-  bool dispatch() {
+  bool dispatch(FPGALock* lock = nullptr) {
+    FPGALock fpga_lock(lock);
+    fpga_lock.lock();
     compute_fpga_scale(args_) == 0;
     return true;
   }

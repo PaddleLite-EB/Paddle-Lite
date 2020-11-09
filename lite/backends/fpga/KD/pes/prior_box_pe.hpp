@@ -29,7 +29,7 @@ class PriorBoxPE : public PE {
     return true;
   }
 
-  bool dispatch();
+  bool dispatch(FPGALock* lock = nullptr);
 
   void apply();
 

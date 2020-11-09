@@ -174,7 +174,9 @@ class ScalePE : public PE {
     output->scale()[1] = 127.0f / max;
   }
 
-  bool dispatch() {
+  bool dispatch(FPGALock* lock = nullptr) {
+    FPGALock fpga_lock(lock);
+    fpga_lock.lock();
     if (param_.scale->dataType() == FP16) {
       DepthwiseConvParam& dw_param = dw_pe_.param();
       memcpy(dw_param.quantizedFilter()->mutableData<float16>(),
@@ -185,7 +187,7 @@ class ScalePE : public PE {
       dw_param.quantizedFilter()->flush();
     }
     param_.input->syncToDevice();
-    return dw_pe_.dispatch();
+    return dw_pe_.dispatch(&fpga_lock);
 
     // cpu_compute();
     return true;

@@ -30,7 +30,9 @@ class ReluPE : public PE {
 
   void apply() {}
 
-  bool dispatch() {
+  bool dispatch(FPGALock* lock = nullptr) {
+    // FPGALock fpga_lock(lock);
+    // fpga_lock.lock();
     param_.input->invalidate();
     int16_t* input_data = param_.input->data<int16_t>();
     float16* out_data = param_.output->data<float16>();

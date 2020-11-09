@@ -142,7 +142,9 @@ class TransposedConvPE : public PE {
     padded_input_.copyScaleFrom(param_.input);
   }
 
-  bool dispatch() {
+  bool dispatch(FPGALock* lock = nullptr) {
+    FPGALock fpga_lock(lock);
+    fpga_lock.lock();
     // int ih = param_.input->shape().height();
     // int iw = param_.input->shape().width();
     // if (ih == 8 && iw == 8) {
@@ -153,7 +155,7 @@ class TransposedConvPE : public PE {
       pad_input<float16>();
     }
 
-    bool vi = pe_.dispatch();
+    bool vi = pe_.dispatch(&fpga_lock);
 
     if (sub_filter_ena_ == true && vi == true) {
       float16* out_data = param_.output->data<float16>();

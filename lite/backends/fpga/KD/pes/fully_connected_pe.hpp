@@ -114,13 +114,15 @@ class FullyConnectedPE : public PE {
     output->scale()[1] = 127.0f / max;
   }
 
-  bool dispatch() {
+  bool dispatch(FPGALock* lock = nullptr) {
+    FPGALock fpga_lock(lock);
+    fpga_lock.lock();
     // int num = param_.filter->shape().channel();
     // if (num == 2) {
     //   cpu_compute();
     //   return 1;
     // } else {
-    return convPE_.dispatch();
+    return convPE_.dispatch(&fpga_lock);
     // }
   }
 

@@ -249,7 +249,9 @@ void PriorBoxPE::compute_prior_box() {
 
 void PriorBoxPE::apply() {}
 
-bool PriorBoxPE::dispatch() {
+bool PriorBoxPE::dispatch(FPGALock *lock) {
+  // FPGALock fpga_lock(lock);
+  // fpga_lock.lock();
   if (cachedBoxes_ == nullptr) {
     cachedBoxes_ = new Tensor();
     cachedVariances_ = new Tensor();

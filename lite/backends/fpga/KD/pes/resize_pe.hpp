@@ -105,7 +105,7 @@ class ResizePE : public PE {
     param_.output->copyScaleFrom(param_.input);
   }
 
-  bool dispatch() {
+  bool dispatch(FPGALock* lock = nullptr) {
     cpu_compute();
     // bool ret = compute_fpga_resize(args_) == 0;
     return true;

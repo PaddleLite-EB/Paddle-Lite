@@ -212,12 +212,14 @@ class PoolingPE : public PE {
     // exit(-1);
   }
 
-  bool dispatch() {
+  bool dispatch(FPGALock* lock = nullptr) {
     if (use_cpu_) {
       // cpu_compute();
       compute();
       return true;
     }
+    FPGALock fpga_lock(lock);
+    fpga_lock.lock();
     // param_.input->syncToDevice();
     if (param_.globalPooling) {
       inplace_.relu_enable = false;

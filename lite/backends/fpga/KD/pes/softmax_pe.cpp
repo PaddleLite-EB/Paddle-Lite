@@ -138,7 +138,7 @@ bool SoftmaxPE::init() {
   return true;
 }
 
-bool SoftmaxPE::dispatch() {
+bool SoftmaxPE::dispatch(FPGALock *lock) {
   Tensor *input = param_.input;
   Tensor *output = param_.output;
 

@@ -85,7 +85,9 @@ class SplitPE : public PE {
     // StridedNumelCopyWithAxis();
   }
 
-  bool dispatch() {
+  bool dispatch(FPGALock* lock = nullptr) {
+    // FPGALock fpga_lock(lock);
+    // fpga_lock.lock();
     Tensor* input = param_.input;
     input->syncToCPU();
     if (input->shape().dimSize() <= 3) {

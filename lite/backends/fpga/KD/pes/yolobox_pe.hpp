@@ -93,7 +93,7 @@ class YoloBoxPE : public PE {
     return true;
   }
 
-  bool dispatch() {
+  bool dispatch(FPGALock* lock = nullptr) {
     auto* input = param_.input;
     auto* imgsize = param_.imgSize;
     auto* boxes = param_.outputBoxes;

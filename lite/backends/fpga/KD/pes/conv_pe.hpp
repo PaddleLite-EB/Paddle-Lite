@@ -229,11 +229,14 @@ class ConvPE : public PE {
     output->invalidate();
   }
 
-  bool dispatch() {
+  bool dispatch(FPGALock* lock = nullptr) {
     if (use_cpu_) {
       cpu_compute();
       return true;
     }
+
+    FPGALock fpga_lock(lock);
+    fpga_lock.lock();
     inplace_.global_pool_en = false;
     if (param_.activeParam.type == TYPE_RELU) {
       inplace_.relu_enable = true;
@@ -259,8 +262,7 @@ class ConvPE : public PE {
     std::vector<BasicConvParam*>& params = param_.splitParams();
 
     if (split_channel && param_.deconv == false) {
-      // splitPE_.param().input->saveToFile("input_image",true);
-      splitPE_.dispatch();
+      splitPE_.dispatch(&fpga_lock);
     }
 
     int ret = 0;
@@ -286,26 +288,15 @@ class ConvPE : public PE {
 
     size_t size = params.size();
     if (split_axis == 0 && ret == 0 && size > 1 && param_.deconv == false) {
-      concatPE_.dispatch();
+      concatPE_.dispatch(&fpga_lock);
     }
     if (split_axis == 1 && ret == 0 && size > 1) {
-      // for (int n = 0; n < size - 1; n++) {
       ElementwiseAddParam& add_param = addPE_.param();
       add_param.inputs = {&params[0]->output, &params[1]->output};
       add_param.output = param_.output;
       addPE_.init();
       addPE_.apply();
-      addPE_.dispatch();
-
-      // param_.output->printScale();
-
-      // params[0]->input.saveToFile("conv_1.txt");
-      // params[1]->input.saveToFile("conv_2.txt");
-
-      // params[0]->output.saveToFile("ew_o1.txt");
-      // params[1]->output.saveToFile("ew_o2.txt");
-      // std::cout << "\n ================== EW ================== \n";
-      // }
+      addPE_.dispatch(&fpga_lock);
     }
 
     return ret == 0;
