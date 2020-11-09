@@ -88,7 +88,7 @@ void Conv2DTransposeCompute::PrepareForRun() {
 void Conv2DTransposeCompute::Run() {
   auto& param = this->Param<param_t>();
   transposed_conv_pe_.dispatch();
-  std::cout << "Conv2DTransposeCompute::Run" << std::endl;
+
 #ifdef FPGA_PRINT_TENSOR
   zynqmp::ConvParam& conv_param = transposed_conv_pe_.param();
   Debugger::get_instance().registerOutput("conv2d_transpose",

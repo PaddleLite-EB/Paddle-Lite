@@ -56,6 +56,8 @@ class TransposedConvPE : public PE {
     } else {
       sub_filter_ena_ = false;
     }
+    // 使用pad input方案
+    sub_filter_ena_ = false;
 
     ConvParam& conv_param = pe_.param();
 
@@ -69,6 +71,7 @@ class TransposedConvPE : public PE {
 
       conv_param = const_cast<ConvParam&>(param_);
       conv_param.deconv = true;
+      conv_param.activeParam.type = param_.activeParam.type;
 
     } else {
       // fill_transposed_split_arg(param_);
@@ -85,17 +88,21 @@ class TransposedConvPE : public PE {
                           padded_width});
 
       // int p = param_.kernelSize[0] - param_.paddings[0] - 1;
-      int p = kernel_width - param_.paddings[0] - 1;
+      // int p = kernel_width - param_.paddings[0] - 1;
+      int ph = param_.filter->shape().height() - param_.paddings[0] - 1;
+      int pw = param_.filter->shape().width() - param_.paddings[1] - 1;
+
       padded_input_.mutableData<float16>(FP16, padded_shape);
       conv_param.input = &padded_input_;
       conv_param.output = param_.output;
       conv_param.filter = &filter_;
       conv_param.strides = {1, 1};
-      conv_param.paddings = {p, p};
-      conv_param.kernelSize = {kernel_width, kernel_height};
+      conv_param.paddings = {ph, pw};
+      conv_param.kernelSize = {kernel_height, kernel_width};
       // conv_param.kernelSize = param_.kernelSize;
       conv_param.dilations = {1, 1};
       conv_param.deconv = false;
+      conv_param.activeParam.type = param_.activeParam.type;
       conv_param.scale()->mutableData<float>(FP32, param_.scale()->shape());
       conv_param.scale()->copyFrom(param_.scale());
       conv_param.bias()->mutableData<float>(FP32, param_.bias()->shape());
@@ -109,7 +116,7 @@ class TransposedConvPE : public PE {
   void pad_input() {
     param_.input->syncToCPU();
     T* input_data = param_.input->data<T>();
-
+    // param_.input->saveToFile("pad_input", true);
     int channel = param_.input->shape().channel();
     int in_wc = param_.input->shape().width() * channel;
 
@@ -136,6 +143,12 @@ class TransposedConvPE : public PE {
   }
 
   bool dispatch() {
+    // int ih = param_.input->shape().height();
+    // int iw = param_.input->shape().width();
+    // if (ih == 8 && iw == 8) {
+    //   param_.input->readFromFile("29_ew_add_relu_1_512_8_8");
+    //   std::cout << "29_ew_add_relu_1_512_8_8" << std::endl;
+    // }
     if (sub_filter_ena_ == false) {
       pad_input<float16>();
     }
