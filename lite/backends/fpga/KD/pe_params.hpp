@@ -219,6 +219,17 @@ struct SplitParam : PEParam {
   int num = 1;
 };
 
+struct SliceParam : PEParam {
+ public:
+  Tensor* input = nullptr;
+  Tensor* output = nullptr;
+  std::vector<int> axes;
+  std::vector<int32_t> starts;
+  std::vector<int32_t> ends;
+  std::vector<int> decrease_axis;
+  std::vector<int> infer_flags;
+};
+
 struct NormParam : PEParam {
  public:
   Tensor* input = nullptr;

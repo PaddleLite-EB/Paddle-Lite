@@ -115,6 +115,11 @@ void hwc_to_chw(float* chw_data,
                 int channel,
                 int height,
                 int width) {
+  // channel == 1 || width == 1 直接拷贝，优化性能
+  if (channel == 1 || width == 1) {
+    memcpy(chw_data, hwc_data, num * channel * height * width * sizeof(float));
+    return;
+  }
   int chw = channel * height * width;
   int wc = width * channel;
   int wh = width * height;
@@ -168,24 +173,24 @@ class IoCopyFpgaToHostCHWCompute
 
       hwc.ZynqTensor()->copyFrom(&tempTensor);
     } else {
-      // hwc.ZynqTensor()->copyFrom(param.x->ZynqTensor());
-      float16* in_data = param.x->ZynqTensor()->data<float16>();
-      // float* f_data =
-      param.x->ZynqTensor()->flush();
-      float max = 0;
+      hwc.ZynqTensor()->copyFrom(param.x->ZynqTensor());
+      // float16* in_data = param.x->ZynqTensor()->data<float16>();
+      // // float* f_data =
+      // param.x->ZynqTensor()->flush();
+      // float max = 0;
 
-      for (int i = 0; i < param.x->dims().production(); i++) {
-        float value = zynqmp::half_to_float(in_data[i]);
-        hwc_data[i] = value;
-        if (value < 0) {
-          value = -value;
-        }
-        if (value > max) {
-          max = value;
-        }
-      }
-      param.x->ZynqTensor()->scale()[0] = max / 127;
-      param.x->ZynqTensor()->scale()[1] = 127 / max;
+      // for (int i = 0; i < param.x->dims().production(); i++) {
+      //   float value = zynqmp::half_to_float(in_data[i]);
+      //   hwc_data[i] = value;
+      //   if (value < 0) {
+      //     value = -value;
+      //   }
+      //   if (value > max) {
+      //     max = value;
+      //   }
+      // }
+      // param.x->ZynqTensor()->scale()[0] = max / 127;
+      // param.x->ZynqTensor()->scale()[1] = 127 / max;
     }
 
     int num = 1;
