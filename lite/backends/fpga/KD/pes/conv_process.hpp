@@ -185,7 +185,6 @@ inline void format_16_bias(Tensor* bias, Tensor* quantized_bias, int channel) {
       quantized_bias->mutableData<float16>(FP16, shape);
 
   float* bias_data = bias->data<float>();
-  // bias aligned to 16 by hw;
   for (int i = 0; i < repeat; i++) {
     for (int j = 0; j < length; j++) {
       float16 value = float_to_half(bias_data[j]);
@@ -261,6 +260,7 @@ inline void format_filter(Tensor* filter,
                           std::vector<float>& scales,  // NOLINT
                           float max) {
   float max_value = find_max(*filter);
+
   Shape& filter_shape = filter->shape();
 
   int mem_size;
@@ -286,10 +286,6 @@ inline void format_filter(Tensor* filter,
   memcpy(src, quantized_data, mem_size);
   quantized_filter->flush();
   fpga_free(quantized_data);
-
-  for (size_t i = 0; i < max_values.size(); i++) {
-    scales.push_back(max_values[i] / max_value);
-  }
 }
 
 inline void format_dw_filter(Tensor* filter,
@@ -335,13 +331,16 @@ inline void split_filter_num(const ConvParam& c_param) {
   Tensor* input = param.input;
   Tensor* out = param.output;
   Tensor* filter = param.filter;
-  auto channel = out->shape().channel();
+  auto out_channel = out->shape().channel();
   int split_num = get_split_num(param.filter);
   int filter_num_per_div = get_filter_num_per_div(filter, param.groups);
+  param.cpu_concat =
+      out_channel % 16 != 0 && split_num > 1 && out->shape().width() != 1;
 
   float max = find_max(*filter);
-
   Shape& out_shape = out->shape();
+  float16* tmp_address = nullptr;
+
   for (int i = 0; i < split_num; i++) {
     BasicConvParam* conv_param = new BasicConvParam();
     conv_param->output.setDataLocation(Device);
@@ -353,19 +352,37 @@ inline void split_filter_num(const ConvParam& c_param) {
 
     ConvArgs& args = conv_param->args;
 
-    if (split_num == 1) {
-      out_address = out->data<float16>();
-      out_scale_address = out->scale();
+    if (i == split_num - 1) {
+      filter_num = out_channel - (split_num - 1) * filter_num_per_div;
+    } else {
+      filter_num = filter_num_per_div;
     }
-    filter_num = i == split_num - 1
-                     ? channel - (split_num - 1) * filter_num_per_div  // NOLINT
-                     : filter_num_per_div;
 
-    if (split_num != 1) {
-      Shape shape(NHWC, {1, out_shape.height(), out_shape.width(), filter_num});
-      out_address = conv_param->output.mutableData<float16>(FP16, shape);
-      out_scale_address = conv_param->output.scale();
+    int offset = i * filter_num_per_div;
+
+    if (param.cpu_concat) {
+      if (i == 0) {
+        Shape shape(NHWC,
+                    {1,
+                     out_shape.height(),
+                     out_shape.width(),
+                     filter_num_per_div * (split_num - 1)});
+        tmp_address = conv_param->output.mutableData<float16>(FP16, shape);
+      }
+      if (i == split_num - 1) {
+        Shape extra_shape(
+            NHWC, {1, out_shape.height(), out_shape.width(), filter_num});
+        out_address =
+            conv_param->output.mutableData<float16>(FP16, extra_shape);
+      } else {
+        out_address = tmp_address + offset;
+      }
+    } else {
+      out_address = out->data<float16>() + offset;
     }
+
+    out_scale_address = &conv_param->output_scale;
+
     Shape f_shape(NCHW,
                   {filter_num,
                    filter->shape().channel(),
@@ -383,11 +400,11 @@ inline void split_filter_num(const ConvParam& c_param) {
     new_filter.flush();
     conv_param->filter.mutableData<float>(FP32, f_shape);
 
-    std::vector<float> quant_scale;
-    format_filter(
-        &new_filter, &(conv_param->filter), param.groups, quant_scale, max);
+    std::vector<float> v;
+    format_filter(&new_filter, &(conv_param->filter), param.groups, v, max);
     conv_param->filter.setDataType(INT8);
 
+    //    int sb_num = 2 * align_to_x(filter_num, BS_NUM_ALIGNMENT);
     Tensor scale;
     Tensor bias;
 
@@ -397,15 +414,16 @@ inline void split_filter_num(const ConvParam& c_param) {
     float* scale_data = scale.mutableData<float>(FP32, s_shape);
     float* bias_data = bias.mutableData<float>(FP32, s_shape);
     for (int n = 0; n < filter_num; n++) {
-      scale_data[n] =
-          param.scale()->data<float>()[n + chnnnel_start] * quant_scale[n];
+      scale_data[n] = param.scale()->data<float>()[n + chnnnel_start];
     }
     for (int n = 0; n < filter_num; n++) {
       bias_data[n] = param.bias()->data<float>()[n + chnnnel_start];
     }
     format_bias_scale_new(&bias, &scale, &conv_param->scaleBias);
     conv_param->scaleBias.flush();
+
     args.group_num = param.groups;
+
     args.sb_address = conv_param->scaleBias.data<float16>();
     args.kernel.stride_h = param.strides[1];
     args.kernel.stride_w = param.strides[0];
@@ -422,7 +440,15 @@ inline void split_filter_num(const ConvParam& c_param) {
     args.image.height = input->shape().height();
     args.image.pad_width = param.paddings[1];
     args.image.pad_height = param.paddings[0];
+
     args.dilation = param.dilations[0];
+    args.deconv.enabled = false;
+    args.stride.rd_enabled = false;
+
+    args.stride.wr_enabled =
+        (split_num != 1 && (param.cpu_concat == false || i != split_num - 1));
+    args.stride.wr_offset =
+        param.cpu_concat ? filter_num_per_div * (split_num - 1) : out_channel;
 
     args.output.address = out_address;
     args.output.scale_address = out_scale_address;
@@ -444,6 +470,7 @@ inline void pack_channel_filter(const ConvParam& c_param) {
   int channel_per_pack = filter->shape().channel() * group_per_pack;
 
   float max = find_max(*filter);
+
   Shape& out_shape = out->shape();
 
   for (int i = 0; i < pack_num; i++) {
@@ -461,7 +488,6 @@ inline void pack_channel_filter(const ConvParam& c_param) {
 
     if (pack_num == 1) {
       out_address = out->data<float16>();
-      out_scale_address = out->scale();
     }
 
     int new_group = param.groups;
@@ -490,8 +516,10 @@ inline void pack_channel_filter(const ConvParam& c_param) {
           NHWC,
           {1, out_shape.height(), out_shape.width(), filter_current_pack});
       out_address = conv_param->output.mutableData<float16>(FP16, shape);
-      out_scale_address = conv_param->output.scale();
     }
+
+    out_scale_address = &conv_param->output_scale;
+
     Shape f_shape(NCHW,
                   {filter_current_pack,
                    filter->shape().channel(),
@@ -512,9 +540,8 @@ inline void pack_channel_filter(const ConvParam& c_param) {
     float mem_factor = filter_num_alignment / filter_per_pack;
     conv_param->filter.setMemScale(mem_factor);
 
-    std::vector<float> quant_scale;
-    format_filter(
-        &new_filter, &(conv_param->filter), new_group, quant_scale, max);
+    std::vector<float> v;
+    format_filter(&new_filter, &(conv_param->filter), new_group, v, max);
     conv_param->filter.setDataType(INT8);
 
     Tensor scale;
@@ -526,15 +553,13 @@ inline void pack_channel_filter(const ConvParam& c_param) {
     float* scale_data = scale.mutableData<float>(FP32, s_shape);
     float* bias_data = bias.mutableData<float>(FP32, s_shape);
     for (int n = 0; n < filter_current_pack; n++) {
-      scale_data[n] =
-          param.scale()->data<float>()[n + chnnnel_start] * quant_scale[n];
+      scale_data[n] = param.scale()->data<float>()[n + chnnnel_start];
     }
     for (int n = 0; n < filter_current_pack; n++) {
       bias_data[n] = param.bias()->data<float>()[n + chnnnel_start];
     }
     format_bias_scale_new(&bias, &scale, &conv_param->scaleBias);
     conv_param->scaleBias.flush();
-
     args.group_num = new_group;
     args.sb_address = conv_param->scaleBias.data<float16>();
     args.kernel.stride_h = param.strides[1];
@@ -552,7 +577,11 @@ inline void pack_channel_filter(const ConvParam& c_param) {
     args.image.height = input->shape().height();
     args.image.pad_width = param.paddings[1];
     args.image.pad_height = param.paddings[0];
+
     args.dilation = param.dilations[0];
+    args.deconv.enabled = false;
+    args.stride.rd_enabled = false;
+    args.stride.wr_enabled = false;
 
     args.output.address = out_address;
     args.output.scale_address = out_scale_address;
@@ -572,7 +601,6 @@ inline void split_channel(const ConvParam& c_param) {
   Shape bs_shape(N, {channel});
 
   float max = 1.0f;
-
   for (int i = 0; i < num; i++) {
     BasicConvParam* conv_param = new BasicConvParam();
 
@@ -605,7 +633,7 @@ inline void split_channel(const ConvParam& c_param) {
     float* bias_data = bias.mutableData<float>(FP32, bs_shape);
     float* scale_data = scale.mutableData<float>(FP32, bs_shape);
     for (int c = 0; c < channel; c++) {
-      scale_data[c] = scales[c];
+      scale_data[c] = 1;
       bias_data[c] = param.bias()->data<float>()[c] / num;
     }
     scale.flush();
@@ -619,6 +647,7 @@ inline void split_channel(const ConvParam& c_param) {
 
     ConvArgs& args = conv_param->args;
     args.group_num = param.groups;
+
     args.sb_address = conv_param->scaleBias.data<float>();
     args.kernel.stride_h = param.strides[1];
     args.kernel.stride_w = param.strides[0];
@@ -636,6 +665,7 @@ inline void split_channel(const ConvParam& c_param) {
     args.image.height = conv_param->input.shape().height();
     args.image.pad_width = param.paddings[1];
     args.image.pad_height = param.paddings[0];
+
     args.dilation = param.dilations[0];
     args.output.address = conv_param->output.mutableData<void>();
     args.output.scale_address = conv_param->output.scale();
@@ -657,7 +687,7 @@ inline int fill_split_arg(const ConvParam& c_param) {
     return 0;
   } else {
     pack_channel_filter(c_param);
-    return 0;
+    return 2;
   }
 }
 
@@ -693,6 +723,7 @@ inline void dwconv_split_channel(DepthwiseConvSplitParam& param) {  // NOLINT
   int wc_h_kernel = w * c * h_kernel;
   int dwconv_limit = 131072;
   int num = ceil(wc_h_kernel * 1.0f / dwconv_limit);
+
   while (input->shape().channel() % num != 0) {
     num++;
   }
@@ -703,7 +734,6 @@ inline void dwconv_split_channel(DepthwiseConvSplitParam& param) {  // NOLINT
   }
 
   Shape bs_shape(N, {channel});
-
   float16* output_address = nullptr;
   float16* input_address = nullptr;
   float* out_scale_address = nullptr;
@@ -755,7 +785,6 @@ inline void dwconv_split_channel(DepthwiseConvSplitParam& param) {  // NOLINT
     format_dw_filter(
         &split_filter, &(dwconv_param->quantizedFilter), scale_data);
     format_16_bias(&split_bias, &(dwconv_param->quantizedBias), channel);
-
     DWconvArgs& args = dwconv_param->args;
     args.bias_address = dwconv_param->quantizedBias.data<float16>();
     args.filter_address = dwconv_param->quantizedFilter.data<float16>();
@@ -775,6 +804,13 @@ inline void dwconv_split_channel(DepthwiseConvSplitParam& param) {  // NOLINT
     args.out_width = param.output->shape().width();
     args.out_height = param.output->shape().height();
     args.sub_conv_num = 1;
+
+    if (param.dilations.size() == 0 || param.dilations[0] <= 1) {
+      args.dilation = 1;
+    } else {
+      args.dilation = param.dilations[0];
+    }
+
     param.splitParams().push_back(dwconv_param);
   }
 }

@@ -66,7 +66,7 @@ void reset_device() {
 
 // memory management;
 void *fpga_malloc(size_t size) {
-#ifdef PADDLE_OS_LINUX
+#ifdef PADDLE_MOBILE_OS_LINUX
   void *ptr = reinterpret_cast<void *>(
       mmap64(NULL, size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0));
 
@@ -78,6 +78,9 @@ void *fpga_malloc(size_t size) {
     }
     if (errno == EINVAL) {
       std::cout << "mmap failed with invalid arguments ! (size=" << size << ")"
+                << std::endl;
+      throw(-1);
+      std::cout << "mmap failed with not enough memory ! (size=" << size << ")"
                 << std::endl;
       throw(-1);
     }
@@ -131,7 +134,7 @@ void fpga_free(void *ptr) {
 
   memory_size -= size;
 
-#ifdef PADDLE_OS_LINUX
+#ifdef PADDLE_MOBILE_OS_LINUX
 
   munmap(ptr, size);
 #else
@@ -287,6 +290,10 @@ int compute_fpga_resize(const struct ResizeArgs &args) {
 
 int compute_preprocess(const struct PreprocessArgs &args) {
   return do_ioctl(IOCTL_PREPROCESS, &args);
+}
+
+int reg_write(struct FpgaRegWriteArgs args) {
+  return do_ioctl(IOCTL_FPGA_REG_WRITE, &args);
 }
 
 int lock(const struct CNNLockArgs &args) {

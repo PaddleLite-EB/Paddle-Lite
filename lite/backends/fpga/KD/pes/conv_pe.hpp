@@ -144,9 +144,10 @@ class ConvPE : public PE {
     if (param_.deconv == false) {
       split_axis = fill_split_arg(param_);
 
-      split_channel = param_.groups != 1 && param_.splitParams().size() > 1;
+      pack_channel = split_axis == 2 && param_.splitParams().size() > 1;
+      split_cpu_concat = split_axis == 0 && param_.cpu_concat;
 
-      if (split_axis == 0 && param_.splitParams().size() > 1) {
+      if (pack_channel) {
         ConcatParam& concat_param = concatPE_.param();
         for (auto conv_param : param_.splitParams()) {
           concat_param.inputs.push_back(&conv_param->output);
@@ -154,9 +155,21 @@ class ConvPE : public PE {
         concat_param.output = param_.output;
         concatPE_.init();
         concatPE_.apply();
+      } else if (split_cpu_concat) {
+        ConcatParam& concat_param = concatPE_.param();
+
+        BasicConvParam* first = param_.splitParams().front();
+        concat_param.inputs.push_back(&(first->output));
+
+        BasicConvParam* last = param_.splitParams().back();
+        concat_param.inputs.push_back(&(last->output));
+
+        concat_param.output = param_.output;
+        concatPE_.init();
+        concatPE_.apply();
       }
 
-      if (split_channel) {
+      if (pack_channel) {
         SplitParam& split_param = splitPE_.param();
         split_param.input = param_.input;
         for (auto conv_param : param_.splitParams()) {
@@ -173,13 +186,11 @@ class ConvPE : public PE {
         param_.input->shape().channel() >= 2048) {
       use_cpu_ = true;
     }
-
     if (!use_cpu_) {
       param_.filter->releaseData();
     }
-
-    // exit(-1);
   }
+
   void cpu_compute() {
     Tensor* input = param_.input;
     Tensor* output = param_.output;
@@ -203,15 +214,6 @@ class ConvPE : public PE {
       float* out_ptr = mi;
 #pragma omp parallel for
       for (int j = 0; j < in_channel; j++) {
-        // float32x4_t x0 = vld1q_f32(image);
-        // float32x4_t x1 = vld1q_f32(filter_ptr);
-
-        // float32x4_t r = vmulq_f32(x0, x1);
-
-        // vst1q_f32(out_ptr, r);
-        // image += 4;
-        // filter_ptr += 4;
-        // out_ptr += 4;
         float value = image_addr[j] * filter_ptr[j];
         mi[j] = value;
       }
@@ -224,9 +226,7 @@ class ConvPE : public PE {
     }
     delete[] mi;
     float_output.flush();
-    output->flush();
     output->copyFrom(&float_output);
-    output->invalidate();
   }
 
   bool dispatch() {
@@ -236,8 +236,7 @@ class ConvPE : public PE {
     }
 
     FPGALock lock;
-    
-    inplace_.global_pool_en = false;
+
     if (param_.activeParam.type == TYPE_RELU) {
       inplace_.relu_enable = true;
     } else if (param_.activeParam.type == TYPE_RELU6) {
@@ -254,15 +253,14 @@ class ConvPE : public PE {
       if (inplace_.leaky_relu_enable) {
         activeParamterArgs.type = TYPE_LEAKY_RELU;
         activeParamterArgs.leaky_relu_factor =
-            float_to_half(param_.activeParam.leaky_relu_factor);
+            fp32_2_fp16(param_.activeParam.leaky_relu_factor);
         config_activation(activeParamterArgs);
       }
     }
 
     std::vector<BasicConvParam*>& params = param_.splitParams();
 
-    if (split_channel && param_.deconv == false) {
-      // splitPE_.param().input->saveToFile("input_image",true);
+    if (pack_channel && !param_.deconv) {
       splitPE_.dispatch();
     }
 
@@ -277,38 +275,26 @@ class ConvPE : public PE {
       inplace_.leaky_relu_enable = false;
       inplace_.relu6_enable = false;
       inplace_.sigmoid_enable = false;
-      inplace_.global_pool_en = false;
       config_inplace(inplace_);
 
       if (param_.activeParam.type == TYPE_LEAKY_RELU) {
         activeParamterArgs.type = TYPE_LEAKY_RELU;
-        activeParamterArgs.leaky_relu_factor = float_to_half(0);
+        activeParamterArgs.leaky_relu_factor = fp32_2_fp16(0);
         config_activation(activeParamterArgs);
       }
     }
 
-    size_t size = params.size();
-    if (split_axis == 0 && ret == 0 && size > 1 && param_.deconv == false) {
+    if ((pack_channel || split_cpu_concat) && ret == 0 && !param_.deconv) {
       concatPE_.dispatch();
     }
-    if (split_axis == 1 && ret == 0 && size > 1) {
-      // for (int n = 0; n < size - 1; n++) {
-      ElementwiseAddParam& add_param = addPE_.param();
-      add_param.inputs = {&params[0]->output, &params[1]->output};
-      add_param.output = param_.output;
-      addPE_.init();
-      addPE_.apply();
-      addPE_.dispatch();
 
-      // param_.output->printScale();
-
-      // params[0]->input.saveToFile("conv_1.txt");
-      // params[1]->input.saveToFile("conv_2.txt");
-
-      // params[0]->output.saveToFile("ew_o1.txt");
-      // params[1]->output.saveToFile("ew_o2.txt");
-      // std::cout << "\n ================== EW ================== \n";
-      // }
+    if (!param_.deconv) {
+      float scale = 0.0;
+      for (auto conv_param : param_.splitParams()) {
+        scale = std::max(scale, conv_param->output_scale);
+      }
+      param_.output->scale()[0] = scale;
+      param_.output->scale()[1] = 1.0f / scale;
     }
 
     return ret == 0;
@@ -318,7 +304,8 @@ class ConvPE : public PE {
 
  private:
   bool use_cpu_ = false;
-  bool split_channel = false;
+  bool pack_channel = false;
+  bool split_cpu_concat = false;
   ConvParam param_;
   ConcatPE concatPE_;
   SplitPE splitPE_;

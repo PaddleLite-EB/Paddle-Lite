@@ -69,6 +69,7 @@ struct BasicConvParam {
   Tensor filter;
   Tensor scaleBias;
   ConvArgs args;
+  float output_scale = 0;
 };
 
 struct ConvParam : PEParam {
@@ -79,14 +80,16 @@ struct ConvParam : PEParam {
 
   int groups = 1;
   bool deconv = false;
+  bool cpu_concat = false;
+
   std::vector<int> strides;
   std::vector<int> paddings;
   std::vector<int> kernelSize;
   std::vector<int> dilations;
 
-  Tensor* scale() { return &scale_; }
+  Tensor* scale() { return scale_; }
 
-  Tensor* bias() { return &bias_; }
+  Tensor* bias() { return bias_; }
 
   std::vector<BasicConvParam*>& splitParams() { return splitParams_; }
 
@@ -99,8 +102,10 @@ struct ConvParam : PEParam {
 
  protected:
   std::vector<BasicConvParam*> splitParams_;
-  Tensor scale_;
-  Tensor bias_;
+  //  Tensor scale_;
+  //  Tensor bias_;
+  Tensor* scale_ = new Tensor();
+  Tensor* bias_ = new Tensor();
 };
 
 struct BasicDWConvParam {
