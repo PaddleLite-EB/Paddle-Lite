@@ -373,6 +373,8 @@ struct GroupConvArgs {
   struct ConcatArgs concat_arg;
 };
 
+class FPGALock;
+
 inline int align_to_x(int num, int x) { return (num + x - 1) / x * x; }
 int open_device();
 void close_device();

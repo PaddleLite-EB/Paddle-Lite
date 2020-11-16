@@ -21,14 +21,16 @@ namespace zynqmp {
 
 class ReluPE : public PE {
  public:
-  bool init() {
+  bool init(FPGALock* lock = nullptr) {
+    FPGALock fpga_lock(lock);
+    fpga_lock.lock();
     Tensor* output = param_.output;
     output->setAligned(param_.input->aligned());
     output->setDataLocation(CPU);
     return true;
   }
 
-  void apply() {}
+  void apply(FPGALock* lock = nullptr) {}
 
   bool dispatch(FPGALock* lock = nullptr) {
     // FPGALock fpga_lock(lock);

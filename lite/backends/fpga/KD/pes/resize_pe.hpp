@@ -21,14 +21,18 @@ namespace paddle {
 namespace zynqmp {
 class ResizePE : public PE {
  public:
-  bool init() {
+  bool init(FPGALock* lock = nullptr) {
+    FPGALock fpga_lock(lock);
+    fpga_lock.lock();
     Tensor* output = param_.output;
     output->setAligned(true);
     output->setDataLocation(Device);
     return true;
   }
 
-  void apply() {
+  void apply(FPGALock* lock = nullptr) {
+    FPGALock fpga_lock(lock);
+    fpga_lock.lock();
     Tensor* input = param_.input;
     Tensor* output = param_.output;
     ResizeArgs& args = args_;

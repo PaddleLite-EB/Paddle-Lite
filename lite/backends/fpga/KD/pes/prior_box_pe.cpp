@@ -247,7 +247,7 @@ void PriorBoxPE::compute_prior_box() {
   output_variances->copyFrom(&variances);
 }
 
-void PriorBoxPE::apply() {}
+void PriorBoxPE::apply(FPGALock *lock) {}
 
 bool PriorBoxPE::dispatch(FPGALock *lock) {
   // FPGALock fpga_lock(lock);

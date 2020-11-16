@@ -26,14 +26,18 @@ namespace zynqmp {
 
 class NormPE : public PE {
  public:
-  bool init() {
+  bool init(FPGALock* lock = nullptr) {
+    FPGALock fpga_lock(lock);
+    fpga_lock.lock();
     Tensor* output = param_.output;
     output->setAligned(true);
     output->setDataLocation(Device);
     return true;
   }
 
-  void apply() {
+  void apply(FPGALock* lock = nullptr) {
+    FPGALock fpga_lock(lock);
+    fpga_lock.lock();
     inplace_args_.relu_enable = false;
     inplace_args_.power_enable = false;
     inplace_args_.normalize_enable = true;

@@ -23,7 +23,9 @@ namespace zynqmp {
 
 class SplitPE : public PE {
  public:
-  bool init() {
+  bool init(FPGALock* lock = nullptr) {
+    FPGALock fpga_lock(lock);
+    fpga_lock.lock();
     std::vector<Tensor*> outputs = param_.outputs;
     for (size_t i = 0; i < outputs.size(); i++) {
       Tensor* out = outputs[i];

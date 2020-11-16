@@ -24,9 +24,9 @@ namespace zynqmp {
 
 class PE {
  public:
-  virtual bool init() { return false; }
+  virtual bool init(FPGALock* lock = nullptr) { return false; }
 
-  virtual void apply() {}
+  virtual void apply(FPGALock* lock = nullptr) {}
 
   // virtual bool dispatch() { return false; }
 

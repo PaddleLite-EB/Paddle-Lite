@@ -35,14 +35,18 @@ class DepthwiseConvPE : public PE {
 
   inline int lcm_(int a, int b) { return a * b / gcd_(a, b); }
 
-  bool init() {
+  bool init(FPGALock* lock = nullptr) {
+    FPGALock fpga_lock(lock);
+    fpga_lock.lock();
     Tensor* output = param_.output;
     output->setAligned(true);
     output->setDataLocation(Device);
     return true;
   }
 
-  void apply() {
+  void apply(FPGALock* lock = nullptr) {
+    FPGALock fpga_lock(lock);
+    fpga_lock.lock();
     DepthwiseConvParam& param = param_;
     Tensor* input = param.input;
     Tensor* output = param.output;

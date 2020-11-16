@@ -31,7 +31,7 @@ namespace zynqmp {
 
 class SoftmaxPE : public PE {
  public:
-  bool init();
+  bool init(FPGALock* lock = nullptr);
 
   bool dispatch(FPGALock* lock = nullptr);
 

@@ -25,14 +25,16 @@ namespace zynqmp {
 
 class ConcatPE : public PE {
  public:
-  bool init() {
+  bool init(FPGALock* lock = nullptr) {
+    FPGALock fpga_lock(lock);
+    fpga_lock.lock();
     Tensor* output = param_.output;
     output->setAligned(false);
     output->setDataLocation(CPU);
     return true;
   }
 
-  void apply() {}
+  void apply(FPGALock* lock = nullptr) {}
 
   void concat2D() {
     int offset = 0;

@@ -85,7 +85,9 @@ inline void CalcLabelScore(float* scores,
 
 class YoloBoxPE : public PE {
  public:
-  bool init() {
+  bool init(FPGALock* lock = nullptr) {
+    FPGALock fpga_lock(lock);
+    fpga_lock.lock();
     param_.outputBoxes->setAligned(false);
     param_.outputScores->setAligned(false);
     param_.outputBoxes->setDataLocation(CPU);

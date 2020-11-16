@@ -131,7 +131,9 @@ static void softmax(Tensor *X, Tensor *Y) {
   }
 }
 
-bool SoftmaxPE::init() {
+bool SoftmaxPE::init(FPGALock *lock) {
+  FPGALock fpga_lock(lock);
+  fpga_lock.lock();
   Tensor *output = param_.output;
   output->setAligned(false);
   output->setDataLocation(CPU);

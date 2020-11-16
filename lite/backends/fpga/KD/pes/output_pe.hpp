@@ -23,7 +23,9 @@ namespace zynqmp {
 
 class OutputPE : public PE {
  public:
-  bool init() {
+  bool init(FPGALock* lock = nullptr) {
+    FPGALock fpga_lock(lock);
+    fpga_lock.lock();
     Tensor* output = param_.output;
     output->setAligned(false);
     return true;

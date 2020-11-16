@@ -23,8 +23,7 @@ namespace zynqmp {
 
 class SlicePE : public PE {
  public:
-  // bool init(FPGALock* lock = nullptr) { return true; }
-  bool init() { return true; }
+  bool init(FPGALock* lock = nullptr) { return true; }
 
   bool dispatch(FPGALock* lock = nullptr) {
     FPGALock fpga_lock(lock);

@@ -37,14 +37,18 @@ class DepthwiseConvSplitPE : public PE {
 
   inline int lcm_(int a, int b) { return a * b / gcd_(a, b); }
 
-  bool init() {
+  bool init(FPGALock* lock = nullptr) {
+    FPGALock fpga_lock(lock);
+    fpga_lock.lock();
     Tensor* output = param_.output;
     output->setAligned(true);
     output->setDataLocation(Device);
     return true;
   }
 
-  void apply() {
+  void apply(FPGALock* lock = nullptr) {
+    FPGALock fpga_lock(lock);
+    fpga_lock.lock();
     DepthwiseConvSplitParam& param = param_;
     Tensor* input = param.input;
     Tensor* output = param.output;
@@ -58,16 +62,16 @@ class DepthwiseConvSplitPE : public PE {
       for (auto dwconv_param : param_.splitParams()) {
         split_param.outputs.push_back(&dwconv_param->input);
       }
-      splitPE_.init();
-      splitPE_.apply();
+      splitPE_.init(&fpga_lock);
+      splitPE_.apply(&fpga_lock);
 
       ConcatParam& concat_param = concatPE_.param();
       for (auto dwconv_param : param_.splitParams()) {
         concat_param.inputs.push_back(&dwconv_param->output);
       }
       concat_param.output = param_.output;
-      concatPE_.init();
-      concatPE_.apply();
+      concatPE_.init(&fpga_lock);
+      concatPE_.apply(&fpga_lock);
     }
   }
 
@@ -93,7 +97,7 @@ class DepthwiseConvSplitPE : public PE {
     std::vector<BasicDWConvParam*>& params = param_.splitParams();
 
     if (params.size() > 1) {
-      splitPE_.dispatch();
+      splitPE_.dispatch(&fpga_lock);
     }
 
     int ret = 0;
@@ -102,7 +106,7 @@ class DepthwiseConvSplitPE : public PE {
     }
 
     if (params.size() > 1) {
-      concatPE_.dispatch();
+      concatPE_.dispatch(&fpga_lock);
     }
 
     if (inplace_.relu_enable || inplace_.leaky_relu_enable ||

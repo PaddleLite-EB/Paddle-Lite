@@ -25,7 +25,9 @@ namespace paddle {
 namespace zynqmp {
 class BatchnormPE : public PE {
  public:
-  bool init() {
+  bool init(FPGALock* lock = nullptr) {
+    FPGALock fpga_lock(lock);
+    fpga_lock.lock();
     Tensor* output = param_.output;
     output->setAligned(true);
     output->setDataLocation(Device);
@@ -73,7 +75,11 @@ class BatchnormPE : public PE {
     return true;
   }
 
-  void apply() { scalePE_.apply(); }
+  void apply(FPGALock* lock = nullptr) {
+    FPGALock fpga_lock(lock);
+    fpga_lock.lock();
+    scalePE_.apply(&fpga_lock);
+  }
 
   bool dispatch(FPGALock* lock = nullptr) {
     FPGALock fpga_lock(lock);

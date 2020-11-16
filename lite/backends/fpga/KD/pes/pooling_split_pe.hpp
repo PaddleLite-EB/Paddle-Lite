@@ -41,14 +41,18 @@ class PoolingSplitPE : public PE {
 
   inline int lcm_(int a, int b) { return a * b / gcd_(a, b); }
 
-  bool init() {
+  bool init(FPGALock* lock = nullptr) {
+    FPGALock fpga_lock(lock);
+    fpga_lock.lock();
     Tensor* output = param_.output;
     output->setAligned(true);
     output->setDataLocation(Device);
     return true;
   }
 
-  void apply() {
+  void apply(FPGALock* lock = nullptr) {
+    FPGALock fpga_lock(lock);
+    fpga_lock.lock();
     PoolingParam& param = param_;
     Tensor* input = param.input;
     Tensor* output = param.output;
@@ -82,16 +86,16 @@ class PoolingSplitPE : public PE {
       for (auto pooling_param : splitParams_) {
         split_param.outputs.push_back(pooling_param->input);
       }
-      splitPE_.init();
-      splitPE_.apply();
+      splitPE_.init(&fpga_lock);
+      splitPE_.apply(&fpga_lock);
 
       ConcatParam& concat_param = concatPE_.param();
       for (auto pooling_param : splitParams_) {
         concat_param.inputs.push_back(pooling_param->output);
       }
       concat_param.output = param_.output;
-      concatPE_.init();
-      concatPE_.apply();
+      concatPE_.init(&fpga_lock);
+      concatPE_.apply(&fpga_lock);
     }
   }
 

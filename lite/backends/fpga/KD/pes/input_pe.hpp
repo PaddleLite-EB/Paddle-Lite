@@ -22,7 +22,9 @@ namespace zynqmp {
 
 class InputPE : public PE {
  public:
-  bool init() {
+  bool init(FPGALock* lock = nullptr) {
+    FPGALock fpga_lock(lock);
+    fpga_lock.lock();
     Tensor* output = param_.output;
     output->setAligned(true);
     output->setDataLocation(Device);
@@ -52,8 +54,8 @@ class InputPE : public PE {
         input->setAligned(true);
         bypassPE_.param().input = input;
         bypassPE_.param().output = output;
-        bypassPE_.init();
-        bypassPE_.apply();
+        bypassPE_.init(&fpga_lock);
+        bypassPE_.apply(&fpga_lock);
         bypassPE_.dispatch(&fpga_lock);
         break;
       default:

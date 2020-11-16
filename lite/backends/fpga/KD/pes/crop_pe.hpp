@@ -26,14 +26,16 @@ namespace paddle {
 namespace zynqmp {
 class CropPE : public PE {
  public:
-  bool init() {
+  bool init(FPGALock* lock = nullptr) {
+    FPGALock fpga_lock(lock);
+    fpga_lock.lock();
     Tensor* output = param_.output;
     output->setAligned(true);
     output->setDataLocation(CPU);
     return true;
   }
 
-  void apply() {}
+  void apply(FPGALock* lock = nullptr) {}
 
   bool dispatch(FPGALock* lock = nullptr);
 

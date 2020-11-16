@@ -21,7 +21,7 @@ namespace zynqmp {
 
 class PriorBoxPE : public PE {
  public:
-  bool init() {
+  bool init(FPGALock* lock = nullptr) {
     param_.outputBoxes->setAligned(false);
     param_.outputVariances->setAligned(false);
     param_.outputBoxes->setDataLocation(CPU);
@@ -31,7 +31,7 @@ class PriorBoxPE : public PE {
 
   bool dispatch(FPGALock* lock = nullptr);
 
-  void apply();
+  void apply(FPGALock* lock = nullptr);
 
   PriorBoxParam& param() { return param_; }
 

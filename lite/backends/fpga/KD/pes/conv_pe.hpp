@@ -133,14 +133,18 @@ class ConvPE : public PE {
     // exit(-1);
   }
 
-  bool init() {
+  bool init(FPGALock* lock = nullptr) {
+    FPGALock fpga_lock(lock);
+    fpga_lock.lock();
     Tensor* output = param_.output;
     output->setAligned(true);
     output->setDataLocation(Device);
     return true;
   }
 
-  void apply() {
+  void apply(FPGALock* lock = nullptr) {
+    FPGALock fpga_lock(lock);
+    fpga_lock.lock();
     if (param_.deconv == false) {
       split_axis = fill_split_arg(param_);
 
@@ -152,8 +156,8 @@ class ConvPE : public PE {
           concat_param.inputs.push_back(&conv_param->output);
         }
         concat_param.output = param_.output;
-        concatPE_.init();
-        concatPE_.apply();
+        concatPE_.init(&fpga_lock);
+        concatPE_.apply(&fpga_lock);
       }
 
       if (split_channel) {
@@ -162,8 +166,8 @@ class ConvPE : public PE {
         for (auto conv_param : param_.splitParams()) {
           split_param.outputs.push_back(&conv_param->input);
         }
-        splitPE_.init();
-        splitPE_.apply();
+        splitPE_.init(&fpga_lock);
+        splitPE_.apply(&fpga_lock);
       }
     }
 

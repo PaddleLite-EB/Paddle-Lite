@@ -36,14 +36,18 @@ class ScalePE : public PE {
   }
 
   inline int lcm(int a, int b) { return a * b / gcd(a, b); }
-  bool init() {
+  bool init(FPGALock* lock = nullptr) {
+    FPGALock fpga_lock(lock);
+    fpga_lock.lock();
     Tensor* output = param_.output;
     output->setAligned(true);
     output->setDataLocation(Device);
     return true;
   }
 
-  void apply() {
+  void apply(FPGALock* lock = nullptr) {
+    FPGALock fpga_lock(lock);
+    fpga_lock.lock();
     Tensor* input = param_.input;
     Tensor* output = param_.output;
     Shape& input_shape = input->shape();
@@ -128,8 +132,8 @@ class ScalePE : public PE {
     dw_param.kernelSize = {1, 1};
     dw_param.dilations = {1, 1};
 
-    dw_pe_.init();
-    dw_pe_.apply();
+    dw_pe_.init(&fpga_lock);
+    dw_pe_.apply(&fpga_lock);
   }
 
   void cpu_compute() {
