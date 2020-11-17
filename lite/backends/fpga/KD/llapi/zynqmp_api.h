@@ -125,6 +125,13 @@ struct DeconvArgs {
                              // each row directly in FPGA
 };
 
+struct StrideArgs {
+    bool     wr_enabled;
+    uint32_t wr_offset;
+    bool     rd_enabled;
+    uint32_t rd_offset;
+};
+
 struct ConvArgs {
   bool relu_enabled;
   void* sb_address;  // scale and bias are interlaced;
@@ -136,6 +143,7 @@ struct ConvArgs {
 
   struct DeconvArgs deconv;
   struct KernelArgs kernel;
+  struct StrideArgs stride;
   struct ImageInputArgs image;  // input image;
   struct ImageOutputArgs output;
 };
@@ -334,7 +342,48 @@ struct CNNLockArgs {
 
 //============================== API =============================
 
+struct SplitArgs {
+  uint32_t image_num;
+  int16_t* image_in;
+  float* scale_in;
+  void** images_out;
+  float** scales_out;
+  uint32_t* out_channel_nums;
+  uint32_t height;
+  uint32_t width;
+};
+
+struct ConcatArgs {
+  uint32_t image_num;
+  half** images_in;
+  float** scales_in;
+  void* image_out;
+  float* scale_out;
+  uint32_t* channel_num;
+  uint32_t height;
+  uint32_t width;
+};
+
+struct SplitConvArgs {
+  uint32_t split_num;
+  uint32_t group_num;
+  uint32_t filter_num;
+  struct ImageOutputArgs output;
+  struct ConvArgs* conv_arg;
+  struct ConcatArgs concat_arg;
+};
+
+struct GroupConvArgs {
+  uint32_t group_num;
+  uint32_t filter_num;
+  struct ImageOutputArgs output;
+  struct SplitConvArgs* conv_args;
+  struct ConcatArgs concat_arg;
+};
+
 inline int align_to_x(int num, int x) { return (num + x - 1) / x * x; }
+inline int align_to_x_floor(int num, int x) { return (num / x) * x; }
+
 int open_device();
 void close_device();
 void reset_device();
@@ -354,6 +403,7 @@ int get_device_info(const struct DeviceInfoArgs& args);
 
 int perform_bypass(const struct BypassArgs& args);
 int compute_fpga_conv_basic(const struct ConvArgs& args);
+int compute_fpga_conv(const struct SplitConvArgs& args);
 int compute_fpga_pool(const struct PoolingArgs& args);
 int compute_fpga_ewadd(const struct EWAddArgs& args);
 int compute_fpga_scale(const struct ScaleArgs& args);

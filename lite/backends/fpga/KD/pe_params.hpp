@@ -69,6 +69,7 @@ struct BasicConvParam {
   Tensor filter;
   Tensor scaleBias;
   ConvArgs args;
+  float output_scale = 0;
 };
 
 struct ConvParam : PEParam {
@@ -79,6 +80,8 @@ struct ConvParam : PEParam {
 
   int groups = 1;
   bool deconv = false;
+  bool cpu_concat = false;
+
   std::vector<int> strides;
   std::vector<int> paddings;
   std::vector<int> kernelSize;
@@ -217,6 +220,18 @@ struct SplitParam : PEParam {
   std::vector<Tensor*> outputs;
   int axis = 1;
   int num = 1;
+};
+
+struct SliceParam : PEParam {
+ public:
+  Tensor* input = nullptr;
+  Tensor* output = nullptr;
+
+  std::vector<int> axes;
+  std::vector<int32_t> starts;
+  std::vector<int32_t> ends;
+  std::vector<int> decrease_axis;
+  std::vector<int> infer_flags;
 };
 
 struct NormParam : PEParam {

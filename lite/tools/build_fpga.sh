@@ -1,6 +1,6 @@
 #!/bin/bash
 
-build_dir=build_fpga
+build_dir=build_fpga_debug
 mkdir -p ${build_dir}
 cd ${build_dir}
 
@@ -23,9 +23,10 @@ cmake .. \
         -DLITE_BUILD_EXTRA=ON \
         -DLITE_WITH_PYTHON=OFF \
         -DLITE_WITH_PROFILE=OFF \
-        -DLITE_WITH_LOG=OFF \
-        -DLITE_WITH_CV=ON
+        -DLITE_WITH_LOG=ON \
+        -DLITE_WITH_CV=ON \
+	-DCMAKE_BUILD_TYPE=Debug
 
-make -j8
+make -j42
 
 cd -
