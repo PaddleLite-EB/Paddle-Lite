@@ -278,7 +278,7 @@ class ConvPE : public PE {
     } */
 	if ((pack_channel || split_cpu_concat) && !param_.deconv) {
 	  float scale = param_.output->scale()[0];
-	  std::cout << "conv concat dispatch!" << std::endl;
+	 // std::cout << "conv concat dispatch!" << std::endl;
       concatPE_.dispatch();
     }
 

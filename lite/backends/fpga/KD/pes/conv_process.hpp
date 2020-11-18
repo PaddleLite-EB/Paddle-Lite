@@ -415,13 +415,14 @@ inline void split_filter_num(const ConvParam& c_param) {
 
     out_scale_address = &conv_param->output_scale;
 	
-    if (split_num == 1) {  //handle scale_index after merge concat
-      out_scale_index =
-          out->scaleIndex(true);  // TODO(chonwhite) reconsider this
-    } else {
-          out_scale_index = conv_param->output.scaleIndex(
-          true);  // TODO(chonwhite) reconsider this
-    } 
+   //out_scale_index will handle in apply() of conv_pe.hpp, remove duplicate generation
+   // if (split_num == 1) {  //handle scale_index after merge concat
+   //   out_scale_index =
+   //       out->scaleIndex(true);  // TODO(chonwhite) reconsider this
+   // } else {
+   //       out_scale_index = conv_param->output.scaleIndex(
+   //       true);  // TODO(chonwhite) reconsider this
+   // } 
 	
     Shape f_shape(NCHW,
                   {filter_num,
