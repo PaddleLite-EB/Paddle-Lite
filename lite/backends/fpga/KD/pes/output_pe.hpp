@@ -41,10 +41,10 @@ class OutputPE : public PE {
       tmp.setAligned(true);
       tmp.mutableData<float16>(FP16, input->shape());
       tmp.copyFrom(input);
-      tmp.unalignImage();
-      output->copyFrom(&tmp);
+      tmp.unalignImage(&fpga_lock);
+      output->copyFrom(&tmp, &fpga_lock);
     } else {
-      output->copyFrom(input);
+      output->copyFrom(input, &fpga_lock);
     }
     //
     output->syncToCPU();

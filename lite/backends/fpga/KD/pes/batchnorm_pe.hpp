@@ -67,7 +67,7 @@ class BatchnormPE : public PE {
     scale_param.bias = bias_;
     scale_param.activeParam.type = param_.activeParam.type;
 
-    scalePE_.init();
+    scalePE_.init(&fpga_lock);
 
     inplace_.power_enable = false;
     inplace_.normalize_enable = false;

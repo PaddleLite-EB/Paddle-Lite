@@ -157,7 +157,9 @@ class Tensor {
 
   float* scale() { return placeHolder_->scale_; }
 
-  void alignImage(Tensor* dst = nullptr, bool copy = false) {
+  void alignImage(FPGALock* lock = nullptr,
+                  Tensor* dst = nullptr,
+                  bool copy = false) {
     if (shape_->shouldAlign()) {
       int cell_size = CellSize(this->dataType_);
       char* dst_data = nullptr;
@@ -190,7 +192,7 @@ class Tensor {
       }
     } else {
       if (copy) {
-        dst->copyFrom(this);
+        dst->copyFrom(this, lock);
       } else {
         // TODO(chonwhite) share data.
       }
@@ -205,11 +207,13 @@ class Tensor {
     placeHolder_->scale_[1] = src->placeHolder_->scale_[1];
   }
 
-  void unalignImage(Tensor* dst = nullptr, bool copy = false) {
+  void unalignImage(FPGALock* lock = nullptr,
+                    Tensor* dst = nullptr,
+                    bool copy = false) {
     Tensor* target = dst == nullptr ? this : dst;
     if (!target->aligned_) {
       if (copy && dst != nullptr) {
-        dst->copyFrom(this);
+        dst->copyFrom(this, lock);
       }
       return;
     }
@@ -245,7 +249,7 @@ class Tensor {
       }
     } else {
       if (copy) {
-        dst->copyFrom(this);
+        dst->copyFrom(this, lock);
       } else {
         // TODO(chonwhite) share data.
       }

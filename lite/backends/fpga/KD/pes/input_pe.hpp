@@ -44,11 +44,11 @@ class InputPE : public PE {
     switch (dataType) {
       case FP32:
         half_tensor.mutableData<void*>(DataType::FP16, input->shape());
-        half_tensor.copyFrom(input);
+        half_tensor.copyFrom(input, &fpga_lock);
         src = &half_tensor;
         output->mutableData<void>();
-        src->alignImage();
-        output->copyFrom(src);
+        src->alignImage(&fpga_lock);
+        output->copyFrom(src, &fpga_lock);
         break;
       case FP16:
         input->setAligned(true);
@@ -60,8 +60,8 @@ class InputPE : public PE {
         break;
       default:
         output->mutableData<void>();
-        src->alignImage();
-        output->copyFrom(src);
+        src->alignImage(&fpga_lock);
+        output->copyFrom(src, &fpga_lock);
         break;
     }
     return true;

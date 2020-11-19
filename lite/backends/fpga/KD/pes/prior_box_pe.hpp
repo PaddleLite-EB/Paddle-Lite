@@ -47,7 +47,7 @@ class PriorBoxPE : public PE {
   Tensor* cachedBoxes_ = nullptr;
   Tensor* cachedVariances_ = nullptr;
 
-  void compute_prior_box();
+  void compute_prior_box(FPGALock* lock = nullptr);
 };
 }  // namespace zynqmp
 }  // namespace paddle

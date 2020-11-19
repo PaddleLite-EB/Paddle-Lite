@@ -99,7 +99,7 @@ class PoolingSplitPE : public PE {
     }
   }
 
-  void compute() {
+  void compute(FPGALock* lock = nullptr) {
     Tensor* input = param_.input;
     Tensor* output = param_.output;
     input->syncToCPU();
@@ -107,7 +107,7 @@ class PoolingSplitPE : public PE {
     Tensor float_input;
     // Tensor float_output;
     float* image_addr = float_input.mutableData<float>(FP32, input->shape());
-    float_input.copyFrom(input);
+    float_input.copyFrom(input, lock);
     float16* data_out = output->data<float16>();
 
     int image_height = input->shape().height();
@@ -163,17 +163,12 @@ class PoolingSplitPE : public PE {
     output->flush();
   }
 
-  bool dispatch() {
-    FPGALock* lock = nullptr;
-    dispatch(lock);
-  }
-
-  bool dispatch(FPGALock* lock) {
+  bool dispatch(FPGALock* lock = nullptr) {
     Tensor* output = param_.output;
     param_.input->syncToDevice();
 
     if (use_cpu_) {
-      compute();
+      compute(lock);
       return true;
     }
 

@@ -184,7 +184,7 @@ class ConvPE : public PE {
 
     // exit(-1);
   }
-  void cpu_compute() {
+  void cpu_compute(FPGALock* lock = nullptr) {
     Tensor* input = param_.input;
     Tensor* output = param_.output;
     input->syncToCPU();
@@ -192,7 +192,7 @@ class ConvPE : public PE {
     Tensor float_input;
     Tensor float_output;
     float* image_addr = float_input.mutableData<float>(FP32, input->shape());
-    float_input.copyFrom(input);
+    float_input.copyFrom(input, lock);
     // float16* data_out = output->data<float16>();
     float* out = float_output.mutableData<float>(FP32, output->shape());
 
@@ -229,13 +229,13 @@ class ConvPE : public PE {
     delete[] mi;
     float_output.flush();
     output->flush();
-    output->copyFrom(&float_output);
+    output->copyFrom(&float_output, lock);
     output->invalidate();
   }
 
   bool dispatch(FPGALock* lock = nullptr) {
     if (use_cpu_) {
-      cpu_compute();
+      cpu_compute(lock);
       return true;
     }
 
@@ -298,8 +298,8 @@ class ConvPE : public PE {
       ElementwiseAddParam& add_param = addPE_.param();
       add_param.inputs = {&params[0]->output, &params[1]->output};
       add_param.output = param_.output;
-      addPE_.init();
-      addPE_.apply();
+      addPE_.init(&fpga_lock);
+      addPE_.apply(&fpga_lock);
       addPE_.dispatch(&fpga_lock);
     }
 

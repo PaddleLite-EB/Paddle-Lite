@@ -96,6 +96,8 @@ class YoloBoxPE : public PE {
   }
 
   bool dispatch(FPGALock* lock = nullptr) {
+    // FPGALock fpga_lock(lock);
+    // fpga_lock.lock();
     auto* input = param_.input;
     auto* imgsize = param_.imgSize;
     auto* boxes = param_.outputBoxes;
@@ -126,9 +128,9 @@ class YoloBoxPE : public PE {
     Tensor input_float;
     input_float.setDataLocation(CPU);
     float* input_data = input_float.mutableData<float>(FP32, input->shape());
-    input_float.copyFrom(input);
+    input_float.copyFrom(input, lock);
     input_float.setAligned(input->aligned());
-    input_float.unalignImage();
+    input_float.unalignImage(lock);
     input_float.setAligned(false);
 
     Tensor boxes_float;
@@ -210,8 +212,8 @@ class YoloBoxPE : public PE {
       }
     }
 
-    boxes->copyFrom(&boxes_float);
-    scores->copyFrom(&scores_float);
+    boxes->copyFrom(&boxes_float, lock);
+    scores->copyFrom(&scores_float, lock);
     // input->setAligned(true);
   }
 

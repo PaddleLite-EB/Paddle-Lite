@@ -149,7 +149,7 @@ bool SoftmaxPE::dispatch(FPGALock *lock) {
   float_input.mutableData<float>(DataType::FP32, input->shape());
   // input->saveToFile("in", true);
   input->syncToDevice();
-  float_input.copyFrom(input);
+  float_input.copyFrom(input, lock);
   // float_input.invalidate();
   // float_input.saveToFile("fin", true);
 
@@ -166,7 +166,7 @@ bool SoftmaxPE::dispatch(FPGALock *lock) {
   softmax(&float_input, &float_output);
   float_output.flush();
 
-  output->copyFrom(&float_output);
+  output->copyFrom(&float_output, lock);
   output->flush();
   return true;
 }

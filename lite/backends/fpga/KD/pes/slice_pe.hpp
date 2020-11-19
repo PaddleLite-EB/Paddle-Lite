@@ -26,8 +26,8 @@ class SlicePE : public PE {
   bool init(FPGALock* lock = nullptr) { return true; }
 
   bool dispatch(FPGALock* lock = nullptr) {
-    FPGALock fpga_lock(lock);
-    fpga_lock.lock();
+    // FPGALock fpga_lock(lock);
+    // fpga_lock.lock();
     Tensor* input = param_.input;
     Tensor* output = param_.output;
     input->syncToCPU();

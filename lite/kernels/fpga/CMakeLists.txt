@@ -20,7 +20,7 @@ add_kernel(elementwise_compute_fpga FPGA basic SRCS elementwise_compute.cc DEPS 
 
 add_kernel(interpolate_compute_fpga FPGA basic SRCS interpolate_compute.cc DEPS ${fpga_deps})
 
-# add_kernel(fc_compute_fpga FPGA basic SRCS fc_compute.cc DEPS ${fpga_deps})
+add_kernel(fc_compute_fpga FPGA basic SRCS fc_compute.cc DEPS ${fpga_deps})
 add_kernel(gru_compute_fpga FPGA extra SRCS gru_compute.cc DEPS ${fpga_deps})
 
 # add_kernel(mul_compute_fpga FPGA basic SRCS mul_compute.cc DEPS ${fpga_deps})
