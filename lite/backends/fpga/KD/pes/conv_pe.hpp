@@ -171,12 +171,12 @@ class ConvPE : public PE {
       }
     }
 
-    if (DLEngine::get_instance().isZU3() &&
-        param_.input->shape().dimSize() == 4 &&
-        param_.input->shape().width() == 1 &&
-        param_.input->shape().channel() >= 2048) {
-      use_cpu_ = true;
-    }
+    // if (DLEngine::get_instance().isZU3() &&
+    //     param_.input->shape().dimSize() == 4 &&
+    //     param_.input->shape().width() == 1 &&
+    //     param_.input->shape().channel() >= 2048) {
+    //   use_cpu_ = true;
+    // }
 
     if (!use_cpu_) {
       param_.filter->releaseData();
