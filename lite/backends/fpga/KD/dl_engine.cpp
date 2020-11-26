@@ -26,7 +26,7 @@ DLEngine::DLEngine() {
   ret = get_version(args);
 
   if (ret == 0) {
-    char paddle_lite_version[] = "1.5.1";
+    char paddle_lite_version[] = "1.5.2";
     char* driver_version = reinterpret_cast<char*>(args.buffer);
     char dest[5];
     strncpy(dest, driver_version, 5);
