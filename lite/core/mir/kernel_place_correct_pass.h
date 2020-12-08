@@ -102,34 +102,34 @@ class KernelPlaceCorrectPass : public DebugPass {
         if (p != PrecisionType::kFP16) {
           UpdateTarget(inst, TargetType::kHost);
           UpdateTensor(inst, in, out, TargetType::kHost);
-
         }
       }
 
-      if (inst.op_type() == "fc") {
-        auto* scope = x->stmt()->op()->scope();
-        auto* op_desc = x->stmt()->mutable_op_info();
+      // if (inst.op_type() == "fc") {
+      //   auto* scope = x->stmt()->op()->scope();
+      //   auto* op_desc = x->stmt()->mutable_op_info();
 
-        for (auto* x_in : x->inlinks) {
-          std::string in_name =
-              get_argname(x_in->AsArg().name, inst.op_info()->inputs());
-          if (in_name == "W") {
-            in = x_in;
-          }
-        }
+      //   for (auto* x_in : x->inlinks) {
+      //     std::string in_name =
+      //         get_argname(x_in->AsArg().name, inst.op_info()->inputs());
+      //     if (in_name == "W") {
+      //       in = x_in;
+      //     }
+      //   }
 
-        std::string in_name =
-            get_argname(in->AsArg().name, inst.op_info()->inputs());
-        auto input_tensor =
-            scope->FindVar(in->AsArg().name)->GetMutable<lite::Tensor>();
+      //   std::string in_name =
+      //       get_argname(in->AsArg().name, inst.op_info()->inputs());
+      //   auto input_tensor =
+      //       scope->FindVar(in->AsArg().name)->GetMutable<lite::Tensor>();
 
-        if (input_tensor->dims()[0] > 2048) { // FPGA cannot handle fc with channel > 2048
-          UpdateTarget(inst, TargetType::kARM);
-          for (auto* x_out : x->outlinks) {
-            UpdateTensor(inst, in, x_out, TargetType::kARM);
-          }
-        }
-      }
+      //   if (input_tensor->dims()[0] >
+      //       2048) {  // FPGA cannot handle fc with channel > 2048
+      //     UpdateTarget(inst, TargetType::kARM);
+      //     for (auto* x_out : x->outlinks) {
+      //       UpdateTensor(inst, in, x_out, TargetType::kARM);
+      //     }
+      //   }
+      // }
 
       if (inst.op_type() == "fetch") {
         UpdateTarget(inst, TargetType::kFPGA);

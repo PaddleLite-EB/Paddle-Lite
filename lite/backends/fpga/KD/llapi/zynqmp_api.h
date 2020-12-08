@@ -375,6 +375,8 @@ struct GroupConvArgs {
 
 class FPGALock;
 
+//===========
+std::ostream& operator<<(std::ostream& os, const ConvArgs& args);
 inline int align_to_x(int num, int x) { return (num + x - 1) / x * x; }
 int open_device();
 void close_device();

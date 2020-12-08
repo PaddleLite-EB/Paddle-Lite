@@ -50,7 +50,7 @@ class OutputPE : public PE {
     output->syncToCPU();
     // auto max = fpga_get_memory_size_max();
     // std::cout << "PL ===== Max: ===== :: " << max << std::endl;
-
+    // output->saveToFile("out", true);
     return true;
   }
 

@@ -20,6 +20,7 @@ limitations under the License. */
 #include <unistd.h>
 #include <algorithm>
 #include <cstring>
+#include <iostream>
 #include <map>
 #include <mutex>  // NOLINT
 #include <utility>
@@ -368,6 +369,34 @@ float fp16_2_fp32(int16_t fp16_num) {
   tmp = s << 16 | exp << 23 | frac << 13;
   fp32_num = *(float *)&tmp;  // NOLINT
   return fp32_num;
+}
+
+std::ostream &operator<<(std::ostream &os, const ConvArgs &args) {
+  os << "ConvArgs {\n";
+  os << "  group_num : " << args.group_num << std::endl;
+  os << "  sb_address : " << args.sb_address << std::endl;
+  os << "  dilation : " << args.dilation << std::endl;
+  os << "  filter_num : " << args.filter_num << std::endl;
+  os << "  filter_address : " << args.filter_address << std::endl;
+  os << "  filterr_scale : "
+     << (reinterpret_cast<float *>(args.filter_scale_address))[0] << std::endl;
+  os << "  kernel.stride_h : " << args.kernel.stride_h << std::endl;
+  os << "  kernel.height : " << args.kernel.height << std::endl;
+  os << "  kernel.width : " << args.kernel.width << std::endl;
+
+  os << "  image.address : " << args.image.address << std::endl;
+  os << "  image.scale_address : " << args.image.scale_address << std::endl;
+  os << "  image.scale : "
+     << (reinterpret_cast<float *>(args.image.scale_address))[0] << std::endl;
+  os << "  image.channels : " << args.image.channels << std::endl;
+  os << "  image.width : " << args.image.width << std::endl;
+  os << "  image.height : " << args.image.height << std::endl;
+  os << "  image.pad_width : " << args.image.pad_width << std::endl;
+  os << "  image.pad_height : " << args.image.pad_height << std::endl;
+  os << "  output.address : " << args.output.address << std::endl;
+  os << "}" << std::endl;
+
+  return os;
 }
 
 }  // namespace zynqmp

@@ -65,7 +65,6 @@ class ConvPE : public PE {
     input->syncToDevice();
     float_input.copyFrom(input);
     float_input.invalidate();
-    float_input.saveToFile("fi", true);
 
     float* out = float_output.mutableData<float>(FP32, output->shape());
 
@@ -126,10 +125,8 @@ class ConvPE : public PE {
       }
     }
     float_output.flush();
-    float_output.saveToFile("fo", true);
     output->copyFrom(&float_output);
     output->invalidate();
-    output->saveToFile("out", true);
     // exit(-1);
   }
 
@@ -148,7 +145,8 @@ class ConvPE : public PE {
     if (param_.deconv == false) {
       split_axis = fill_split_arg(param_);
 
-      split_channel = param_.groups != 1 && param_.splitParams().size() > 1;
+      split_channel = split_axis == 1 ||
+                      (param_.groups != 1 && param_.splitParams().size() > 1);
 
       if (split_axis == 0 && param_.splitParams().size() > 1) {
         ConcatParam& concat_param = concatPE_.param();
@@ -170,13 +168,6 @@ class ConvPE : public PE {
         splitPE_.apply(&fpga_lock);
       }
     }
-
-    // if (DLEngine::get_instance().isZU3() &&
-    //     param_.input->shape().dimSize() == 4 &&
-    //     param_.input->shape().width() == 1 &&
-    //     param_.input->shape().channel() >= 2048) {
-    //   use_cpu_ = true;
-    // }
 
     if (!use_cpu_) {
       param_.filter->releaseData();
