@@ -12,6 +12,7 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License. */
 #include "lite/backends/fpga/KD/dl_engine.hpp"
+#include "lite/core/version.h"
 
 namespace paddle {
 namespace zynqmp {
@@ -25,8 +26,13 @@ DLEngine::DLEngine() {
   struct VersionArgs args = {.buffer = new char[21], .size = 21};
   ret = get_version(args);
 
+  std::string version = lite::paddlelite_branch();
+  std::string commit_hash = lite::paddlelite_commit();
+  version = version.replace(version.find("eb"), 2, "");
+
   if (ret == 0) {
-    char paddle_lite_version[] = "1.5.3";
+    // char paddle_lite_version[] = "1.5.3";
+    const char* paddle_lite_version = version.c_str();
     char* driver_version = reinterpret_cast<char*>(args.buffer);
     char dest[5];
     strncpy(dest, driver_version, 5);
@@ -41,8 +47,9 @@ DLEngine::DLEngine() {
                 << ") not match paddle_lite_version("
                 << std::string(paddle_lite_version) << ") " << std::endl;
     }
-    delete[] args.buffer;
+    std::cout << "hash: " << commit_hash << std::endl;
   }
+  delete[] args.buffer;
 }
 
 }  // namespace zynqmp
