@@ -28,17 +28,9 @@ DLEngine::DLEngine() {
 
   std::string version = lite::paddlelite_branch();
   std::string commit_hash = lite::paddlelite_commit();
-  // string::size_type position = version.find("eb");
-  // if (position != version.npos) {
-  //   version = version.replace(version.find("eb"), 2, "");
-  // }
 
   if (ret == 0) {
-    // char paddle_lite_version[] = "1.5.3";
-    // const char* paddle_lite_version = version.c_str();
     char* driver_version = reinterpret_cast<char*>(args.buffer);
-    // char dest[6] = {0};
-    // strncpy(dest, driver_version, 5);
     std::cout << "driver_version: " << std::string(driver_version) << std::endl;
   }
   std::cout << "paddle_lite_version: " << version << "-" << commit_hash
