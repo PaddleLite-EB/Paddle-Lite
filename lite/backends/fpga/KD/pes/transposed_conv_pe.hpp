@@ -40,10 +40,6 @@ class TransposedConvPE : public PE {
     output->setAligned(true);
     output->setDataLocation(Device);
 
-    Tensor* output_t = &tmp_output_;
-    output_t->setAligned(true);
-    output_t->setDataLocation(Device);
-
     return true;
   }
 
@@ -143,7 +139,7 @@ class TransposedConvPE : public PE {
 
     padded_input_.flush();
     // padded_input_.saveToFile("padded_input", true);
-    padded_input_.copyScaleFrom(param_.input);
+    padded_input_.copyMaxFrom(param_.input);
   }
 
   bool dispatch(FPGALock* lock = nullptr) {
@@ -162,24 +158,17 @@ class TransposedConvPE : public PE {
     bool vi = pe_.dispatch(&fpga_lock);
 
     if (sub_filter_ena_ == true && vi == true) {
-      float16* out_data = param_.output->data<float16>();
-      float16* tmp_out_data = tmp_output_.data<float16>();
-      int wc_align = align_to_x(
-          param_.output->shape().width() * param_.output->shape().channel(),
-          16);
-      int off_addr = omit_size_ * wc_align;
-      int len = param_.output->shape().height() * wc_align;
+      int off_addr = omit_size_ * param_.output->shape().width() * param_.output->shape().channel();
 
-      memcpy(out_data, tmp_out_data + off_addr, len * sizeof(float16));
+      param_.output->unalignImage();
+      param_.output->setOffset(off_addr);
 
-      float scale = 0.0;
+      float16 max_val = 0.0;
 
-      std::vector<BasicConvParam*>& params = param_.splitParams();
-      for (auto conv_param : params) {
-        scale = std::max(scale, conv_param->output.scale()[0]);
+      for (auto conv_param : param_.splitParams()) {
+        max_val = std::max(max_val, conv_param->output_max);
       }
-      param_.output->scale()[0] = scale;
-      param_.output->scale()[1] = 1.0f / scale;
+      param_.output->max()[0] = max_val;
     }
 
     return vi;

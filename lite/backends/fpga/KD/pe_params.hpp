@@ -69,6 +69,7 @@ struct BasicConvParam {
   Tensor filter;
   Tensor scaleBias;
   ConvArgs args;
+  float16 output_max = 0;
 };
 
 struct ConvParam : PEParam {
@@ -79,6 +80,8 @@ struct ConvParam : PEParam {
 
   int groups = 1;
   bool deconv = false;
+  bool cpu_concat = false;
+
   std::vector<int> strides;
   std::vector<int> paddings;
   std::vector<int> kernelSize;
@@ -128,6 +131,8 @@ struct DepthwiseConvParam : ConvParam {
   Tensor* quantizedFilter() { return &quantizedFilter_; }
 
   DWconvArgs args;
+
+  bool re_assign = false;
 
  protected:
   Tensor quantizedFilter_;
@@ -277,6 +282,7 @@ struct ScaleParam : PEParam {
   Tensor* output = nullptr;
   Tensor* scale = nullptr;
   Tensor* bias = nullptr;
+  bool re_assign = false;
 
   Tensor* alignedScale() { return &alignedScale_; }
 

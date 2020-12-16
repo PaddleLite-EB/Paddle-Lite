@@ -48,14 +48,14 @@ class ElementwiseMulPE : public PE {
     args.wc_alignment = wc_aligned;
     args.channel_alignment = wc_aligned;
     args.image.address = input->data<void>();
-    args.image.scale_address = input->scale();
+    args.image.scale_address = input->max();
     args.image.channels = wc_aligned;
     args.image.height = 1;
     args.image.width = 1;
     args.image.pad_width = 0;
     args.image.pad_height = 0;
     args.output.address = output->data<void>();
-    args.output.scale_address = output->scale();
+    args.output.scale_address = output->max();
   }
 
   void updateInput(Tensor* t, int index) {

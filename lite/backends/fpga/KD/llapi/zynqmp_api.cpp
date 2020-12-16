@@ -49,6 +49,14 @@ static inline int do_ioctl(uint64_t req, const void *arg) {
 
 static std::mutex mem_mutex;
 
+void set_pool_cap(uint32_t pool_cap) {
+    POOL_CAP = pool_cap;
+}
+
+uint32_t get_pool_cap() {
+    return POOL_CAP;
+}
+
 int open_device() {
   if (fd == -1) {
     fd = open(device_path, O_RDWR);
@@ -242,13 +250,13 @@ int perform_bypass(const struct BypassArgs &args) {
   int out_type_size =
       args.output_data_type == DATA_TYPE_FP32 ? sizeof(float) : sizeof(int16_t);
 
-  float scales[2];
+  float16 max = 0;
   struct BypassArgs bypassArgs = args;
   bypassArgs.image.width = 1;
   bypassArgs.image.height = 1;
-  bypassArgs.output.scale_address = scales;
+  bypassArgs.output.scale_address = &max;
 
-  float scale = 0;
+  float16 max_val = 0.0;
   for (int i = 0; i < count; ++i) {
     bypassArgs.image.channels = max_size;
     bypassArgs.image.address =
@@ -256,7 +264,7 @@ int perform_bypass(const struct BypassArgs &args) {
     bypassArgs.output.address =
         reinterpret_cast<char *>(output_address + i * max_size * out_type_size);
     ret = do_ioctl(IOCTL_CONFIG_BYPASS, &bypassArgs);
-    scale = std::max(scale, scales[0]);
+    max_val = std::max(max_val, max);
 
     if (ret != 0) {
       return ret;
@@ -264,7 +272,6 @@ int perform_bypass(const struct BypassArgs &args) {
   }
 
   int remainder = size - max_size * count;
-
   if (remainder > 0) {
     bypassArgs.image.channels = remainder;
     bypassArgs.image.address =
@@ -272,11 +279,12 @@ int perform_bypass(const struct BypassArgs &args) {
     bypassArgs.output.address = reinterpret_cast<char *>(
         output_address + count * max_size * out_type_size);
     ret = do_ioctl(IOCTL_CONFIG_BYPASS, &bypassArgs);
-    scale = std::max(scale, scales[0]);
-  }
+    max_val = std::max(max_val, max);
 
-  args.output.scale_address[0] = scale;
-  args.output.scale_address[1] = 1.0f / scale;
+  }
+  args.output.scale_address[0] = max_val;
+  // args.output.scale_address[0] = scale;
+  // args.output.scale_address[1] = 1.0f / scale;
   return ret;
 }
 
@@ -312,10 +320,6 @@ int config_activation(const struct ActiveParamterArgs &args) {
   return do_ioctl(IOCTL_CONFIG_ACTIVATION_PARAMETER, &args);
 }
 
-int config_global_pool(const struct GlobalPoolArgs &args) {
-  return do_ioctl(IOCTL_CONFIG_GLOBAL_POOL_PARAMETER, &args);
-}
-
 // int config_power(const struct PowerArgs& args) {
 //     return do_ioctl(IOCTL_CONFIG_POWER, &args);
 // }
@@ -338,6 +342,10 @@ int compute_fpga_resize(const struct ResizeArgs &args) {
 
 int compute_preprocess(const struct PreprocessArgs &args) {
   return do_ioctl(IOCTL_PREPROCESS, &args);
+}
+
+int reg_write(struct FpgaRegWriteArgs args) {
+  return do_ioctl(IOCTL_FPGA_REG_WRITE, &args);
 }
 
 int fpga_lock(const struct CNNLockArgs &args) {

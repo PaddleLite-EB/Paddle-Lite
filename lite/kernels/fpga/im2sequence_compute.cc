@@ -213,6 +213,7 @@ void Im2SequenceCompute::Run() {
   delete[] chw_data;
   param.Out->ZynqTensor()->flush();
   param.Out->ZynqTensor()->copyScaleFrom(param.X->ZynqTensor());
+  param.Out->ZynqTensor()->copyMaxFrom(param.X->ZynqTensor());
 }
 
 }  // namespace fpga

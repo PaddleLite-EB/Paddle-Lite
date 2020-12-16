@@ -30,6 +30,7 @@ void copy_properties(operators::IoCopyParam& param) {  // NOLINT
   auto out_lod = param.y->mutable_lod();
   *out_lod = param.x->lod();
   param.y->ZynqTensor()->copyScaleFrom(param.x->ZynqTensor());
+  param.y->ZynqTensor()->copyMaxFrom(param.x->ZynqTensor());
 }
 
 /*

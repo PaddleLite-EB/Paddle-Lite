@@ -249,7 +249,12 @@ void inline inverse_filter(Tensor* tensor) {
 
 void fill_sub_filters(ConvParam* param, Tensor* filter, Tensor* tmp_out) {
   Tensor* input = param->input;
+  Tensor* output = param->output;
   int sub_conv_number = param->strides[0];
+
+  int dynamic_range = 127;//int8 max value
+  float16 dynamic_range_fp16 = float_to_half(dynamic_range * 1.0); 
+  float inv_dynamic_range = 1.0 / dynamic_range;
 
   int kernel_num = filter->shape().num();
   int height = filter->shape().height();
@@ -260,22 +265,23 @@ void fill_sub_filters(ConvParam* param, Tensor* filter, Tensor* tmp_out) {
   int sub_w = width / sub_conv_number;
   int sub_pad = calc_sub_pad(width, param->paddings[0], param->strides[0]);
 
-  int omit_size = deconv_get_omit(param->strides[0], width, param->paddings[0]);
+  int omit_size = deconv_get_omit(param->strides[0], width, param->paddings[0]); 
 
   int channel = filter->shape().channel();
 
-  int sub_output_w = get_sub_out_axis(input->shape().width(), sub_pad, sub_w);
-  int sub_output_h = get_sub_out_axis(input->shape().height(), sub_pad, sub_h);
+  int sub_output_w = get_sub_out_axis(input->shape().width(),sub_pad,sub_w);
+  int sub_output_h = get_sub_out_axis(input->shape().height(),sub_pad,sub_h);
 
   int before_omit_out_w = sub_output_w * sub_conv_number;
   int before_omit_out_h = sub_output_h * sub_conv_number;
   int after_omit_out_w = before_omit_out_w - 2 * omit_size;
-  int after_omit_out_h = before_omit_out_h - 2 * omit_size;
+  int after_omit_out_h = before_omit_out_h - 2 * omit_size;  
 
   float max = find_max(*filter);
 
-  Shape out_shape(NHWC, {1, before_omit_out_h, after_omit_out_w, kernel_num});
-  tmp_out->mutableData<float16>(FP16, out_shape);
+  float mem_factor = before_omit_out_h * 1.0/after_omit_out_h;
+  output->setMemScale(mem_factor);
+  output->mutableData<float16>();
 
   // Tensor nhwc_filter;
   // nhwc_filter.mutableData<void>(FP32, filter->shape());
@@ -283,106 +289,106 @@ void fill_sub_filters(ConvParam* param, Tensor* filter, Tensor* tmp_out) {
 
   // float* filter_data = nhwc_filter.data<float>();
   float* filter_data = filter->data<float>();
-
+        
   for (int i = 0; i < sub_conv_number; i++) {
-    float16* out_address = nullptr;
-    float* out_scale_address = nullptr;
+      float16* out_address = nullptr;
+      float16* out_scale_address = nullptr;
+            
+      Shape shape_nchw(NCHW, {sub_num, channel, sub_h, sub_w});       
+      Shape shape_nhwc(NHWC, {sub_num, sub_h, sub_w, channel});
 
-    Shape shape_nchw(NCHW, {sub_num, channel, sub_h, sub_w});
-    Shape shape_nhwc(NHWC, {sub_num, sub_h, sub_w, channel});
+      BasicConvParam* basic_conv_param = new BasicConvParam();
+      basic_conv_param->output.setDataLocation(Device);
+      Shape tmp_shape(NHWC, {1,1,1,1});
+      basic_conv_param->output.mutableData<float16>(FP16,tmp_shape);
 
-    BasicConvParam* basic_conv_param = new BasicConvParam();
-    basic_conv_param->output.setDataLocation(Device);
-    Shape tmp_shape(NHWC, {1, 1, 1, 1});
-    basic_conv_param->output.mutableData<float16>(FP16, tmp_shape);
-
-    basic_conv_param->filter.mutableData<int8_t>(INT8, shape_nchw);
-    Tensor float_tensor;
-    float* sub_filter_data = float_tensor.mutableData<float>(FP32, shape_nchw);
-
-    for (int nn = 0; nn < sub_num; ++nn) {
-      int ni = nn % kernel_num;
-      int woff = sub_conv_number - 1 - (nn / kernel_num);  //
-      for (int cc = 0; cc < channel; ++cc) {
-        for (int hh = 0; hh < sub_h; ++hh) {
-          int hi = hh * sub_conv_number + i;
-          for (int ww = 0; ww < sub_w; ++ww) {
-            int wi = ww * sub_conv_number + woff;  // 1 0
-            // int sidx = ((nn * sub_h + hh) * sub_w + ww) * channel;
-            // int kidx = ((ni * height + hi) * width + wi) * channel;
-            // memcpy(sub_filter_data + sidx, filter_data + kidx, channel *
-            // sizeof(float));
-            int sidx =
-                ((nn * channel * sub_h + cc * sub_h + hh) * sub_w + ww);  //
-            int kidx =
-                ((ni * channel * height + cc * height + hi) * width + wi);  //
-            memcpy(sub_filter_data + sidx, filter_data + kidx, sizeof(float));
+      basic_conv_param->filter.mutableData<int8_t>(INT8, shape_nchw);
+      Tensor float_tensor;
+      float* sub_filter_data = float_tensor.mutableData<float>(FP32, shape_nchw);
+            
+      for (int nn = 0; nn < sub_num; ++nn) { //TODO optimize theese code;
+          int ni = nn % kernel_num;
+          int woff = sub_conv_number - 1 - (nn / kernel_num);  //
+          for (int cc=0; cc < channel; ++cc) {
+              for (int hh = 0; hh < sub_h; ++hh) {
+                  int hi = hh * sub_conv_number + i;
+                  for (int ww = 0; ww < sub_w; ++ww) {
+                      int wi = ww * sub_conv_number + woff;  // 1 0
+                      // int sidx = ((nn * sub_h + hh) * sub_w + ww) * channel;
+                      // int kidx = ((ni * height + hi) * width + wi) * channel; 
+                      // memcpy(sub_filter_data + sidx, filter_data + kidx, channel * sizeof(float));
+                      int sidx = ((nn * channel * sub_h + cc * sub_h + hh) * sub_w + ww);   //
+                      int kidx = ((ni * channel * height + cc * height + hi) * width + wi);  //
+                      memcpy(sub_filter_data + sidx, filter_data + kidx, sizeof(float));
+                  }
+              }
           }
-        }
       }
-    }
 
-    float_tensor.flush();
+      float_tensor.flush();
 
-    std::vector<float> v;
-    format_filter(
-        &float_tensor, &(basic_conv_param->filter), param->groups, v, max);
+      std::vector<float> v;
+      format_filter(&float_tensor, &(basic_conv_param->filter), param->groups, v, max);
 
-    Tensor scale;
-    Tensor bias;
+      Tensor scale;
+      Tensor bias;
 
-    Shape s_shape(NC, {1, sub_num});
-    float* scale_data = scale.mutableData<float>(FP32, s_shape);
-    float* bias_data = bias.mutableData<float>(FP32, s_shape);
+      Shape s_shape(NC, {1, sub_num});
+      float* scale_data = scale.mutableData<float>(FP32, s_shape);
+      float* bias_data = bias.mutableData<float>(FP32, s_shape);
+    
+      for (int n = 0; n < sub_num; n++) {
+          scale_data[n] = param->scale()->data<float>()[n % kernel_num];
+      }
+      for (int n = 0; n < sub_num; n++) {
+          bias_data[n] = param->bias()->data<float>()[n % kernel_num];
+      }
+    
+      format_bias_scale_new(&bias, &scale, &basic_conv_param->scaleBias);
+      basic_conv_param->scaleBias.flush();
 
-    for (int n = 0; n < sub_num; n++) {
-      scale_data[n] = param->scale()->data<float>()[n % kernel_num];
-    }
-    for (int n = 0; n < sub_num; n++) {
-      bias_data[n] = param->bias()->data<float>()[n % kernel_num];
-    }
+      ConvArgs& args = basic_conv_param->args;
 
-    format_bias_scale_new(&bias, &scale, &basic_conv_param->scaleBias);
-    basic_conv_param->scaleBias.flush();
+      int offset = (sub_conv_number - 1 - i) * align_to_x(after_omit_out_w * kernel_num, 16);
+            
+      out_address = output->data<float16>() + offset;
+           
+      out_scale_address = &basic_conv_param->output_max;
 
-    ConvArgs& args = basic_conv_param->args;
+      args.group_num = param->groups;
+      // TODO relu by inplace
+      // args.relu_enabled = param.relu.enabled;
+      args.sb_address = basic_conv_param->scaleBias.data<float16>();
+      args.kernel.stride_h = 1;
+      args.kernel.stride_w = 1;
+      args.kernel.height = sub_h;
+      args.kernel.width = sub_w;
 
-    int offset = (sub_conv_number - 1 - i) *
-                 align_to_x(after_omit_out_w * kernel_num, 16);
-    tmp_out->setOffset(offset);
-    out_address = tmp_out->data<float16>();
+      args.filter_address = basic_conv_param->filter.data<int8_t>();
+      args.filter_num = sub_num;
+      args.filter_scale_address = basic_conv_param->filter.scale();
+      args.image.address = input->data<void>();
+      args.image.scale_address = input->max();
+      args.image.channels = channel;
+      args.image.width = input->shape().width();
+      args.image.height = input->shape().height();
+      args.image.pad_width = sub_pad;
+      args.image.pad_height = sub_pad;
 
-    out_scale_address = basic_conv_param->output.scale();
+      // TODO dilations[0] = dilations[1]
+      args.dilation = param->dilations[0];
+      args.output.address = out_address;
+      args.output.scale_address = out_scale_address;
+      args.stride.rd_enabled = false; 
+      args.stride.wr_enabled = false;
 
-    args.group_num = param->groups;
-    // args.relu_enabled = param.relu.enabled;
-    args.sb_address = basic_conv_param->scaleBias.data<float16>();
-    args.kernel.stride_h = 1;
-    args.kernel.stride_w = 1;
-    args.kernel.height = sub_h;
-    args.kernel.width = sub_w;
+      args.deconv.enabled = 1;
+      args.deconv.sub_kernel_num = sub_conv_number;
+      args.deconv.invalid_col_num = omit_size;
+      args.quant.dynamic_range = *(uint16_t *)&dynamic_range_fp16;
+      args.quant.inv_dynamic_range = *(uint32_t *)&inv_dynamic_range;
 
-    args.filter_address = basic_conv_param->filter.data<int8_t>();
-    args.filter_num = sub_num;
-    args.filter_scale_address = basic_conv_param->filter.scale();
-    args.image.address = input->data<void>();
-    args.image.scale_address = input->scale();
-    args.image.channels = channel;
-    args.image.width = input->shape().width();
-    args.image.height = input->shape().height();
-    args.image.pad_width = sub_pad;
-    args.image.pad_height = sub_pad;
-
-    // dilations[0] = dilations[1]
-    args.dilation = param->dilations[0];
-    args.output.address = out_address;
-    args.output.scale_address = out_scale_address;
-
-    args.deconv.enabled = 1;
-    args.deconv.sub_kernel_num = sub_conv_number;
-    args.deconv.invalid_col_num = omit_size;
-
-    param->splitParams().push_back(basic_conv_param);
+      param->splitParams().push_back(basic_conv_param);
   }
 }
 

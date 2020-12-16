@@ -54,6 +54,7 @@ void SigmoidCompute::Run() {
   }
   param.Out->ZynqTensor()->scale()[0] = max / 127.0;
   param.Out->ZynqTensor()->scale()[1] = 127.0 / max;
+  param.Out->ZynqTensor()->max()[0] = zynqmp::float_to_half(max);
   param.Out->ZynqTensor()->flush();
 }
 

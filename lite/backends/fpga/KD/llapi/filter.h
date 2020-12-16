@@ -31,25 +31,23 @@ int calc_division_capacity(int chw);
 int calc_split_num(int num, int division_capacity);
 int calc_division_number(int num, int group_num, int division_capacity);
 int calc_num_per_div(int num, int group_num, int division_capacity);
-int calc_pack_num(int num_per_group, int group, int division_capacity);
+int calc_pack_num (int num_per_group, int group, int division_capacity);
 
 float find_max(float* data_in, int data_size);
-int8_t* format_filter(float* data_in,
-                      int& mem_size,  // NOLINT
-                      int num,
-                      int channel,
-                      int height,
-                      int width,
-                      int group_num,
-                      float max,
-                      std::vector<float>& filter_max);  // NOLINT
+int8_t* format_filter(float* data_in, int& mem_size, int num, int channel,
+                      int height, int width, int group_num, float max,
+                      std::vector<float>& filter_max);
 
 void convert_to_hwn(int16_t** data_in, int num, int height, int width);
 size_t align_element_n(int16_t** data_in, int num, int height, int width);
-// void quantize_to_fp16(float** data_in, int num, int height, int width,
-//                       float* scale_ptr);
-size_t format_dwconv_filter(
-    float** data_in, int num, int height, int width, float* scale_ptr);
+void quantize_to_fp16(float** data_in, int num, int height, int width,
+                      float* scale_ptr);
+int16_t* quantize_to_int16(float* data_in, int num, int height, int width,
+                       float* scale_ptr, float quant_scale);
+size_t format_dwconv_filter(float** data_in, int num, int height, int width,
+                            float* scale_ptr);
+int16_t* format_dwconv_filter(float* data_in, int num, int height, int width,
+                            float* scale_ptr, int& mem_size, float quant_scale);
 
 }  // namespace filter
 }  // namespace zynqmp

@@ -138,6 +138,7 @@ class SplitPE : public PE {
       Tensor* out = outputs[n];
       out->flush();
       out->copyScaleFrom(input);
+      out->copyMaxFrom(input);
     }
     return true;
   }

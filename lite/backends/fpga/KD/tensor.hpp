@@ -37,8 +37,9 @@ enum DataType : int {
   FP32 = 0,
   FP16 = 1,
   INT8 = 2,
-  INT32 = 3,
-  INT64 = 4,
+  INT16 = 3,
+  INT32 = 4,
+  INT64 = 5,
 };
 
 enum DataSyncStatus : int {
@@ -57,6 +58,8 @@ inline int CellSize(DataType type) {
       return sizeof(float16);
     case INT32:
       return sizeof(int32_t);
+    case INT16:
+      return sizeof(int16_t);
     case INT8:
       return sizeof(int8_t);
     case INT64:
@@ -83,6 +86,8 @@ class PlaceHolder {
   ~PlaceHolder() { fpga_free(data_); }
 
   float scale_[2];
+
+  float16 max_[1];
 
  private:
   void* data_ = nullptr;
@@ -154,6 +159,8 @@ class Tensor {
 
   float* scale() { return placeHolder_->scale_; }
 
+  float16* max() { return placeHolder_->max_; }
+
   void alignImage(FPGALock* lock = nullptr,
                   Tensor* dst = nullptr,
                   bool copy = false) {
@@ -196,12 +203,17 @@ class Tensor {
     }
     if (dst != nullptr) {
       dst->copyScaleFrom(this);
+      dst->copyMaxFrom(this);
     }
   }
 
   inline void copyScaleFrom(Tensor* src) {
     placeHolder_->scale_[0] = src->placeHolder_->scale_[0];
     placeHolder_->scale_[1] = src->placeHolder_->scale_[1];
+  }
+
+  inline void copyMaxFrom(Tensor* src) {
+      placeHolder_->max_[0] = src->placeHolder_->max_[0];
   }
 
   void unalignImage(FPGALock* lock = nullptr,
@@ -272,6 +284,7 @@ class Tensor {
       src->syncToCPU();
       memcpy(data<void>(), src->data<void>(), memorySize());
       copyScaleFrom(src);
+      copyMaxFrom(src);
       flush();
       return;
     }
@@ -288,14 +301,14 @@ class Tensor {
     args.input_layout_type = LAYOUT_HWC;
     args.output_layout_type = LAYOUT_HWC;
     args.image = {.address = src->data<void>(),
-                  .scale_address = src->scale(),
+                  .scale_address = src->max(),
                   .channels = (uint32_t)count,
                   .width = 1,
                   .height = 1,
                   .pad_width = 0u,
                   .pad_height = 0u};
     args.output = {
-        .address = data<void>(), .scale_address = scale(),
+        .address = data<void>(), .scale_address = max(),
     };
     src->syncToDevice();
 
@@ -310,6 +323,10 @@ class Tensor {
     this->invalidate();
     perform_bypass(args);
     this->invalidate();
+
+    if (dataType_ == FP32 ) {
+        copyMaxFrom(src);
+    }
   }
 
   void flush() { fpga_flush(placeHolder_->data(), placeHolder_->memorySize()); }
@@ -362,6 +379,13 @@ class Tensor {
     }
     std::cout << "scale:" << placeHolder_->scale_[0]
               << " inv:" << placeHolder_->scale_[1] << std::endl;
+  }
+
+  void printMax() {
+    if (placeHolder_ == nullptr) {
+      return;
+    }
+    std::cout << "max:" << half_to_float(placeHolder_->max_[0]) << std::endl;
   }
 
   std::string dimsFileName() {
@@ -430,6 +454,9 @@ class Tensor {
         case INT8:
           value = t->data<int8_t>()[i];
           break;
+        case INT16:
+          value = t->data<int16_t>()[i];
+          break;
         case INT32:
           value = data<int32_t>()[i];
           break;
@@ -470,6 +497,54 @@ class Tensor {
     flush();
     placeHolder_->scale_[0] = max / 127.0f;
     placeHolder_->scale_[1] = 127.0f / max;
+    // DLOG << "\ttensor file " << path << " loaded!";
+  }
+
+  void readHalfFromFile(std::string path) {
+    std::ifstream file_stream;
+    file_stream.open(path);
+    if (!file_stream) {
+      //std::cout << "file: " << path << " does not exist\n";
+      return;
+    }
+    int num = shape_->numel();
+    invalidate();
+    float max = 0.0f;
+    float16* data = mutableData<float16>();
+    for (int i = 0; i < num; ++i) {
+      float value = 0;
+      file_stream >> value;
+      max = std::max(std::abs(value), max);
+      data[i] = float_to_half(value);
+    }
+    flush();
+    placeHolder_->scale_[0] = max / 127.0f;
+    placeHolder_->scale_[1] = 127.0f / max;
+    placeHolder_->max_[0] = float_to_half(max);
+    // DLOG << "\ttensor file " << path << " loaded!";
+  }
+
+  void readFloatFromFile(std::string path) {
+    std::ifstream file_stream;
+    file_stream.open(path);
+    if (!file_stream) {
+      //std::cout << "file: " << path << " does not exist\n";
+      return;
+    }
+    int num = shape_->numel();
+    invalidate();
+    float max = 0.0f;
+    float* data = mutableData<float>();
+    for (int i = 0; i < num; ++i) {
+      float value = 0;
+      file_stream >> value;
+      max = std::max(std::abs(value), max);
+      data[i] = value;
+    }
+    flush();
+    placeHolder_->scale_[0] = max / 127.0f;
+    placeHolder_->scale_[1] = 127.0f / max;
+    placeHolder_->max_[0] = float_to_half(max);
     // DLOG << "\ttensor file " << path << " loaded!";
   }
 

@@ -50,25 +50,25 @@ class NormPE : public PE {
     float16* mid_data =
         mid_out_.mutableData<float16>(FP16, param_.output->shape());
 
-    bypass_args_.input_data_type = DATA_TYPE_FP16;
+     bypass_args_.input_data_type = DATA_TYPE_FP16;
     bypass_args_.output_data_type = DATA_TYPE_FP16;
     bypass_args_.input_layout_type = LAYOUT_HWC;
     bypass_args_.output_layout_type = LAYOUT_HWC;
     bypass_args_.image.address = param_.input->data<void>();
-    bypass_args_.image.scale_address = param_.input->scale();
+    bypass_args_.image.scale_address = param_.input->max();
     bypass_args_.image.channels = input_shape.channel();
     bypass_args_.image.height = input_shape.height();
     bypass_args_.image.width = input_shape.width();
     bypass_args_.output.address = mid_out_.data<void>();
-    bypass_args_.output.scale_address = mid_out_.scale();
+    bypass_args_.output.scale_address = mid_out_.max();
 
     norm_args_.input_image_address = mid_data;
     norm_args_.image_width = input_shape.width();
     norm_args_.image_height = input_shape.height();
     norm_args_.image_channel = input_shape.channel();
     norm_args_.output_image_address = param_.output->data<float>();
-    norm_args_.output_scale_address =
-        reinterpret_cast<uint32_t*>(param_.output->scale());
+    norm_args_.output_scale_address = 
+        reinterpret_cast<uint16_t*>(param_.output->max());
   }
 
   void cpuCompute() {

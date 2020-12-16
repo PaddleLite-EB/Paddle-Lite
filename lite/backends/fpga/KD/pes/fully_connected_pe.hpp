@@ -130,6 +130,7 @@ class FullyConnectedPE : public PE {
     }
 
     output->flush();
+    output->max()[0] = float_to_half(max);
     output->scale()[0] = max / 127.0f;
     output->scale()[1] = 127.0f / max;
   }

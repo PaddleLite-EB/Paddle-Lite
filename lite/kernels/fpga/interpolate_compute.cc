@@ -226,6 +226,7 @@ void NearestInterpCompute::Run() {
 
   Out->ZynqTensor()->flush();
   Out->ZynqTensor()->copyScaleFrom(X->ZynqTensor());
+  Out->ZynqTensor()->copyMaxFrom(X->ZynqTensor());
 }
 
 } /* namespace fpga */

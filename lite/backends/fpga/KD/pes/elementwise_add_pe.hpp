@@ -34,6 +34,11 @@ class ElementwiseAddPE : public PE {
   void apply(FPGALock* lock = nullptr) {
     FPGALock fpga_lock(lock);
     fpga_lock.lock();
+
+    int dynamic_range = (1 << 12) - 1; //int13 max value, pow(2,12)-1
+    float16 dynamic_range_fp16 = float_to_half(dynamic_range * 1.0);
+    float inv_dynamic_range = 1.0 / dynamic_range;
+
     Tensor* input0 = param_.inputs[0];
     Tensor* input1 = param_.inputs[1];
     Tensor* output = param_.output;
@@ -42,20 +47,22 @@ class ElementwiseAddPE : public PE {
     args.const1 = 0x3c00;  // =1
     args.image0.address = input0->data<float16>();
     args.image0.channels = input0->shape().channel();
-    args.image0.scale_address = input0->scale();
+    args.image0.scale_address = input0->max();
     args.image0.height = input0->shape().height();
     args.image0.width = input0->shape().width();
     args.image0.pad_height = 0;
     args.image0.pad_width = 0;
     args.image1.address = input1->data<float16>();
     args.image1.channels = input1->shape().channel();
-    args.image1.scale_address = input1->scale();
+    args.image1.scale_address = input1->max();
     args.image1.height = input1->shape().height();
     args.image1.width = input1->shape().width();
     args.image1.pad_height = 0;
     args.image1.pad_width = 0;
-    args.output.scale_address = output->scale();
+    args.output.scale_address = output->max();
     args.output.address = output->data<float16>();
+    args.quant.dynamic_range = *(uint16_t *)&dynamic_range_fp16;;
+    args.quant.inv_dynamic_range = *(uint32_t *)&inv_dynamic_range;
     param_.ewargs = args;
   }
 
