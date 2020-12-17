@@ -25,6 +25,7 @@ limitations under the License. */
 
 #include "lite/backends/fpga/KD/pe.hpp"
 #include "lite/backends/fpga/KD/pe_params.hpp"
+#include "lite/backends/fpga/KD/pes/pooling_pe.hpp"
 
 namespace paddle {
 namespace zynqmp {
@@ -39,6 +40,7 @@ class SoftmaxPE : public PE {
 
  private:
   SoftmaxParam param_;
+  PoolingPE poolingPE_;
 };
 
 }  // namespace zynqmp

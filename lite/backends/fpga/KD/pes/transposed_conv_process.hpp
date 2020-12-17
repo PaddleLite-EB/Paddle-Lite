@@ -247,7 +247,7 @@ void inline inverse_filter(Tensor* tensor) {
   }
 }
 
-void fill_sub_filters(ConvParam* param, Tensor* filter, Tensor* tmp_out) {
+void fill_sub_filters(ConvParam* param, Tensor* filter) {
   Tensor* input = param->input;
   Tensor* output = param->output;
   int sub_conv_number = param->strides[0];

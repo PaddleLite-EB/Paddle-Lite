@@ -497,6 +497,7 @@ class Tensor {
     flush();
     placeHolder_->scale_[0] = max / 127.0f;
     placeHolder_->scale_[1] = 127.0f / max;
+    placeHolder_->max_[0] = float_to_half(max);
     // DLOG << "\ttensor file " << path << " loaded!";
   }
 

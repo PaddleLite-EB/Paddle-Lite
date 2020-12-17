@@ -22,7 +22,7 @@ limitations under the License. */
 #include <iostream>
 #include <limits>
 
-#include "../float16.hpp"
+#include "lite/backends/fpga/KD/float16.hpp"
 
 namespace paddle {
 namespace zynqmp {

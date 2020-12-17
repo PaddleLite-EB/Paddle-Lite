@@ -67,7 +67,7 @@ class TransposedConvPE : public PE {
     if (sub_filter_ena_) {
       omit_size_ = deconv_get_omit(stride_width, kernel_width, padding_width);
 
-      fill_sub_filters(&param_, &filter_, &tmp_output_);
+      fill_sub_filters(&param_, &filter_);
 
       conv_param = const_cast<ConvParam&>(param_);
       conv_param.deconv = true;
@@ -183,7 +183,6 @@ class TransposedConvPE : public PE {
   int omit_size_;
   Tensor padded_input_;
   Tensor filter_;
-  Tensor tmp_output_;
   InplaceArgs inplace_ = {0};
   ActiveParamterArgs activeParamterArgs;
 };

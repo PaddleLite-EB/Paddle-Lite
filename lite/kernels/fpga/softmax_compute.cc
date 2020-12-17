@@ -31,6 +31,7 @@ void SoftmaxCompute::PrepareForRun() {
   param.output->mutable_data<float>();
   softmax_param.input = param.x->ZynqTensor();
   softmax_param.output = param.output->ZynqTensor();
+
   pe_.init();
   pe_.apply();
 }

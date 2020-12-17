@@ -195,6 +195,17 @@ class DepthwiseConvPE : public PE {
         inplace_.relu6_enable || inplace_.sigmoid_enable) {
       config_inplace(inplace_);
     }
+    
+    if (param_.re_assign == true) {
+        float16* scale_data = scale_bias_.data<float16>();
+        int channel = param_.output->shape().channel();
+        for (int i = 0; i < align_repeat_; i++) {
+            int offset = channel * align_repeat_ + i * channel;
+            memcpy(scale_data + offset, param_.scale()->data<float16>(), param_.scale()->memorySize());
+        } 
+        scale_bias_.flush();
+    }
+
     bool ret = compute_fpga_dwconv(param_.args) == 0;
     if (inplace_.relu_enable || inplace_.leaky_relu_enable ||
         inplace_.relu6_enable || inplace_.sigmoid_enable) {

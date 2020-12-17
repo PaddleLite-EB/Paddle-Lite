@@ -212,6 +212,8 @@ struct SoftmaxParam : PEParam {
 
   Tensor* output = nullptr;
 
+  int axis = -1;
+
  private:
   Tensor* floatInput = nullptr;
 };

@@ -769,7 +769,7 @@ inline int fill_split_arg(const ConvParam& c_param) {
     return 0;
   } else {
     pack_channel_filter(c_param);
-    return 0;
+    return 2;
   }
 }
 
