@@ -668,63 +668,80 @@ inline void split_channel(const ConvParam& c_param) {
   Tensor* output = param.output;
   input->syncToCPU();
 
-  int num = ceil(input->shape().channel() * 1.0f / 2047);
-  int channel = input->shape().channel() / num;
+  Tensor* filter = param.filter;
 
-  Shape bs_shape(N, {channel});
+  int num = ceil(input->shape().channel() * 1.0f / 2047);
+
+  if (output->shape().dimSize() == 2) {
+    num = ceil(input->shape().numel() * 1.0f / 16384);
+  }
+
+  int channel = input->shape().channel() / num;
 
   int dynamic_range = 127;//int8 max value
   float16 dynamic_range_fp16 = float_to_half(dynamic_range * 1.0); 
   float inv_dynamic_range = 1.0 / dynamic_range;
 
-  float max = 1.0f;
+  Shape bs_shape(NC, {1, output->shape().channel()});
+  float max = find_max(*param.filter);
 
   for (int i = 0; i < num; i++) {
     BasicConvParam* conv_param = new BasicConvParam();
-
     // input && output;
     Shape in_shape(
         NCHW, {1, channel, input->shape().height(), input->shape().width()});
-    conv_param->input.shareDataWith(input, in_shape, channel * i);
+    // conv_param->input.shareDataWith(input, in_shape, channel * i);
+    conv_param->input.mutableData<float16>(FP16, in_shape);
     conv_param->output.mutableData<float16>(FP16, output->shape());
 
     // filter transformation;
-    Shape f_shape(NCHW, {param.filter->shape().num(), channel, 1, 1});
+    Shape f_shape(NCHW,
+                  {filter->shape().num(),
+                   channel,
+                   filter->shape().height(),
+                   filter->shape().width()});
 
-    Tensor new_filter;
+    Tensor new_filter_hwc;
 
-    float* dst = new_filter.mutableData<float>(FP32, f_shape);
-    float* src = param.filter->data<float>() + i * channel;
+    auto cal_chw = [](Tensor* t) {
+      Shape& s = t->shape();
+      return s.channel() * s.height() * s.width();
+    };
+
     for (int n = 0; n < f_shape.num(); n++) {
-      memcpy(dst, src, channel * sizeof(float));
-      dst += channel;
-      src += param.filter->shape().channel();
+      float* dst = new_filter_hwc.mutableData<float>(FP32, f_shape) +
+                   n * cal_chw(&new_filter_hwc);
+      float* src = filter->data<float>() + i * channel + n * cal_chw(filter);
+
+      for (int hw = 0; hw < f_shape.height() * f_shape.width(); hw++) {
+        memcpy(dst, src, channel * sizeof(float));
+        dst += channel;
+        src += filter->shape().channel();
+      }
     }
-    new_filter.flush();
+    Tensor new_filter;
+    hwc_to_chw(&new_filter_hwc, &new_filter);
     std::vector<float> scales;
-    format_filter(&new_filter, &(conv_param->filter), param.groups, scales, max);
+    format_filter(
+        &new_filter, &(conv_param->filter), param.groups, scales, max);
+
+    conv_param->filter.flush();
 
     Tensor bias;
     Tensor scale;
 
+    int sb_channel = output->shape().channel();
     float* bias_data = bias.mutableData<float>(FP32, bs_shape);
     float* scale_data = scale.mutableData<float>(FP32, bs_shape);
-    for (int c = 0; c < channel; c++) {
-      scale_data[c] = 1;
+    for (int c = 0; c < sb_channel; c++) {
+      scale_data[c] = param.scale()->data<float>()[c] * scales[c];
       bias_data[c] = param.bias()->data<float>()[c] / num;
     }
-    scale.flush();
-    bias.flush();
-    // Shape sb_shape(N, {2 * channel});
-    format_scale_bias(&scale, &bias, &conv_param->filter,
-                      &conv_param->scaleBias, param.groups);
+    format_bias_scale_new(&bias, &scale, &conv_param->scaleBias);
     conv_param->scaleBias.flush();
-    // conv_param->scaleBias.saveToFile("sb.txt");
 
     ConvArgs& args = conv_param->args;
     args.group_num = param.groups;
-    // TODO relu by inplace
-    // args.relu_enabled = param.relu.enabled;
     args.sb_address = conv_param->scaleBias.data<float>();
     args.kernel.stride_h = param.strides[1];
     args.kernel.stride_w = param.strides[0];
@@ -742,13 +759,16 @@ inline void split_channel(const ConvParam& c_param) {
     args.image.height = conv_param->input.shape().height();
     args.image.pad_width = param.paddings[1];
     args.image.pad_height = param.paddings[0];
-    // TODO dilations[0] = dilations[1]
     args.dilation = param.dilations[0];
     args.output.address = conv_param->output.mutableData<void>();
     args.output.scale_address = conv_param->output.max();
+    args.deconv.enabled = false;
+    args.stride.rd_enabled = false; 
+    args.stride.wr_enabled = false; 
     args.quant.dynamic_range = *(uint16_t *)&dynamic_range_fp16;
     args.quant.inv_dynamic_range = *(uint32_t *)&inv_dynamic_range;
     param.splitParams().push_back(conv_param);
+    // std::cout << args ;
   }
 }
 
@@ -757,14 +777,13 @@ inline int fill_split_arg(const ConvParam& c_param) {
   Tensor* input = param.input;
   Tensor* output = param.output;
 
-  // if ((output->shape().dimSize() == 4 && input->shape().channel() > 2047 &&
-  //      input->shape().width() == 1) ||
-  //     (output->shape().dimSize() == 2 &&
-  //      input->shape().numel() > MAX_CHANNEL)) {
-  //   split_channel(c_param);
-  //   return 1;
-  // } else 
-  if (param.groups == 1) {
+  if ((output->shape().dimSize() == 4 && input->shape().channel() > 2047 &&
+       input->shape().width() == 1) ||
+      (output->shape().dimSize() == 2 &&
+       input->shape().numel() > MAX_CHANNEL)) {
+    split_channel(c_param);
+    return 1;
+  } else if (param.groups == 1) {
     split_filter_num(c_param);
     return 0;
   } else {
