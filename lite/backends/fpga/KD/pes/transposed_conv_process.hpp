@@ -327,8 +327,8 @@ void fill_sub_filters(ConvParam* param, Tensor* filter) {
 
       float_tensor.flush();
 
-      std::vector<float> v;
-      format_filter(&float_tensor, &(basic_conv_param->filter), param->groups, v, max);
+      std::vector<float> quant_scale;
+      format_filter(&float_tensor, &(basic_conv_param->filter), param->groups, quant_scale, max);
 
       Tensor scale;
       Tensor bias;
@@ -338,10 +338,10 @@ void fill_sub_filters(ConvParam* param, Tensor* filter) {
       float* bias_data = bias.mutableData<float>(FP32, s_shape);
     
       for (int n = 0; n < sub_num; n++) {
-          scale_data[n] = param->scale()->data<float>()[n % kernel_num];
+          scale_data[n] = param->scale()->data<float>()[n % kernel_num] * quant_scale[n];
       }
       for (int n = 0; n < sub_num; n++) {
-          bias_data[n] = param->bias()->data<float>()[n % kernel_num];
+          bias_data[n] = param->bias()->data<float>()[n % kernel_num] * quant_scale[n];
       }
     
       format_bias_scale_new(&bias, &scale, &basic_conv_param->scaleBias);

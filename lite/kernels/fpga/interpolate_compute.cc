@@ -17,6 +17,7 @@
 #include <vector>
 #include "lite/core/op_registry.h"
 #include "lite/core/tensor.h"
+#include "lite/backends/fpga/KD/debugger.hpp"
 
 namespace paddle {
 namespace lite {
@@ -47,6 +48,74 @@ void BilinearInterpCompute::Run() {
   //                              scale,
   //                              align_corners,
   //                              interp_method);
+
+
+  auto& param = Param<operators::InterpolateParam>();
+  zynqmp::Tensor* input_x = param.X->ZynqTensor();
+
+  int out_w = param.Out->dims()[3];
+  int out_h = param.Out->dims()[2];
+  auto batch_size = param.X->dims()[0];
+  auto channels = param.X->dims()[1];
+  auto in_h = param.X->dims()[2];
+  auto in_w = param.X->dims()[3];
+  
+  zynqmp::Tensor input_float, out_float;
+  input_float.setDataLocation(zynqmp::CPU);
+  // input_x.setAligned(true);
+  input_x->invalidate();
+  input_x->unalignImage();
+  float* input = input_float.mutableData<float>(zynqmp::FP32, input_x->shape());
+  input_float.copyFrom(input_x);
+
+  zynqmp::Shape shape({batch_size, out_h, out_w, channels});
+  float* output = out_float.mutableData<float>(zynqmp::FP32, shape);
+
+  auto in_hw = in_h * in_w;
+  auto out_hw = out_h * out_w;
+  auto in_chw = channels * in_hw;
+  auto out_chw = channels * out_hw;
+
+  float ratio_h =
+      (out_h > 1) ? static_cast<float>(in_h - 1) / (out_h - 1) : 0.f;
+  float ratio_w =
+      (out_w > 1) ? static_cast<float>(in_w - 1) / (out_w - 1) : 0.f;
+
+  if (in_h == out_h && in_w == out_w) {
+    memcpy(output, input, param.X->numel() * sizeof(float));
+  } else {
+// #pragma omp parallel for
+    for (int k = 0; k < batch_size; ++k) {  // loop for batches
+      for (int i = 0; i < out_h; ++i) {     // loop for images
+        int h = ratio_h * i;
+        int hid = (h < in_h - 1) ? in_w * channels : 0;
+        float h1lambda = ratio_h * i - h;
+        float h2lambda = 1.f - h1lambda;
+
+        for (int j = 0; j < out_w; ++j) {
+          int w = ratio_w * j;
+          int wid = (w < in_w - 1) ? channels : 0;
+          float w1lambda = ratio_w * j - w;
+          float w2lambda = 1.f - w1lambda;
+          // calculate four position for bilinear interpolation
+          const float* in_pos = &input[(k * in_h * in_w + h * in_w + w) * channels];
+          float* out_pos = &output[(k * out_w * out_h + i * out_w + j) * channels];
+          for (int c = 0; c < channels; ++c) {  // loop for channels
+            // bilinear interpolation
+            out_pos[c] = static_cast<float>(
+                h2lambda * (w2lambda * in_pos[0 + c] + w1lambda * in_pos[wid + c]) +
+                h1lambda * (w2lambda * in_pos[hid + c] +
+                            w1lambda * in_pos[hid + wid + c]));
+          }
+        }
+      }
+    }
+  }
+  param.Out->mutable_data<float16>();
+  param.Out->ZynqTensor()->copyFrom(&out_float);
+  param.Out->ZynqTensor()->flush();
+  
+  Debugger::get_instance().registerOutput("bilinear_interp", param.Out->ZynqTensor());
 }
 
 void nearest_interp(const float16* src,
@@ -226,7 +295,6 @@ void NearestInterpCompute::Run() {
 
   Out->ZynqTensor()->flush();
   Out->ZynqTensor()->copyScaleFrom(X->ZynqTensor());
-  Out->ZynqTensor()->copyMaxFrom(X->ZynqTensor());
 }
 
 } /* namespace fpga */
