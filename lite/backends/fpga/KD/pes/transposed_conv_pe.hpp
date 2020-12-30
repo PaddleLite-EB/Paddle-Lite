@@ -40,10 +40,6 @@ class TransposedConvPE : public PE {
     output->setAligned(true);
     output->setDataLocation(Device);
 
-    Tensor* output_t = &tmp_output_;
-    output_t->setAligned(true);
-    output_t->setDataLocation(Device);
-
     return true;
   }
 
@@ -61,7 +57,7 @@ class TransposedConvPE : public PE {
       sub_filter_ena_ = false;
     }
     // 使用pad input方案
-    sub_filter_ena_ = false;
+    // sub_filter_ena_ = false;
 
     ConvParam& conv_param = pe_.param();
 
@@ -71,7 +67,7 @@ class TransposedConvPE : public PE {
     if (sub_filter_ena_) {
       omit_size_ = deconv_get_omit(stride_width, kernel_width, padding_width);
 
-      fill_sub_filters(&param_, &filter_, &tmp_output_);
+      fill_sub_filters(&param_, &filter_);
 
       conv_param = const_cast<ConvParam&>(param_);
       conv_param.deconv = true;
@@ -149,12 +145,15 @@ class TransposedConvPE : public PE {
   bool dispatch(FPGALock* lock = nullptr) {
     FPGALock fpga_lock(lock);
     fpga_lock.lock();
+
     // int ih = param_.input->shape().height();
     // int iw = param_.input->shape().width();
-    // if (ih == 8 && iw == 8) {
-    //   param_.input->readFromFile("29_ew_add_relu_1_512_8_8");
-    //   std::cout << "29_ew_add_relu_1_512_8_8" << std::endl;
+    // int ic = param_.input->shape().channel();
+    // if (ih == 8 && iw == 8 && ic == 2048) {
+    //   param_.input->readHalfFromFile("elementwise_add_15.tmp_0.txt");
+    //   std::cout << "elementwise_add_15.tmp_0: " << half_to_float(param_.input->data<float16>()[0]) << std::endl;
     // }
+
     if (sub_filter_ena_ == false) {
       pad_input<float16>();
     }
@@ -162,20 +161,14 @@ class TransposedConvPE : public PE {
     bool vi = pe_.dispatch(&fpga_lock);
 
     if (sub_filter_ena_ == true && vi == true) {
-      float16* out_data = param_.output->data<float16>();
-      float16* tmp_out_data = tmp_output_.data<float16>();
-      int wc_align = align_to_x(
-          param_.output->shape().width() * param_.output->shape().channel(),
-          16);
-      int off_addr = omit_size_ * wc_align;
-      int len = param_.output->shape().height() * wc_align;
+      int off_addr = omit_size_ * param_.output->shape().width() * param_.output->shape().channel();
 
-      memcpy(out_data, tmp_out_data + off_addr, len * sizeof(float16));
+      param_.output->unalignImage();
+      param_.output->setOffset(off_addr);
 
       float scale = 0.0;
 
-      std::vector<BasicConvParam*>& params = param_.splitParams();
-      for (auto conv_param : params) {
+      for (auto conv_param : param_.splitParams()) {
         scale = std::max(scale, conv_param->output.scale()[0]);
       }
       param_.output->scale()[0] = scale;
@@ -194,7 +187,6 @@ class TransposedConvPE : public PE {
   int omit_size_;
   Tensor padded_input_;
   Tensor filter_;
-  Tensor tmp_output_;
   InplaceArgs inplace_ = {0};
   ActiveParamterArgs activeParamterArgs;
 };

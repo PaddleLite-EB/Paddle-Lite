@@ -247,8 +247,9 @@ void inline inverse_filter(Tensor* tensor) {
   }
 }
 
-void fill_sub_filters(ConvParam* param, Tensor* filter, Tensor* tmp_out) {
+void fill_sub_filters(ConvParam* param, Tensor* filter) {
   Tensor* input = param->input;
+  Tensor* output = param->output;
   int sub_conv_number = param->strides[0];
 
   int kernel_num = filter->shape().num();
@@ -274,8 +275,9 @@ void fill_sub_filters(ConvParam* param, Tensor* filter, Tensor* tmp_out) {
 
   float max = find_max(*filter);
 
-  Shape out_shape(NHWC, {1, before_omit_out_h, after_omit_out_w, kernel_num});
-  tmp_out->mutableData<float16>(FP16, out_shape);
+  float mem_factor = before_omit_out_h * 1.0/after_omit_out_h;
+  output->setMemScale(mem_factor);
+  output->mutableData<float16>();
 
   // Tensor nhwc_filter;
   // nhwc_filter.mutableData<void>(FP32, filter->shape());
@@ -324,9 +326,9 @@ void fill_sub_filters(ConvParam* param, Tensor* filter, Tensor* tmp_out) {
 
     float_tensor.flush();
 
-    std::vector<float> v;
+    std::vector<float> quant_scale;
     format_filter(
-        &float_tensor, &(basic_conv_param->filter), param->groups, v, max);
+        &float_tensor, &(basic_conv_param->filter), param->groups, quant_scale, max);
 
     Tensor scale;
     Tensor bias;
@@ -336,8 +338,10 @@ void fill_sub_filters(ConvParam* param, Tensor* filter, Tensor* tmp_out) {
     float* bias_data = bias.mutableData<float>(FP32, s_shape);
 
     for (int n = 0; n < sub_num; n++) {
-      scale_data[n] = param->scale()->data<float>()[n % kernel_num];
+      int q_idx = (n + omit_size * kernel_num) % sub_num;
+      scale_data[n] = param->scale()->data<float>()[n % kernel_num] * quant_scale[q_idx];
     }
+
     for (int n = 0; n < sub_num; n++) {
       bias_data[n] = param->bias()->data<float>()[n % kernel_num];
     }
@@ -349,8 +353,8 @@ void fill_sub_filters(ConvParam* param, Tensor* filter, Tensor* tmp_out) {
 
     int offset = (sub_conv_number - 1 - i) *
                  align_to_x(after_omit_out_w * kernel_num, 16);
-    tmp_out->setOffset(offset);
-    out_address = tmp_out->data<float16>();
+                 
+    out_address = output->data<float16>() + offset;
 
     out_scale_address = basic_conv_param->output.scale();
 
