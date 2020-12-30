@@ -338,10 +338,11 @@ void fill_sub_filters(ConvParam* param, Tensor* filter) {
       float* bias_data = bias.mutableData<float>(FP32, s_shape);
     
       for (int n = 0; n < sub_num; n++) {
-          scale_data[n] = param->scale()->data<float>()[n % kernel_num] * quant_scale[n];
+          int q_idx = (n + omit_size * kernel_num) % sub_num;
+          scale_data[n] = param->scale()->data<float>()[n % kernel_num] * quant_scale[q_idx];
       }
       for (int n = 0; n < sub_num; n++) {
-          bias_data[n] = param->bias()->data<float>()[n % kernel_num] * quant_scale[n];
+          bias_data[n] = param->bias()->data<float>()[n % kernel_num];
       }
     
       format_bias_scale_new(&bias, &scale, &basic_conv_param->scaleBias);
