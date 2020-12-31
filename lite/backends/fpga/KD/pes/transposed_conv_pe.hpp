@@ -57,7 +57,9 @@ class TransposedConvPE : public PE {
       sub_filter_ena_ = false;
     }
     // 使用pad input方案
-    // sub_filter_ena_ = false;
+    if (DLEngine::get_instance().isZU3()){
+      sub_filter_ena_ = false;
+    }
 
     ConvParam& conv_param = pe_.param();
 
