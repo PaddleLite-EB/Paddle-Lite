@@ -19,6 +19,7 @@ limitations under the License. */
 
 #include <stdint.h>
 #include <cstddef>
+#include <fstream>
 #include <iostream>
 #include <limits>
 
@@ -456,11 +457,11 @@ class FPGALock {
       if (ret > 0) {
         locked_ = true;
       } else {
-        std::cout << "fail to lock，ret:" << ret << std::endl;
-        std::ofstream ofs;
-        ofs.open("fpga_lock.txt");
-        ofs << "fail to lock，ret:" << ret << std::endl;
-        ofs.close();
+        // std::cout << "fail to lock，ret:" << ret << std::endl;
+        // std::ofstream ofs;
+        // ofs.open("fpga_lock.txt");
+        // ofs << "fail to lock，ret:" << ret << std::endl;
+        // ofs.close();
       }
     }
   }
@@ -472,11 +473,11 @@ class FPGALock {
         locked_ = false;
         internal_lock_ = nullptr;
       } else {
-        std::cout << "fail to unlock，ret:" << ret << std::endl;
-        std::ofstream ofs;
-        ofs.open("fpga_lock.txt");
-        ofs << "fail to lock，ret:" << ret << std::endl;
-        ofs.close();
+        // std::cout << "fail to unlock，ret:" << ret << std::endl;
+        // std::ofstream ofs;
+        // ofs.open("fpga_lock.txt");
+        // ofs << "fail to lock，ret:" << ret << std::endl;
+        // ofs.close();
       }
     }
   }

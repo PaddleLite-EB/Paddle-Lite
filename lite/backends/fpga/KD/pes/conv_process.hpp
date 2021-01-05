@@ -440,8 +440,8 @@ inline void split_filter_num(const ConvParam& c_param) {
     new_filter.flush();
     conv_param->filter.mutableData<float>(FP32, f_shape);
 
-    std::vector<float> v; // TODO
-    format_filter(&new_filter, &(conv_param->filter), param.groups, v, max);
+    std::vector<float> quant_scale; // TODO
+    format_filter(&new_filter, &(conv_param->filter), param.groups, quant_scale, max);
     conv_param->filter.setDataType(INT8);
 
     //int sb_num = 2 * align_to_x(filter_num, BS_NUM_ALIGNMENT);
@@ -455,8 +455,8 @@ inline void split_filter_num(const ConvParam& c_param) {
     float* bias_data = bias.mutableData<float>(FP32, s_shape);
     // float16* bias_data = bias.mutableData<float16>(FP16, s_shape);
     for (int n = 0; n < filter_num; n++) {
-        // scale_data[n] = param.scale()->data<float>()[n + chnnnel_start] * v[n];
-      scale_data[n] = param.scale()->data<float>()[n + chnnnel_start];
+      scale_data[n] = param.scale()->data<float>()[n + chnnnel_start] * quant_scale[n];
+      // scale_data[n] = param.scale()->data<float>()[n + chnnnel_start];
     }
     for (int n = 0; n < filter_num; n++) {
       bias_data[n] = param.bias()->data<float>()[n + chnnnel_start];
@@ -594,8 +594,8 @@ inline void pack_channel_filter(const ConvParam& c_param) {
     float mem_factor = filter_num_alignment / filter_per_pack; // TODO
     conv_param->filter.setMemScale(mem_factor);
     
-    std::vector<float> v; // TODO
-    format_filter(&new_filter, &(conv_param->filter), new_group, v, max);
+    std::vector<float> quant_scale; // TODO
+    format_filter(&new_filter, &(conv_param->filter), new_group, quant_scale, max);
     conv_param->filter.setDataType(INT8);
 
     //int sb_num = 2 * align_to_x(filter_current_pack, BS_NUM_ALIGNMENT);
@@ -609,8 +609,8 @@ inline void pack_channel_filter(const ConvParam& c_param) {
     float* bias_data = bias.mutableData<float>(FP32, s_shape);
     // float16* bias_data = bias.mutableData<float16>(FP16, s_shape);
     for (int n = 0; n < filter_current_pack; n++) {
-        // scale_data[n] = param.scale()->data<float>()[n + chnnnel_start] * v[n];
-      scale_data[n] = param.scale()->data<float>()[n + chnnnel_start];
+      scale_data[n] = param.scale()->data<float>()[n + chnnnel_start] * quant_scale[n];
+      // scale_data[n] = param.scale()->data<float>()[n + chnnnel_start];
     }
     for (int n = 0; n < filter_current_pack; n++) {
       bias_data[n] = param.bias()->data<float>()[n + chnnnel_start];
