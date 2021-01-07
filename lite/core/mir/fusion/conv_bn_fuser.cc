@@ -201,8 +201,8 @@ void ConvBNFuser::InsertNewNode(SSAGraph* graph, const key2nodes_t& matched) {
     }
   } else {
 #ifndef LITE_WITH_FPGA
-    compute new conv_weight
-    auto conv_weight_d = conv_weight_t->mutable_data<float>();
+    compute new conv_weight auto conv_weight_d =
+        conv_weight_t->mutable_data<float>();
     if (conv_type_ == "conv2d_transpose" && !depthwise) {
       int c_size = conv_weight_t->dims()[1] * conv_weight_t->dims()[2] *
                    conv_weight_t->dims()[3];
@@ -223,7 +223,6 @@ void ConvBNFuser::InsertNewNode(SSAGraph* graph, const key2nodes_t& matched) {
       }
     }
 #endif
-
   }
 
   // compute new conv_bias
@@ -262,12 +261,12 @@ void ConvBNFuser::InsertNewNode(SSAGraph* graph, const key2nodes_t& matched) {
                          {matched.at("bn_scale")->arg()->name});  // conv_sias
   IR_NODE_LINK_TO(matched.at("bn_scale"), matched.at("conv2d"));
 #endif
-        
+
   auto update_conv_desc = *conv_instruct->mutable_op_info();
   conv_instruct->ResetOp(update_conv_desc, graph->valid_places());
 
   IR_NODE_LINK_TO(matched.at("bn_bias"), matched.at("conv2d"));
-  
+
   IR_OP_VAR_LINK(matched.at("conv2d"), matched.at("bn_out"));
 }
 

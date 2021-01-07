@@ -251,7 +251,7 @@ int8_t* format_filter(float* data_in,
     float f_max = find_max(filter_start, chw);
     if (f_max < max / 4) {
       f_max = max / 4;
-    }else {
+    } else {
     }
     int8_t* quantized_start = quantized_data + n * chw;
     quantize(filter_start, quantized_start, chw, f_max);

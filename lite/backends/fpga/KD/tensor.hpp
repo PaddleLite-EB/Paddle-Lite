@@ -450,11 +450,11 @@ class Tensor {
 
   void releaseData() { placeHolder_.reset(); }
 
-   void readHalfFromFile(std::string path) {
+  void readHalfFromFile(std::string path) {
     std::ifstream file_stream;
     file_stream.open(path);
     if (!file_stream) {
-      //std::cout << "file: " << path << " does not exist\n";
+      // std::cout << "file: " << path << " does not exist\n";
       return;
     }
     int num = shape_->numel();
@@ -477,7 +477,7 @@ class Tensor {
     std::ifstream file_stream;
     file_stream.open(path);
     if (!file_stream) {
-      //std::cout << "file: " << path << " does not exist\n";
+      // std::cout << "file: " << path << " does not exist\n";
       return;
     }
     int num = shape_->numel();

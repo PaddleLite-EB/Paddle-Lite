@@ -57,7 +57,7 @@ class TransposedConvPE : public PE {
       sub_filter_ena_ = false;
     }
     // 使用pad input方案
-    if (DLEngine::get_instance().isZU3()){
+    if (DLEngine::get_instance().isZU3()) {
       sub_filter_ena_ = false;
     }
 
@@ -89,8 +89,6 @@ class TransposedConvPE : public PE {
                           padded_height,
                           padded_width});
 
-      // int p = param_.kernelSize[0] - param_.paddings[0] - 1;
-      // int p = kernel_width - param_.paddings[0] - 1;
       int ph = param_.filter->shape().height() - param_.paddings[0] - 1;
       int pw = param_.filter->shape().width() - param_.paddings[1] - 1;
 
@@ -148,14 +146,6 @@ class TransposedConvPE : public PE {
     FPGALock fpga_lock(lock);
     fpga_lock.lock();
 
-    // int ih = param_.input->shape().height();
-    // int iw = param_.input->shape().width();
-    // int ic = param_.input->shape().channel();
-    // if (ih == 8 && iw == 8 && ic == 2048) {
-    //   param_.input->readHalfFromFile("elementwise_add_15.tmp_0.txt");
-    //   std::cout << "elementwise_add_15.tmp_0: " << half_to_float(param_.input->data<float16>()[0]) << std::endl;
-    // }
-
     if (sub_filter_ena_ == false) {
       pad_input<float16>();
     }
@@ -163,7 +153,8 @@ class TransposedConvPE : public PE {
     bool vi = pe_.dispatch(&fpga_lock);
 
     if (sub_filter_ena_ == true && vi == true) {
-      int off_addr = omit_size_ * param_.output->shape().width() * param_.output->shape().channel();
+      int off_addr = omit_size_ * param_.output->shape().width() *
+                     param_.output->shape().channel();
 
       param_.output->unalignImage();
       param_.output->setOffset(off_addr);
