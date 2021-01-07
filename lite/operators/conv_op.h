@@ -92,6 +92,20 @@ class ConvOpLite : public OpLite {
         }
       }
     }
+#ifdef LITE_WITH_FPGA
+    if (std::find(input_arg_names.begin(), input_arg_names.end(), "Scale") !=
+        input_arg_names.end()) {
+      auto scale_arguments = op_desc.Input("Scale");
+      if (scale_arguments.size() > 0) {
+        auto scale_var = scope->FindVar(scale_arguments.front());
+        if (scale_var != nullptr) {
+          param_.scale =
+              const_cast<lite::Tensor*>(&(scale_var->Get<lite::Tensor>()));
+        }
+      }
+    }
+#endif
+
     if (std::find(input_arg_names.begin(),
                   input_arg_names.end(),
                   "ResidualData") != input_arg_names.end()) {

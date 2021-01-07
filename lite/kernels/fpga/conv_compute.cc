@@ -82,6 +82,9 @@ void ConvCompute::PrepareForRun() {
     if (param.bias != nullptr) {
       conv_param.bias()->copyFrom(param.bias->ZynqTensor());
     }
+    if (param.scale != nullptr) {
+      conv_param.scale()->copyFrom(param.scale->ZynqTensor());
+    }
 
     conv_param.activeParam.type = active_type;
     conv_param.activeParam.leaky_relu_factor = leaky_relu_factor;
@@ -101,6 +104,9 @@ void ConvCompute::PrepareForRun() {
     fill_scale_bias_const(&conv_param);
     if (param.bias != nullptr) {
       conv_param.bias()->copyFrom(param.bias->ZynqTensor());
+    }
+    if (param.scale != nullptr) {
+      conv_param.scale()->copyFrom(param.scale->ZynqTensor());
     }
 
     conv_param.activeParam.type = active_type;

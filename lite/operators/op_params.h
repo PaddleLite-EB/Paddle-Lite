@@ -372,6 +372,9 @@ struct ActivationGradParam : ParamBase {
 struct ConvParam : ParamBase {
   lite::Tensor* x{};
   lite::Tensor* filter{};
+#ifdef LITE_WITH_FPGA
+  lite::Tensor* scale{nullptr};
+#endif
   lite::Tensor* bias{nullptr};
   lite::Tensor* residualData{nullptr};
   lite::Tensor* output{};
