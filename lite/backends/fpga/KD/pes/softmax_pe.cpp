@@ -197,6 +197,7 @@ bool SoftmaxPE::init(FPGALock *lock) {
   Tensor *output = param_.output;
   output->setAligned(false);
   output->setDataLocation(CPU);
+
   return true;
 }
 
@@ -205,18 +206,20 @@ bool SoftmaxPE::dispatch(FPGALock *lock) {
   Tensor *output = param_.output;
   int axis = param_.axis;
 
+  // input->invalidate();
+
+  ///TODO: PL Pass dosen't transepose the shape from chw to hwc
   input->syncToCPU();
   if (input->shape().dimSize() >= 3 && (axis == 3 || axis == -1)) {
-    input->shape().setLayoutType(NHWC);
-    output->shape().setLayoutType(NHWC);
+    // input->shape().setLayoutType(NHWC);
+    // output->shape().setLayoutType(NHWC);
   }
-  
-  bool use_cpu = (input->shape().dimSize() > 2 ? false : true);
 
+  bool use_cpu = (input->shape().dimSize() > 2 ? false : true);
   if (use_cpu) {
     Tensor float_input;
     float_input.mutableData<float>(DataType::FP32, input->shape());
-    float_input.copyFrom(input, lock);
+    float_input.copyFrom(input);
     // float_input.unalignImage();
     Tensor float_output;
     float *out_data =
@@ -224,16 +227,11 @@ bool SoftmaxPE::dispatch(FPGALock *lock) {
 
     softmax(&float_input, &float_output);
     float_output.flush();
-    output->copyFrom(&float_output, lock);
+    output->copyFrom(&float_output);
   } else {
-    Tensor float_output;
-    float16 *out_data =
-        float_output.mutableData<float16>(DataType::FP16, input->shape());
-    fpga_softmax(axis, input, &float_output, &poolingPE_);
-    float_output.invalidate();
-    output->copyFrom(&float_output, lock);
+    fpga_softmax(axis, input, output, &poolingPE_);
   }
-
+  
   return true;
 }
 

@@ -28,7 +28,7 @@ void SoftmaxCompute::PrepareForRun() {
   auto& param = Param<operators::SoftmaxParam>();
 
   // param.output->mutable_data<float16>();
-  param.output->mutable_data<float>();
+  param.output->mutable_data<float16>();
   softmax_param.input = param.x->ZynqTensor();
   softmax_param.output = param.output->ZynqTensor();
 
@@ -39,7 +39,6 @@ void SoftmaxCompute::PrepareForRun() {
 void SoftmaxCompute::Run() {
   zynqmp::SoftmaxParam& softmax_param = pe_.param();
   pe_.dispatch();
-
 //   softmax_param.output->flush();
 // // softmax_param.output->saveToFile("softmax", true);
 #ifdef FPGA_PRINT_TENSOR
