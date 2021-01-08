@@ -59,15 +59,16 @@ void BilinearInterpCompute::Run() {
   auto in_h = param.X->dims()[2];
   auto in_w = param.X->dims()[3];
 
-  zynqmp::Tensor input_float, out_float;
+  zynqmp::Tensor input_float;
   input_float.setDataLocation(zynqmp::CPU);
   // input_x.setAligned(true);
   input_x->invalidate();
   input_x->unalignImage();
   float* input = input_float.mutableData<float>(zynqmp::FP32, input_x->shape());
   input_float.copyFrom(input_x);
-
-  zynqmp::Shape shape({batch_size, out_h, out_w, channels});
+  
+  zynqmp::Tensor out_float;
+  zynqmp::Shape shape(zynqmp::NHWC, {batch_size, out_h, out_w, channels});
   float* output = out_float.mutableData<float>(zynqmp::FP32, shape);
 
   auto in_hw = in_h * in_w;
@@ -113,6 +114,7 @@ void BilinearInterpCompute::Run() {
       }
     }
   }
+  out_float.flush();
   param.Out->mutable_data<float16>();
   param.Out->ZynqTensor()->copyFrom(&out_float);
   param.Out->ZynqTensor()->flush();
