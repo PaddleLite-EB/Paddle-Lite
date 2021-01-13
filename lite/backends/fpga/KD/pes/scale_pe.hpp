@@ -86,7 +86,7 @@ class ScalePE : public PE {
         }
     } else {
         if (param_.bias != nullptr) {
-            bias_data = param_.bias->data<float16>();
+            memcpy(bias_data, param_.bias->data<float16>(), param_.bias->memorySize());
         } else {
             float16 zero = float_to_half(0.0f);
             for (int j = 0; j < channel; j++) {
@@ -158,22 +158,22 @@ class ScalePE : public PE {
   }
 
   bool dispatch(FPGALock* lock = nullptr) {
+    bool ret = true;
+
     FPGALock fpga_lock(lock);
     fpga_lock.lock();
 
     if (param_.re_assign == true) {
         DepthwiseConvParam& dw_param = dw_pe_.param();
-        
         memcpy(dw_param.scale()->mutableData<float16>(), param_.scale->data<float16>(), param_.scale->memorySize());
-
         dw_param.re_assign = true;
     }
     
     param_.input->syncToDevice();
-    return dw_pe_.dispatch(&fpga_lock);
+    ret = dw_pe_.dispatch(&fpga_lock);
 
     // cpu_compute();
-    return true;
+    return ret;
   }
 
   ScaleParam& param() { return param_; }

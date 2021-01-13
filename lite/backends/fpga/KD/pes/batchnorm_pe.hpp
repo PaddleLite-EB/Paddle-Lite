@@ -103,6 +103,7 @@ class BatchnormPE : public PE {
     float16* input = scale_param.input->mutableData<float16>();
 
     bool ret = scalePE_.dispatch(&fpga_lock);
+
     // bool ret = cpu_compute();
     if (inplace_.relu_enable || inplace_.leaky_relu_enable ||
         inplace_.relu6_enable || inplace_.sigmoid_enable) {
