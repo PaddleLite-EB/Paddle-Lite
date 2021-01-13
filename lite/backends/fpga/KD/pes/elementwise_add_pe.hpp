@@ -47,14 +47,14 @@ class ElementwiseAddPE : public PE {
     args.const1 = 0x3c00;  // =1
     args.image0.address = input0->data<float16>();
     args.image0.channels = input0->shape().channel();
-    args.image0.scale_address = input0->max();
+    args.image0.scale_address = &glob_max_;
     args.image0.height = input0->shape().height();
     args.image0.width = input0->shape().width();
     args.image0.pad_height = 0;
     args.image0.pad_width = 0;
     args.image1.address = input1->data<float16>();
     args.image1.channels = input1->shape().channel();
-    args.image1.scale_address = input1->max();
+    args.image1.scale_address = &glob_max_;
     args.image1.height = input1->shape().height();
     args.image1.width = input1->shape().width();
     args.image1.pad_height = 0;
@@ -73,6 +73,9 @@ class ElementwiseAddPE : public PE {
     param_.inputs[1]->syncToDevice();
     // InplaceArgs inplace_ = {0};
 
+    glob_max_ = float_to_half(std::max(half_to_float(param_.inputs[0]->max()[0]), 
+               half_to_float(param_.inputs[1]->max()[0])));
+
     if (param_.activeParam.type == TYPE_RELU) {
       inplace_.relu_enable = true;
     } else if (param_.activeParam.type == TYPE_RELU6) {
@@ -86,6 +89,7 @@ class ElementwiseAddPE : public PE {
         inplace_.relu6_enable || inplace_.sigmoid_enable) {
       config_inplace(inplace_);
     }
+    
     compute_fpga_ewadd(param_.ewargs);
     if (inplace_.relu_enable || inplace_.leaky_relu_enable ||
         inplace_.relu6_enable || inplace_.sigmoid_enable) {
@@ -103,6 +107,7 @@ class ElementwiseAddPE : public PE {
  private:
   ElementwiseAddParam param_;
   InplaceArgs inplace_ = {0};
+  float16 glob_max_ = 0;
 };
 
 }  // namespace zynqmp

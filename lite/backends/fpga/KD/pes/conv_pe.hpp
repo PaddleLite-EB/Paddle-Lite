@@ -147,7 +147,7 @@ class ConvPE : public PE {
 
       pack_channel = split_axis == 2 && param_.splitParams().size() > 1;
       split_cpu_concat = split_axis == 0 && param_.cpu_concat;
-      split_channel = split_axis == 1 && param_.splitParams().size() > 1;
+      split_channel = split_axis == 1;
 
       if (pack_channel) {
         ConcatParam& concat_param = concatPE_.param();
@@ -167,8 +167,8 @@ class ConvPE : public PE {
         concat_param.inputs.push_back(&(last->output));
 
         concat_param.output = param_.output;
-        concatPE_.init();
-        concatPE_.apply();
+        concatPE_.init(&fpga_lock);
+        concatPE_.apply(&fpga_lock);
       }
 
       if (pack_channel || split_channel) {
@@ -177,9 +177,19 @@ class ConvPE : public PE {
         for (auto conv_param : param_.splitParams()) {
           split_param.outputs.push_back(&conv_param->input);
         }
-        splitPE_.init();
-        splitPE_.apply();
+        splitPE_.init(&fpga_lock);
+        splitPE_.apply(&fpga_lock);
       }
+
+      // if (split_channel && param_.splitParams().size() > 1) {
+      //   ElementwiseAddParam& add_param = addPE_.param();
+      //   BasicConvParam* first = param_.splitParams().front();
+      //   BasicConvParam* last = param_.splitParams().back();
+      //   add_param.inputs = {&(first->output), &(last->output)};
+      //   add_param.output = param_.output;
+      //   addPE_.init(&fpga_lock);
+      //   addPE_.apply(&fpga_lock);
+      // }
     }
 
     if (!use_cpu_) {
@@ -297,7 +307,7 @@ class ConvPE : public PE {
       concatPE_.dispatch(&fpga_lock);
     }
 
-    if (!param_.deconv) {
+    if (!param_.deconv & !split_channel) {
       float16 max_val = 0.0;
       for (auto conv_param : param_.splitParams()) {
         max_val = std::max(max_val, conv_param->output_max);
@@ -305,9 +315,7 @@ class ConvPE : public PE {
       param_.output->max()[0] = max_val;
     }
 
-    size_t size = params.size();
-
-    if (split_axis == 1 && ret == 0 && size > 1) {
+    if (split_channel && ret == 0 && params.size() > 1) {
       ElementwiseAddParam& add_param = addPE_.param();
       add_param.inputs = {&params[0]->output, &params[1]->output};
       add_param.output = param_.output;
