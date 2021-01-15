@@ -35,6 +35,8 @@ class DLEngine {
 
   bool isZU3() { return info_.device_type / 100 == 3; }
 
+  bool isZU5() { return info_.device_type / 100 == 5; }
+
  private:
   DLEngine();
   DeviceInfoArgs info_;
