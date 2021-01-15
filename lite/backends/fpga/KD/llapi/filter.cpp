@@ -252,9 +252,12 @@ int8_t* format_filter(float* data_in, int& mem_size_a, int num, int channel,
     float* filter_start = data_in + n * chw;
     float f_max = find_max(filter_start, chw);
     // float f_max = max;
+    if (f_max < max / 4) {
+      f_max = max / 4;
+    } else {
+    }
     int8_t* quantized_start = quantized_data + n * chw;
     quantize(filter_start, quantized_start, chw, f_max);
-    // quantize(filter_start, quantized_start, chw, max);
     filter_max.push_back(f_max);
   }
 

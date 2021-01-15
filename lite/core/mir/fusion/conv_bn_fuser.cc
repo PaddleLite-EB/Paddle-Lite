@@ -200,8 +200,9 @@ void ConvBNFuser::InsertNewNode(SSAGraph* graph, const key2nodes_t& matched) {
       conv_op_desc->SetAttr(scale_name, scale);
     }
   } else {
-    // compute new conv_weight
-    auto conv_weight_d = conv_weight_t->mutable_data<float>();
+#ifndef LITE_WITH_FPGA
+    compute new conv_weight auto conv_weight_d =
+        conv_weight_t->mutable_data<float>();
     if (conv_type_ == "conv2d_transpose" && !depthwise) {
       int c_size = conv_weight_t->dims()[1] * conv_weight_t->dims()[2] *
                    conv_weight_t->dims()[3];
@@ -221,6 +222,7 @@ void ConvBNFuser::InsertNewNode(SSAGraph* graph, const key2nodes_t& matched) {
         }
       }
     }
+#endif
   }
 
   // compute new conv_bias
@@ -231,12 +233,21 @@ void ConvBNFuser::InsertNewNode(SSAGraph* graph, const key2nodes_t& matched) {
     auto conv_bias_d = conv_bias_t->data<float>();
     for (unsigned int i = 0; i < bn_bias_t->data_size();
          ++i) {  // bias_size == h == conv2d output channls
+#ifndef LITE_WITH_FPGA
       bn_bias_d[i] += alpha_data[i] * conv_bias_d[i];
+#else
+      bn_bias_d[i] += conv_bias_d[i];
+#endif
     }
   }
   for (unsigned int i = 0; i < bn_bias_t->data_size(); ++i) {
     bn_bias_d[i] += beta_data[i];
   }
+#ifdef LITE_WITH_FPGA
+  for (unsigned int i = 0; i < bn_scale_t->data_size(); ++i) {
+    bn_scale_d[i] = alpha_data[i];
+  }
+#endif
 
   conv_op_desc->SetType(conv_type_);
   conv_op_desc->SetInput("Input", {matched.at("conv_input")->arg()->name});
@@ -244,10 +255,18 @@ void ConvBNFuser::InsertNewNode(SSAGraph* graph, const key2nodes_t& matched) {
   conv_op_desc->SetOutput("Output", {matched.at("bn_out")->arg()->name});
   conv_op_desc->SetInput("Bias",
                          {matched.at("bn_bias")->arg()->name});  // conv_bias
+
+#ifdef LITE_WITH_FPGA
+  conv_op_desc->SetInput("Scale",
+                         {matched.at("bn_scale")->arg()->name});  // conv_sias
+  IR_NODE_LINK_TO(matched.at("bn_scale"), matched.at("conv2d"));
+#endif
+
   auto update_conv_desc = *conv_instruct->mutable_op_info();
   conv_instruct->ResetOp(update_conv_desc, graph->valid_places());
 
   IR_NODE_LINK_TO(matched.at("bn_bias"), matched.at("conv2d"));
+
   IR_OP_VAR_LINK(matched.at("conv2d"), matched.at("bn_out"));
 }
 

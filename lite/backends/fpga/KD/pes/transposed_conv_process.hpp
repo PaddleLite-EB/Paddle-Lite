@@ -279,7 +279,8 @@ void fill_sub_filters(ConvParam* param, Tensor* filter) {
 
   float max = find_max(*filter);
 
-  float mem_factor = before_omit_out_h * 1.0/after_omit_out_h;
+  float mem_factor = before_omit_out_h * 1.0 / after_omit_out_h;
+
   output->setMemScale(mem_factor);
   output->mutableData<float16>();
 
@@ -328,7 +329,11 @@ void fill_sub_filters(ConvParam* param, Tensor* filter) {
       float_tensor.flush();
 
       std::vector<float> quant_scale;
-      format_filter(&float_tensor, &(basic_conv_param->filter), param->groups, quant_scale, max);
+      format_filter(&float_tensor, 
+                    &(basic_conv_param->filter), 
+                    param->groups, 
+                    quant_scale, 
+                    max);
 
       Tensor scale;
       Tensor bias;

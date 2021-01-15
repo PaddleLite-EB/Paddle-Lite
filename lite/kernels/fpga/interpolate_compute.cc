@@ -15,6 +15,7 @@
 #include "lite/kernels/fpga/interpolate_compute.h"
 #include <string>
 #include <vector>
+#include "lite/backends/fpga/KD/debugger.hpp"
 #include "lite/core/op_registry.h"
 #include "lite/core/tensor.h"
 #include "lite/backends/fpga/KD/debugger.hpp"
@@ -48,7 +49,6 @@ void BilinearInterpCompute::Run() {
   //                              scale,
   //                              align_corners,
   //                              interp_method);
-
 
   auto& param = Param<operators::InterpolateParam>();
   zynqmp::Tensor* input_x = param.X->ZynqTensor();
@@ -85,7 +85,7 @@ void BilinearInterpCompute::Run() {
   if (in_h == out_h && in_w == out_w) {
     memcpy(output, input, param.X->numel() * sizeof(float));
   } else {
-// #pragma omp parallel for
+    // #pragma omp parallel for
     for (int k = 0; k < batch_size; ++k) {  // loop for batches
       for (int i = 0; i < out_h; ++i) {     // loop for images
         int h = ratio_h * i;
@@ -99,12 +99,15 @@ void BilinearInterpCompute::Run() {
           float w1lambda = ratio_w * j - w;
           float w2lambda = 1.f - w1lambda;
           // calculate four position for bilinear interpolation
-          const float* in_pos = &input[(k * in_h * in_w + h * in_w + w) * channels];
-          float* out_pos = &output[(k * out_w * out_h + i * out_w + j) * channels];
+          const float* in_pos =
+              &input[(k * in_h * in_w + h * in_w + w) * channels];
+          float* out_pos =
+              &output[(k * out_w * out_h + i * out_w + j) * channels];
           for (int c = 0; c < channels; ++c) {  // loop for channels
             // bilinear interpolation
             out_pos[c] = static_cast<float>(
-                h2lambda * (w2lambda * in_pos[0 + c] + w1lambda * in_pos[wid + c]) +
+                h2lambda *
+                    (w2lambda * in_pos[0 + c] + w1lambda * in_pos[wid + c]) +
                 h1lambda * (w2lambda * in_pos[hid + c] +
                             w1lambda * in_pos[hid + wid + c]));
           }
@@ -112,13 +115,13 @@ void BilinearInterpCompute::Run() {
       }
     }
   }
-
   out_float.flush();
   param.Out->mutable_data<float16>();
   param.Out->ZynqTensor()->copyFrom(&out_float);
   param.Out->ZynqTensor()->flush();
 
-  Debugger::get_instance().registerOutput("bilinear_interp", param.Out->ZynqTensor());
+  Debugger::get_instance().registerOutput("bilinear_interp",
+                                          param.Out->ZynqTensor());
 }
 
 void nearest_interp(const float16* src,
