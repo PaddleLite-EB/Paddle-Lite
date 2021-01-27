@@ -38,14 +38,16 @@ class NormPE : public PE {
   void apply(FPGALock* lock = nullptr) {
     FPGALock fpga_lock(lock);
     fpga_lock.lock();
-    inplace_args_.relu_enable = false;
-    inplace_args_.power_enable = false;
-    inplace_args_.normalize_enable = true;
+    // inplace_args_.relu_enable = false;
+    // inplace_args_.power_enable = false;
+    // inplace_args_.normalize_enable = true;
 
     Shape& input_shape = param_.input->shape();
 
-    norm_param_args_.channel = input_shape.channel();
-    norm_param_args_.hight_width = input_shape.height() * input_shape.width();
+    bypass_args_.inplace.normalize_param.channel = input_shape.channel();
+    bypass_args_.inplace.normalize_param.hight_width =
+        input_shape.height() * input_shape.width();
+    bypass_args_.inplace.normalize_param.enabled = true;
 
     float16* mid_data =
         mid_out_.mutableData<float16>(FP16, param_.output->shape());
@@ -134,8 +136,8 @@ class NormPE : public PE {
  private:
   NormParam param_;
   Tensor mid_out_;
-  InplaceArgs inplace_args_ = {0};
-  NormalizeParameterArgs norm_param_args_ = {0};
+  // InplaceArgs inplace_args_ = {0};
+  // NormalizeParameterArgs norm_param_args_ = {0};
   BypassArgs bypass_args_;
 
   NormalizeArgs norm_args_ = {0};

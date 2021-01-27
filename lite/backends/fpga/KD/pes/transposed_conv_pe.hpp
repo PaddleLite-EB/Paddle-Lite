@@ -195,8 +195,8 @@ class TransposedConvPE : public PE {
   Tensor padded_input_;
   Tensor filter_;
   Tensor tmp_output_;
-  InplaceArgs inplace_ = {0};
-  ActiveParamterArgs activeParamterArgs;
+  // InplaceArgs inplace_ = {0};
+  // ActiveParamterArgs activeParamterArgs;
 };
 
 }  // namespace zynqmp

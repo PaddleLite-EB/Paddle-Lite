@@ -69,8 +69,8 @@ class BatchnormPE : public PE {
 
     scalePE_.init(&fpga_lock);
 
-    inplace_.power_enable = false;
-    inplace_.normalize_enable = false;
+    // inplace_.power_enable = false;
+    // inplace_.normalize_enable = false;
 
     return true;
   }
@@ -84,34 +84,34 @@ class BatchnormPE : public PE {
   bool dispatch(FPGALock* lock = nullptr) {
     FPGALock fpga_lock(lock);
     fpga_lock.lock();
-    if (param_.activeParam.type == TYPE_RELU) {
-      inplace_.relu_enable = true;
-    } else if (param_.activeParam.type == TYPE_RELU6) {
-      inplace_.relu6_enable = true;
-    } else if (param_.activeParam.type == TYPE_SIGMOID) {
-      inplace_.sigmoid_enable = true;
-    } else if (param_.activeParam.type == TYPE_LEAKY_RELU) {
-      inplace_.leaky_relu_enable = true;
-    }
+    // if (param_.activeParam.type == TYPE_RELU) {
+    //   inplace_.relu_enable = true;
+    // } else if (param_.activeParam.type == TYPE_RELU6) {
+    //   inplace_.relu6_enable = true;
+    // } else if (param_.activeParam.type == TYPE_SIGMOID) {
+    //   inplace_.sigmoid_enable = true;
+    // } else if (param_.activeParam.type == TYPE_LEAKY_RELU) {
+    //   inplace_.leaky_relu_enable = true;
+    // }
 
-    if (inplace_.relu_enable || inplace_.leaky_relu_enable ||
-        inplace_.relu6_enable || inplace_.sigmoid_enable) {
-      config_inplace(inplace_);
-    }
+    // if (inplace_.relu_enable || inplace_.leaky_relu_enable ||
+    //     inplace_.relu6_enable || inplace_.sigmoid_enable) {
+    //   config_inplace(inplace_);
+    // }
 
     ScaleParam& scale_param = scalePE_.param();
     float16* input = scale_param.input->mutableData<float16>();
 
     bool ret = scalePE_.dispatch(&fpga_lock);
     // bool ret = cpu_compute();
-    if (inplace_.relu_enable || inplace_.leaky_relu_enable ||
-        inplace_.relu6_enable || inplace_.sigmoid_enable) {
-      inplace_.relu_enable = false;
-      inplace_.leaky_relu_enable = false;
-      inplace_.relu6_enable = false;
-      inplace_.sigmoid_enable = false;
-      config_inplace(inplace_);
-    }
+    // if (inplace_.relu_enable || inplace_.leaky_relu_enable ||
+    //     inplace_.relu6_enable || inplace_.sigmoid_enable) {
+    //   inplace_.relu_enable = false;
+    //   inplace_.leaky_relu_enable = false;
+    //   inplace_.relu6_enable = false;
+    //   inplace_.sigmoid_enable = false;
+    //   config_inplace(inplace_);
+    // }
     return ret;
   }
 
@@ -127,7 +127,7 @@ class BatchnormPE : public PE {
  private:
   BatchnormParam param_;
   ScalePE scalePE_;
-  InplaceArgs inplace_ = {0};
+  // InplaceArgs inplace_ = {0};
   Tensor* scale_ = new Tensor();
   Tensor* bias_ = new Tensor();
 };
