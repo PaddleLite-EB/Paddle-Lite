@@ -148,6 +148,12 @@ class ConvPE : public PE {
       split_channel = split_axis == 1 ||
                       (param_.groups != 1 && param_.splitParams().size() > 1);
 
+      for (auto conv_param : param_.splitParams()) {
+        conv_param->args.inplace.active_param.type = param_.activeParam.type;
+        conv_param->args.inplace.active_param.leaky_relu_factor =
+            float_to_half(param_.activeParam.leaky_relu_factor);
+      }
+
       if (split_axis == 0 && param_.splitParams().size() > 1) {
         ConcatParam& concat_param = concatPE_.param();
         for (auto conv_param : param_.splitParams()) {
@@ -232,27 +238,6 @@ class ConvPE : public PE {
 
     FPGALock fpga_lock(lock);
     fpga_lock.lock();
-    inplace_.global_pool_en = false;
-    if (param_.activeParam.type == TYPE_RELU) {
-      inplace_.relu_enable = true;
-    } else if (param_.activeParam.type == TYPE_RELU6) {
-      inplace_.relu6_enable = true;
-    } else if (param_.activeParam.type == TYPE_SIGMOID) {
-      inplace_.sigmoid_enable = true;
-    } else if (param_.activeParam.type == TYPE_LEAKY_RELU) {
-      inplace_.leaky_relu_enable = true;
-    }
-
-    if (inplace_.relu_enable || inplace_.leaky_relu_enable ||
-        inplace_.relu6_enable || inplace_.sigmoid_enable) {
-      config_inplace(inplace_);
-      if (inplace_.leaky_relu_enable) {
-        activeParamterArgs.type = TYPE_LEAKY_RELU;
-        activeParamterArgs.leaky_relu_factor =
-            float_to_half(param_.activeParam.leaky_relu_factor);
-        config_activation(activeParamterArgs);
-      }
-    }
 
     std::vector<BasicConvParam*>& params = param_.splitParams();
 
@@ -263,22 +248,6 @@ class ConvPE : public PE {
     int ret = 0;
     for (auto conv_param : params) {
       ret |= compute_fpga_conv_basic(conv_param->args);
-    }
-
-    if (inplace_.relu_enable || inplace_.leaky_relu_enable ||
-        inplace_.relu6_enable || inplace_.sigmoid_enable) {
-      inplace_.relu_enable = false;
-      inplace_.leaky_relu_enable = false;
-      inplace_.relu6_enable = false;
-      inplace_.sigmoid_enable = false;
-      inplace_.global_pool_en = false;
-      config_inplace(inplace_);
-
-      if (param_.activeParam.type == TYPE_LEAKY_RELU) {
-        activeParamterArgs.type = TYPE_LEAKY_RELU;
-        activeParamterArgs.leaky_relu_factor = float_to_half(0);
-        config_activation(activeParamterArgs);
-      }
     }
 
     size_t size = params.size();
@@ -307,8 +276,6 @@ class ConvPE : public PE {
   SplitPE splitPE_;
   ElementwiseAddPE addPE_;
   int split_axis = 0;
-  InplaceArgs inplace_ = {0};
-  ActiveParamterArgs activeParamterArgs;
 };
 
 }  // namespace zynqmp

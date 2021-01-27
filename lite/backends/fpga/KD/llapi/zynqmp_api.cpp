@@ -192,7 +192,57 @@ int ioctl_conv(const struct ConvArgs &args) {
 }
 
 int compute_fpga_conv_basic(const struct ConvArgs &args) {
-  return do_ioctl(IOCTL_CONFIG_CONV, &args);
+  int ret = do_ioctl(IOCTL_CONFIG_CONV, &args);
+
+  if (ret != 0) {
+    std::cout << "======compute_fpga_conv_basic======";
+    std::cout << "   sb_address:" << args.sb_address
+              << "   filter_address:" << args.filter_address
+              << "   filter_scale_address:" << args.filter_scale_address
+              << "   filter_num:" << args.filter_num
+              << "   group_num:" << args.group_num
+              << "   dilation:" << args.dilation
+              << "  image_address:" << args.image.address
+              << "   image_scale_address:" << args.image.scale_address
+              << "   image_channels:" << args.image.channels
+              << "   image_height:" << args.image.height
+              << "   image_width:" << args.image.width
+              << "   pad_height:" << args.image.pad_height
+              << "   pad_width:" << args.image.pad_width
+              << "   kernel_height:" << args.kernel.height
+              << "   kernel_width:" << args.kernel.width
+              << "   stride_h:" << args.kernel.stride_h
+              << "   stride_w:" << args.kernel.stride_w
+              << "   out_address:" << args.output.address
+              << "   out_scale_address:" << args.output.scale_address
+              << std::endl;
+
+    std::ofstream ofs;
+    ofs.open("timeout_debug.txt");
+    ofs << "======compute_fpga_conv_basic======";
+    ofs << "   sb_address:" << args.sb_address
+        << "   filter_address:" << args.filter_address
+        << "   filter_scale_address:" << args.filter_scale_address
+        << "   filter_num:" << args.filter_num
+        << "   group_num:" << args.group_num << "   dilation:" << args.dilation
+        << "  image_address:" << args.image.address
+        << "   image_scale_address:" << args.image.scale_address
+        << "   image_channels:" << args.image.channels
+        << "   image_height:" << args.image.height
+        << "   image_width:" << args.image.width
+        << "   pad_height:" << args.image.pad_height
+        << "   pad_width:" << args.image.pad_width
+        << "   kernel_height:" << args.kernel.height
+        << "   kernel_width:" << args.kernel.width
+        << "   stride_h:" << args.kernel.stride_h
+        << "   stride_w:" << args.kernel.stride_w
+        << "   out_address:" << args.output.address
+        << "   out_scale_address:" << args.output.scale_address << std::endl;
+    ofs.close();
+    exit(-1);
+  }
+  return ret;
+  // return do_ioctl(IOCTL_CONFIG_CONV, &args);
 }
 
 int compute_fpga_conv(const struct SplitConvArgs &args) {
@@ -308,29 +358,29 @@ int compute_fpga_dwconv(const struct DWconvArgs &args) {
   return do_ioctl(IOCTL_CONFIG_DWCONV, &args);
 }
 
-int config_activation(const struct ActiveParamterArgs &args) {
-  return do_ioctl(IOCTL_CONFIG_ACTIVATION_PARAMETER, &args);
-}
+// int config_activation(const struct ActiveParamterArgs &args) {
+//   return do_ioctl(IOCTL_CONFIG_ACTIVATION_PARAMETER, &args);
+// }
 
-int config_global_pool(const struct GlobalPoolArgs &args) {
-  return do_ioctl(IOCTL_CONFIG_GLOBAL_POOL_PARAMETER, &args);
-}
+// int config_global_pool(const struct GlobalPoolArgs &args) {
+//   return do_ioctl(IOCTL_CONFIG_GLOBAL_POOL_PARAMETER, &args);
+// }
 
 // int config_power(const struct PowerArgs& args) {
 //     return do_ioctl(IOCTL_CONFIG_POWER, &args);
 // }
 
-int config_inplace(const struct InplaceArgs &args) {
-  return do_ioctl(IOCTL_CONFIG_INPLACE, &args);
-}
+// int config_inplace(const struct InplaceArgs &args) {
+//   return do_ioctl(IOCTL_CONFIG_INPLACE, &args);
+// }
 
-int config_norm_param(const struct NormalizeParameterArgs &args) {
-  return do_ioctl(IOCTL_CONFIG_NORMALIZE_PARAMETER, &args);
-}
+// int config_norm_param(const struct NormalizeParameterArgs &args) {
+//   return do_ioctl(IOCTL_CONFIG_NORMALIZE_PARAMETER, &args);
+// }
 
-int compute_norm(const struct NormalizeArgs &args) {
-  return do_ioctl(IOCTL_CONFIG_NORMALIZE, &args);
-}
+// int compute_norm(const struct NormalizeArgs &args) {
+//   return do_ioctl(IOCTL_CONFIG_NORMALIZE, &args);
+// }
 
 int compute_fpga_resize(const struct ResizeArgs &args) {
   return do_ioctl(IOCTL_CONFIG_RESIZE, &args);

@@ -60,6 +60,9 @@ class DepthwiseConvSplitPE : public PE {
       SplitParam& split_param = splitPE_.param();
       split_param.input = param_.input;
       for (auto dwconv_param : param_.splitParams()) {
+        dwconv_param->args.inplace.active_param.type = param_.activeParam.type;
+        dwconv_param->args.inplace.active_param.leaky_relu_factor =
+            float_to_half(param_.activeParam.leaky_relu_factor);
         split_param.outputs.push_back(&dwconv_param->input);
       }
       splitPE_.init(&fpga_lock);
@@ -79,20 +82,20 @@ class DepthwiseConvSplitPE : public PE {
     FPGALock fpga_lock(lock);
     fpga_lock.lock();
     param_.input->syncToDevice();
-    if (param_.activeParam.type == TYPE_RELU) {
-      inplace_.relu_enable = true;
-    } else if (param_.activeParam.type == TYPE_RELU6) {
-      inplace_.relu6_enable = true;
-    } else if (param_.activeParam.type == TYPE_SIGMOID) {
-      inplace_.sigmoid_enable = true;
-    } else if (param_.activeParam.type == TYPE_LEAKY_RELU) {
-      inplace_.leaky_relu_enable = true;
-    }
+    // if (param_.activeParam.type == TYPE_RELU) {
+    //   inplace_.relu_enable = true;
+    // } else if (param_.activeParam.type == TYPE_RELU6) {
+    //   inplace_.relu6_enable = true;
+    // } else if (param_.activeParam.type == TYPE_SIGMOID) {
+    //   inplace_.sigmoid_enable = true;
+    // } else if (param_.activeParam.type == TYPE_LEAKY_RELU) {
+    //   inplace_.leaky_relu_enable = true;
+    // }
 
-    if (inplace_.relu_enable || inplace_.leaky_relu_enable ||
-        inplace_.relu6_enable || inplace_.sigmoid_enable) {
-      config_inplace(inplace_);
-    }
+    // if (inplace_.relu_enable || inplace_.leaky_relu_enable ||
+    //     inplace_.relu6_enable || inplace_.sigmoid_enable) {
+    //   config_inplace(inplace_);
+    // }
 
     std::vector<BasicDWConvParam*>& params = param_.splitParams();
 
@@ -109,14 +112,14 @@ class DepthwiseConvSplitPE : public PE {
       concatPE_.dispatch(&fpga_lock);
     }
 
-    if (inplace_.relu_enable || inplace_.leaky_relu_enable ||
-        inplace_.relu6_enable || inplace_.sigmoid_enable) {
-      inplace_.relu_enable = false;
-      inplace_.leaky_relu_enable = false;
-      inplace_.relu6_enable = false;
-      inplace_.sigmoid_enable = false;
-      config_inplace(inplace_);
-    }
+    // if (inplace_.relu_enable || inplace_.leaky_relu_enable ||
+    //     inplace_.relu6_enable || inplace_.sigmoid_enable) {
+    //   inplace_.relu_enable = false;
+    //   inplace_.leaky_relu_enable = false;
+    //   inplace_.relu6_enable = false;
+    //   inplace_.sigmoid_enable = false;
+    //   config_inplace(inplace_);
+    // }
     return ret;
   }
 
@@ -126,7 +129,7 @@ class DepthwiseConvSplitPE : public PE {
   DepthwiseConvSplitParam param_;
   ConcatPE concatPE_;
   SplitPE splitPE_;
-  InplaceArgs inplace_ = {0};
+  // InplaceArgs inplace_ = {0};
 };
 
 }  // namespace zynqmp
