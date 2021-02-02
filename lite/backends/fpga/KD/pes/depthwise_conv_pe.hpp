@@ -126,10 +126,6 @@ class DepthwiseConvPE : public PE {
     args.inplace.active_param.leaky_relu_factor =
         float_to_half(param_.activeParam.leaky_relu_factor);
     param.args = args;
-
-    // inplace_.relu_enable = param_.relu.enabled;
-    // inplace_.power_enable = false;
-    // inplace_.normalize_enable = false;
   }
 
   bool dispatch() {
@@ -144,7 +140,6 @@ class DepthwiseConvPE : public PE {
  private:
   DepthwiseConvParam param_;
   Tensor bias_;
-  // InplaceArgs inplace_ = {0};
 };
 
 }  // namespace zynqmp

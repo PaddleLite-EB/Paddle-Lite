@@ -34,10 +34,6 @@ class NormPE : public PE {
   }
 
   void apply() {
-    // inplace_args_.relu_enable = false;
-    // inplace_args_.power_enable = false;
-    // inplace_args_.normalize_enable = true;
-
     Shape& input_shape = param_.input->shape();
 
     bypass_args_.inplace.normalize_param.channel = input_shape.channel();

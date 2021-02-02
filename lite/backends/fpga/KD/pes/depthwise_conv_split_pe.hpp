@@ -76,6 +76,7 @@ class DepthwiseConvSplitPE : public PE {
 
   bool dispatch() {
     param_.input->syncToDevice();
+
     std::vector<BasicDWConvParam*>& params = param_.splitParams();
 
     if (params.size() > 1) {

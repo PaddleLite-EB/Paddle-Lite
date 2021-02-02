@@ -93,7 +93,7 @@ class BatchnormPE : public PE {
  private:
   BatchnormParam param_;
   ScalePE scalePE_;
-  // InplaceArgs inplace_ = {0};
+
   Tensor* scale_ = new Tensor();
   Tensor* bias_ = new Tensor();
 };
