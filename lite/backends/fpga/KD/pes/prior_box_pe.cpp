@@ -76,7 +76,7 @@ struct ClipFunctor {
   }
 };
 
-void PriorBoxPE::compute_prior_box(FPGALock *lock) {
+void PriorBoxPE::compute_prior_box() {
   PriorBoxParam &param = param_;
   Tensor *input = param.input;
   Shape &input_shape = input->shape();
@@ -243,15 +243,13 @@ void PriorBoxPE::compute_prior_box(FPGALock *lock) {
   boxes.flush();
   // boxes.syncToCPU();
   variances.flush();
-  output_boxes->copyFrom(&boxes, lock);
-  output_variances->copyFrom(&variances, lock);
+  output_boxes->copyFrom(&boxes);
+  output_variances->copyFrom(&variances);
 }
 
-void PriorBoxPE::apply(FPGALock *lock) {}
+void PriorBoxPE::apply() {}
 
-bool PriorBoxPE::dispatch(FPGALock *lock) {
-  FPGALock fpga_lock(lock);
-  fpga_lock.lock();
+bool PriorBoxPE::dispatch() {
   if (cachedBoxes_ == nullptr) {
     cachedBoxes_ = new Tensor();
     cachedVariances_ = new Tensor();
@@ -259,11 +257,11 @@ bool PriorBoxPE::dispatch(FPGALock *lock) {
     cachedVariances_->mutableData<float>(FP32, param_.outputVariances->shape());
     cachedBoxes_->setDataLocation(CPU);
     cachedVariances_->setDataLocation(CPU);
-    compute_prior_box(&fpga_lock);
+    compute_prior_box();
   }
 
-  param_.outputBoxes->copyFrom(this->cachedBoxes_, &fpga_lock);
-  param_.outputVariances->copyFrom(this->cachedVariances_, &fpga_lock);
+  param_.outputBoxes->copyFrom(this->cachedBoxes_);
+  param_.outputVariances->copyFrom(this->cachedVariances_);
 
   param_.outputBoxes->flush();
   // param_.outputBoxes->syncToCPU();

@@ -27,18 +27,14 @@ namespace zynqmp {
 
 class FullyConnectedPE : public PE {
  public:
-  bool init(FPGALock* lock = nullptr) {
-    FPGALock fpga_lock(lock);
-    fpga_lock.lock();
+  bool init() {
     Tensor* output = param_.output;
     output->setAligned(true);
     output->setDataLocation(Device);
     return true;
   }
 
-  void apply(FPGALock* lock = nullptr) {
-    FPGALock fpga_lock(lock);
-    fpga_lock.lock();
+  void apply() {
     ConvParam& convParam_ = convPE_.param();
     int num = param_.filter->shape().channel();
     int chw = param_.filter->shape().num();
@@ -100,8 +96,8 @@ class FullyConnectedPE : public PE {
     convParam_.scale()->flush();
     convParam_.bias()->flush();
 
-    convPE_.init(&fpga_lock);
-    convPE_.apply(&fpga_lock);
+    convPE_.init();
+    convPE_.apply();
   }
 
   void cpu_compute() {
@@ -134,13 +130,11 @@ class FullyConnectedPE : public PE {
     output->scale()[1] = 127.0f / max;
   }
 
-  bool dispatch(FPGALock* lock = nullptr) {
+  bool dispatch() {
     param_.input->invalidate();
     input_.copyFrom(param_.input);
     input_.flush();
-    FPGALock fpga_lock(lock);
-    fpga_lock.lock();
-    return convPE_.dispatch(&fpga_lock);
+    return convPE_.dispatch();
   }
 
   FullyConnectedParam& param() { return param_; }

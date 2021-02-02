@@ -35,18 +35,14 @@ class DepthwiseConvPE : public PE {
 
   inline int lcm_(int a, int b) { return a * b / gcd_(a, b); }
 
-  bool init(FPGALock* lock = nullptr) {
-    FPGALock fpga_lock(lock);
-    fpga_lock.lock();
+  bool init() {
     Tensor* output = param_.output;
     output->setAligned(true);
     output->setDataLocation(Device);
     return true;
   }
 
-  void apply(FPGALock* lock = nullptr) {
-    FPGALock fpga_lock(lock);
-    fpga_lock.lock();
+  void apply() {
     DepthwiseConvParam& param = param_;
     Tensor* input = param.input;
     Tensor* output = param.output;
@@ -136,38 +132,10 @@ class DepthwiseConvPE : public PE {
     // inplace_.normalize_enable = false;
   }
 
-  // bool dispatch() {
-  //   FPGALock* lock = nullptr;
-  //   dispatch(lock);
-  // }
-
-  bool dispatch(FPGALock* lock = nullptr) {
-    FPGALock fpga_lock(lock);
-    fpga_lock.lock();
+  bool dispatch() {
     param_.input->syncToDevice();
-    // if (param_.activeParam.type == TYPE_RELU) {
-    //   inplace_.relu_enable = true;
-    // } else if (param_.activeParam.type == TYPE_RELU6) {
-    //   inplace_.relu6_enable = true;
-    // } else if (param_.activeParam.type == TYPE_SIGMOID) {
-    //   inplace_.sigmoid_enable = true;
-    // } else if (param_.activeParam.type == TYPE_LEAKY_RELU) {
-    //   inplace_.leaky_relu_enable = true;
-    // }
-
-    // if (inplace_.relu_enable || inplace_.leaky_relu_enable ||
-    //     inplace_.relu6_enable || inplace_.sigmoid_enable) {
-    //   config_inplace(inplace_);
-    // }
     bool ret = compute_fpga_dwconv(param_.args) == 0;
-    // if (inplace_.relu_enable || inplace_.leaky_relu_enable ||
-    //     inplace_.relu6_enable || inplace_.sigmoid_enable) {
-    //   inplace_.relu_enable = false;
-    //   inplace_.leaky_relu_enable = false;
-    //   inplace_.relu6_enable = false;
-    //   inplace_.sigmoid_enable = false;
-    //   config_inplace(inplace_);
-    // }
+
     return ret;
   }
 

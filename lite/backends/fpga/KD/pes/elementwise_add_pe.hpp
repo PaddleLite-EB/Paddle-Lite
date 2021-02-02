@@ -22,18 +22,14 @@ namespace zynqmp {
 
 class ElementwiseAddPE : public PE {
  public:
-  bool init(FPGALock* lock = nullptr) {
-    FPGALock fpga_lock(lock);
-    fpga_lock.lock();
+  bool init() {
     Tensor* output = param_.output;
     output->setAligned(true);
     output->setDataLocation(Device);
     return true;
   }
 
-  void apply(FPGALock* lock = nullptr) {
-    FPGALock fpga_lock(lock);
-    fpga_lock.lock();
+  void apply() {
     Tensor* input0 = param_.inputs[0];
     Tensor* input1 = param_.inputs[1];
     Tensor* output = param_.output;
@@ -62,35 +58,12 @@ class ElementwiseAddPE : public PE {
     param_.ewargs = args;
   }
 
-  bool dispatch(FPGALock* lock = nullptr) {
-    FPGALock fpga_lock(lock);
-    fpga_lock.lock();
+  bool dispatch() {
     param_.inputs[0]->syncToDevice();
     param_.inputs[1]->syncToDevice();
-    // InplaceArgs inplace_ = {0};
 
-    // if (param_.activeParam.type == TYPE_RELU) {
-    //   inplace_.relu_enable = true;
-    // } else if (param_.activeParam.type == TYPE_RELU6) {
-    //   inplace_.relu6_enable = true;
-    // } else if (param_.activeParam.type == TYPE_SIGMOID) {
-    //   inplace_.sigmoid_enable = true;
-    // } else if (param_.activeParam.type == TYPE_LEAKY_RELU) {
-    //   inplace_.leaky_relu_enable = true;
-    // }
-    // if (inplace_.relu_enable || inplace_.leaky_relu_enable ||
-    //     inplace_.relu6_enable || inplace_.sigmoid_enable) {
-    //   config_inplace(inplace_);
-    // }
     compute_fpga_ewadd(param_.ewargs);
-    // if (inplace_.relu_enable || inplace_.leaky_relu_enable ||
-    //     inplace_.relu6_enable || inplace_.sigmoid_enable) {
-    //   inplace_.relu_enable = false;
-    //   inplace_.relu6_enable = false;
-    //   inplace_.sigmoid_enable = false;
-    //   inplace_.leaky_relu_enable = false;
-    //   config_inplace(inplace_);
-    // }
+
     return true;
   }
 

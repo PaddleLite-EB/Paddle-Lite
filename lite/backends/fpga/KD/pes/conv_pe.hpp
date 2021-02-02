@@ -130,18 +130,14 @@ class ConvPE : public PE {
     // exit(-1);
   }
 
-  bool init(FPGALock* lock = nullptr) {
-    FPGALock fpga_lock(lock);
-    fpga_lock.lock();
+  bool init() {
     Tensor* output = param_.output;
     output->setAligned(true);
     output->setDataLocation(Device);
     return true;
   }
 
-  void apply(FPGALock* lock = nullptr) {
-    FPGALock fpga_lock(lock);
-    fpga_lock.lock();
+  void apply() {
     if (param_.deconv == false) {
       split_axis = fill_split_arg(param_);
 
@@ -160,8 +156,8 @@ class ConvPE : public PE {
           concat_param.inputs.push_back(&conv_param->output);
         }
         concat_param.output = param_.output;
-        concatPE_.init(&fpga_lock);
-        concatPE_.apply(&fpga_lock);
+        concatPE_.init();
+        concatPE_.apply();
       }
 
       if (split_channel) {
@@ -170,8 +166,8 @@ class ConvPE : public PE {
         for (auto conv_param : param_.splitParams()) {
           split_param.outputs.push_back(&conv_param->input);
         }
-        splitPE_.init(&fpga_lock);
-        splitPE_.apply(&fpga_lock);
+        splitPE_.init();
+        splitPE_.apply();
       }
     }
 
@@ -181,7 +177,7 @@ class ConvPE : public PE {
 
     // exit(-1);
   }
-  void cpu_compute(FPGALock* lock = nullptr) {
+  void cpu_compute() {
     Tensor* input = param_.input;
     Tensor* output = param_.output;
     input->syncToCPU();
@@ -189,7 +185,7 @@ class ConvPE : public PE {
     Tensor float_input;
     Tensor float_output;
     float* image_addr = float_input.mutableData<float>(FP32, input->shape());
-    float_input.copyFrom(input, lock);
+    float_input.copyFrom(input);
     // float16* data_out = output->data<float16>();
     float* out = float_output.mutableData<float>(FP32, output->shape());
 
@@ -226,23 +222,20 @@ class ConvPE : public PE {
     delete[] mi;
     float_output.flush();
     output->flush();
-    output->copyFrom(&float_output, lock);
+    output->copyFrom(&float_output);
     output->invalidate();
   }
 
-  bool dispatch(FPGALock* lock = nullptr) {
+  bool dispatch() {
     if (use_cpu_) {
-      cpu_compute(lock);
+      cpu_compute();
       return true;
     }
-
-    FPGALock fpga_lock(lock);
-    fpga_lock.lock();
 
     std::vector<BasicConvParam*>& params = param_.splitParams();
 
     if (split_channel && param_.deconv == false) {
-      splitPE_.dispatch(&fpga_lock);
+      splitPE_.dispatch();
     }
 
     int ret = 0;
@@ -252,15 +245,15 @@ class ConvPE : public PE {
 
     size_t size = params.size();
     if (split_axis == 0 && ret == 0 && size > 1 && param_.deconv == false) {
-      concatPE_.dispatch(&fpga_lock);
+      concatPE_.dispatch();
     }
     if (split_axis == 1 && ret == 0 && size > 1) {
       ElementwiseAddParam& add_param = addPE_.param();
       add_param.inputs = {&params[0]->output, &params[1]->output};
       add_param.output = param_.output;
-      addPE_.init(&fpga_lock);
-      addPE_.apply(&fpga_lock);
-      addPE_.dispatch(&fpga_lock);
+      addPE_.init();
+      addPE_.apply();
+      addPE_.dispatch();
     }
 
     return ret == 0;

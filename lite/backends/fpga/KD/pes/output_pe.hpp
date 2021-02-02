@@ -23,17 +23,13 @@ namespace zynqmp {
 
 class OutputPE : public PE {
  public:
-  bool init(FPGALock* lock = nullptr) {
-    FPGALock fpga_lock(lock);
-    fpga_lock.lock();
+  bool init() {
     Tensor* output = param_.output;
     output->setAligned(false);
     return true;
   }
 
-  bool dispatch(FPGALock* lock = nullptr) {
-    FPGALock fpga_lock(lock);
-    fpga_lock.lock();
+  bool dispatch() {
     Tensor* input = param_.input;
     Tensor* output = param_.output;
     if (input->aligned()) {
@@ -41,10 +37,10 @@ class OutputPE : public PE {
       tmp.setAligned(true);
       tmp.mutableData<float16>(FP16, input->shape());
       tmp.copyFrom(input);
-      tmp.unalignImage(&fpga_lock);
-      output->copyFrom(&tmp, &fpga_lock);
+      tmp.unalignImage();
+      output->copyFrom(&tmp);
     } else {
-      output->copyFrom(input, &fpga_lock);
+      output->copyFrom(input);
     }
     //
     output->syncToCPU();

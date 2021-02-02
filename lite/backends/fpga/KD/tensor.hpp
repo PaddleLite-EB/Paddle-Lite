@@ -154,9 +154,7 @@ class Tensor {
 
   float* scale() { return placeHolder_->scale_; }
 
-  void alignImage(FPGALock* lock = nullptr,
-                  Tensor* dst = nullptr,
-                  bool copy = false) {
+  void alignImage(Tensor* dst = nullptr, bool copy = false) {
     if (shape_->shouldAlign()) {
       int cell_size = CellSize(this->dataType_);
       char* dst_data = nullptr;
@@ -189,7 +187,7 @@ class Tensor {
       }
     } else {
       if (copy) {
-        dst->copyFrom(this, lock);
+        dst->copyFrom(this);
       } else {
         // TODO(chonwhite) share data.
       }
@@ -204,13 +202,11 @@ class Tensor {
     placeHolder_->scale_[1] = src->placeHolder_->scale_[1];
   }
 
-  void unalignImage(FPGALock* lock = nullptr,
-                    Tensor* dst = nullptr,
-                    bool copy = false) {
+  void unalignImage(Tensor* dst = nullptr, bool copy = false) {
     Tensor* target = dst == nullptr ? this : dst;
     if (!target->aligned_) {
       if (copy && dst != nullptr) {
-        dst->copyFrom(this, lock);
+        dst->copyFrom(this);
       }
       return;
     }
@@ -246,7 +242,7 @@ class Tensor {
       }
     } else {
       if (copy) {
-        dst->copyFrom(this, lock);
+        dst->copyFrom(this);
       } else {
         // TODO(chonwhite) share data.
       }
@@ -267,7 +263,7 @@ class Tensor {
     shape_ = new Shape(const_cast<Shape&>(shape));
   }
 
-  void copyFrom(Tensor* src, FPGALock* lock = nullptr) {
+  void copyFrom(Tensor* src) {
     if (src->dataType_ == dataType_) {
       src->syncToCPU();
       memcpy(data<void>(), src->data<void>(), memorySize());
@@ -275,9 +271,6 @@ class Tensor {
       flush();
       return;
     }
-
-    FPGALock fpga_lock(lock);
-    fpga_lock.lock();
 
     int count = src->aligned_ ? src->shape().alignedElementCount()
                               : src->shape().numel();

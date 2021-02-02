@@ -33,9 +33,7 @@ namespace zynqmp {
 
 class TransposedConvPE : public PE {
  public:
-  bool init(FPGALock* lock = nullptr) {
-    FPGALock fpga_lock(lock);
-    fpga_lock.lock();
+  bool init() {
     Tensor* output = param_.output;
     output->setAligned(true);
     output->setDataLocation(Device);
@@ -47,9 +45,7 @@ class TransposedConvPE : public PE {
     return true;
   }
 
-  void apply(FPGALock* lock = nullptr) {
-    FPGALock fpga_lock(lock);
-    fpga_lock.lock();
+  void apply() {
     int kernel_width = param_.filter->shape().width();
     int kernel_height = param_.filter->shape().height();
     int stride_width = param_.strides[0];
@@ -112,8 +108,8 @@ class TransposedConvPE : public PE {
       conv_param.bias()->mutableData<float>(FP32, param_.bias()->shape());
       conv_param.bias()->copyFrom(param_.bias());
     }
-    pe_.init(&fpga_lock);
-    pe_.apply(&fpga_lock);
+    pe_.init();
+    pe_.apply();
   }
 
   template <typename T>
@@ -146,9 +142,7 @@ class TransposedConvPE : public PE {
     padded_input_.copyScaleFrom(param_.input);
   }
 
-  bool dispatch(FPGALock* lock = nullptr) {
-    FPGALock fpga_lock(lock);
-    fpga_lock.lock();
+  bool dispatch() {
     // int ih = param_.input->shape().height();
     // int iw = param_.input->shape().width();
     // if (ih == 8 && iw == 8) {
@@ -159,7 +153,7 @@ class TransposedConvPE : public PE {
       pad_input<float16>();
     }
 
-    bool vi = pe_.dispatch(&fpga_lock);
+    bool vi = pe_.dispatch();
 
     if (sub_filter_ena_ == true && vi == true) {
       float16* out_data = param_.output->data<float16>();

@@ -21,7 +21,7 @@ namespace zynqmp {
 
 class PriorBoxPE : public PE {
  public:
-  bool init(FPGALock* lock = nullptr) {
+  bool init() {
     param_.outputBoxes->setAligned(false);
     param_.outputVariances->setAligned(false);
     param_.outputBoxes->setDataLocation(CPU);
@@ -29,9 +29,9 @@ class PriorBoxPE : public PE {
     return true;
   }
 
-  bool dispatch(FPGALock* lock = nullptr);
+  bool dispatch();
 
-  void apply(FPGALock* lock = nullptr);
+  void apply();
 
   PriorBoxParam& param() { return param_; }
 
@@ -47,7 +47,7 @@ class PriorBoxPE : public PE {
   Tensor* cachedBoxes_ = nullptr;
   Tensor* cachedVariances_ = nullptr;
 
-  void compute_prior_box(FPGALock* lock = nullptr);
+  void compute_prior_box();
 };
 }  // namespace zynqmp
 }  // namespace paddle

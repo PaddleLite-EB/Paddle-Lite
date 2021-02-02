@@ -26,18 +26,14 @@ namespace zynqmp {
 
 class NormPE : public PE {
  public:
-  bool init(FPGALock* lock = nullptr) {
-    FPGALock fpga_lock(lock);
-    fpga_lock.lock();
+  bool init() {
     Tensor* output = param_.output;
     output->setAligned(true);
     output->setDataLocation(Device);
     return true;
   }
 
-  void apply(FPGALock* lock = nullptr) {
-    FPGALock fpga_lock(lock);
-    fpga_lock.lock();
+  void apply() {
     // inplace_args_.relu_enable = false;
     // inplace_args_.power_enable = false;
     // inplace_args_.normalize_enable = true;
@@ -112,12 +108,10 @@ class NormPE : public PE {
     param_.output->copyFrom(&float_out);
   }
 
-  bool dispatch(FPGALock* lock = nullptr) {
+  bool dispatch() {
     cpuCompute();
     // std::cout << "FPGA normalize ---------------------" << std::endl;
 
-    // FPGALock fpga_lock(lock);
-    // fpga_lock.lock();
     // param_.input->syncToDevice();
     // config_norm_param(norm_param_args_);
     // inplace_args_.normalize_enable = true;

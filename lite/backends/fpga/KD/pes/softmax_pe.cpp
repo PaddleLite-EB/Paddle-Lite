@@ -131,16 +131,14 @@ static void softmax(Tensor *X, Tensor *Y) {
   }
 }
 
-bool SoftmaxPE::init(FPGALock *lock) {
-  FPGALock fpga_lock(lock);
-  fpga_lock.lock();
+bool SoftmaxPE::init() {
   Tensor *output = param_.output;
   output->setAligned(false);
   output->setDataLocation(CPU);
   return true;
 }
 
-bool SoftmaxPE::dispatch(FPGALock *lock) {
+bool SoftmaxPE::dispatch() {
   Tensor *input = param_.input;
   Tensor *output = param_.output;
 
@@ -149,7 +147,7 @@ bool SoftmaxPE::dispatch(FPGALock *lock) {
   float_input.mutableData<float>(DataType::FP32, input->shape());
   // input->saveToFile("in", true);
   input->syncToDevice();
-  float_input.copyFrom(input, lock);
+  float_input.copyFrom(input);
   // float_input.invalidate();
   // float_input.saveToFile("fin", true);
 
@@ -166,7 +164,7 @@ bool SoftmaxPE::dispatch(FPGALock *lock) {
   softmax(&float_input, &float_output);
   float_output.flush();
 
-  output->copyFrom(&float_output, lock);
+  output->copyFrom(&float_output);
   output->flush();
   return true;
 }

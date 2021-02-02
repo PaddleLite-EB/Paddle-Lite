@@ -25,16 +25,14 @@ namespace zynqmp {
 
 class ConcatPE : public PE {
  public:
-  bool init(FPGALock* lock = nullptr) {
-    FPGALock fpga_lock(lock);
-    fpga_lock.lock();
+  bool init() {
     Tensor* output = param_.output;
     output->setAligned(false);
     output->setDataLocation(CPU);
     return true;
   }
 
-  void apply(FPGALock* lock = nullptr) {}
+  void apply() {}
 
   void concat2D() {
     int offset = 0;
@@ -84,9 +82,7 @@ class ConcatPE : public PE {
     output->flush();
   }
 
-  bool dispatch(FPGALock* lock = nullptr) {
-    FPGALock fpga_lock(lock);
-    fpga_lock.lock();
+  bool dispatch() {
     Tensor* output = param_.output;
     Shape& output_shape = output->shape();
 
@@ -94,7 +90,7 @@ class ConcatPE : public PE {
     for (unsigned int n = 0; n < param_.inputs.size(); n++) {
       Tensor* input = param_.inputs[n];
       input->syncToCPU();
-      input->unalignImage(&fpga_lock);
+      input->unalignImage();
       scale = std::max(scale, input->scale()[0]);
     }
     output->scale()[0] = scale;

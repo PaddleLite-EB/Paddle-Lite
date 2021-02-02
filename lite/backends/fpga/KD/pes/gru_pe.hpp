@@ -38,11 +38,9 @@ struct GRUTensors {
 
 class GRUPE : public PE {
  public:
-  bool init(FPGALock* lock = nullptr) { return true; }
+  bool init() { return true; }
 
-  void apply(FPGALock* lock = nullptr) {
-    FPGALock fpga_lock(lock);
-    fpga_lock.lock();
+  void apply() {
     auto hidden = param_.hidden;
     int frame_size = hidden->shape().channel();
 
@@ -70,8 +68,8 @@ class GRUPE : public PE {
     pre_out_param.output = &gate_pong_;
     pre_out_param.filter = &weight_;
     pre_out_param.bias = &gate_ping_;
-    pre_out_pe_.init(&fpga_lock);
-    pre_out_pe_.apply(&fpga_lock);
+    pre_out_pe_.init();
+    pre_out_pe_.apply();
 
     reset_gate_.mutableData<void>(FP16, hidden_shape);
     prev_hidden_.mutableData<void>(FP16, hidden_shape);
@@ -82,11 +80,11 @@ class GRUPE : public PE {
     mul_param.input_x = &reset_gate_;
     mul_param.input_y = &prev_hidden_;
     mul_param.output = &reset_hidden_;
-    mul_pe_.init(&fpga_lock);
-    mul_pe_.apply(&fpga_lock);
+    mul_pe_.init();
+    mul_pe_.apply();
   }
 
-  bool dispatch(FPGALock* lock = nullptr) { return true; }
+  bool dispatch() { return true; }
 
   void gru_unit_reset_act(const lite_api::ActivationType active_gate,
                           GRUTensors& value,  // NOLINT

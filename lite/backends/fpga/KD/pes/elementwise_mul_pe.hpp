@@ -21,18 +21,14 @@ namespace zynqmp {
 
 class ElementwiseMulPE : public PE {
  public:
-  bool init(FPGALock* lock = nullptr) {
-    FPGALock fpga_lock(lock);
-    fpga_lock.lock();
+  bool init() {
     Tensor* output = param_.output;
     output->setAligned(true);
     output->setDataLocation(Device);
     return true;
   }
 
-  void apply(FPGALock* lock = nullptr) {
-    FPGALock fpga_lock(lock);
-    fpga_lock.lock();
+  void apply() {
     Tensor* input = param_.input_x;
     Tensor* output = param_.output;
 
@@ -67,9 +63,7 @@ class ElementwiseMulPE : public PE {
     }
   }
 
-  bool dispatch(FPGALock* lock = nullptr) {
-    FPGALock fpga_lock(lock);
-    fpga_lock.lock();
+  bool dispatch() {
     compute_fpga_scale(args_) == 0;
     return true;
   }

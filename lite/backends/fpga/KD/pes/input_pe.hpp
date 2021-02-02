@@ -22,18 +22,14 @@ namespace zynqmp {
 
 class InputPE : public PE {
  public:
-  bool init(FPGALock* lock = nullptr) {
-    FPGALock fpga_lock(lock);
-    fpga_lock.lock();
+  bool init() {
     Tensor* output = param_.output;
     output->setAligned(true);
     output->setDataLocation(Device);
     return true;
   }
 
-  bool dispatch(FPGALock* lock = nullptr) {
-    FPGALock fpga_lock(lock);
-    fpga_lock.lock();
+  bool dispatch() {
     Tensor* input = param_.input;
     Tensor* output = param_.output;
 
@@ -44,24 +40,24 @@ class InputPE : public PE {
     switch (dataType) {
       case FP32:
         half_tensor.mutableData<void*>(DataType::FP16, input->shape());
-        half_tensor.copyFrom(input, &fpga_lock);
+        half_tensor.copyFrom(input);
         src = &half_tensor;
         output->mutableData<void>();
-        src->alignImage(&fpga_lock);
-        output->copyFrom(src, &fpga_lock);
+        src->alignImage();
+        output->copyFrom(src);
         break;
       case FP16:
         input->setAligned(true);
         bypassPE_.param().input = input;
         bypassPE_.param().output = output;
-        bypassPE_.init(&fpga_lock);
-        bypassPE_.apply(&fpga_lock);
-        bypassPE_.dispatch(&fpga_lock);
+        bypassPE_.init();
+        bypassPE_.apply();
+        bypassPE_.dispatch();
         break;
       default:
         output->mutableData<void>();
-        src->alignImage(&fpga_lock);
-        output->copyFrom(src, &fpga_lock);
+        src->alignImage();
+        output->copyFrom(src);
         break;
     }
     return true;

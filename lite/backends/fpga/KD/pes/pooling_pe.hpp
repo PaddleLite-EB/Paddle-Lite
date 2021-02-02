@@ -24,18 +24,14 @@ namespace zynqmp {
 
 class PoolingPE : public PE {
  public:
-  bool init(FPGALock* lock = nullptr) {
-    FPGALock fpga_lock(lock);
-    fpga_lock.lock();
+  bool init() {
     Tensor* output = param_.output;
     output->setAligned(true);
     output->setDataLocation(Device);
     return true;
   }
 
-  void apply(FPGALock* lock = nullptr) {
-    FPGALock fpga_lock(lock);
-    fpga_lock.lock();
+  void apply() {
     Tensor* input = param_.input;
     Tensor* output = param_.output;
 
@@ -223,40 +219,16 @@ class PoolingPE : public PE {
     // exit(-1);
   }
 
-  bool dispatch(FPGALock* lock = nullptr) {
+  bool dispatch() {
     if (use_cpu_) {
       // cpu_compute();
       compute();
       return true;
     }
-    FPGALock fpga_lock(lock);
-    fpga_lock.lock();
-    // param_.input->syncToDevice();
-    // if (param_.globalPooling) {
-    //   inplace_.relu_enable = false;
-    //   inplace_.leaky_relu_enable = false;
-    //   inplace_.relu6_enable = false;
-    //   inplace_.sigmoid_enable = false;
-    //   inplace_.global_pool_en = true;
-    //   config_inplace(inplace_);
 
-    //   int kernel_height = param_.kernelSize[1];
-    //   int kernel_width = param_.kernelSize[0];
-    //   globalPoolArgs.global_pool_factor =
-    //       float_to_half(1.0f / (kernel_height * kernel_width));
-    //   config_global_pool(globalPoolArgs);
-    // }
+    // param_.input->syncToDevice();
+
     int ret = (compute_fpga_pool(param_.poolingArgs) == 0);
-    // if (param_.globalPooling) {
-    //   inplace_.relu_enable = false;
-    //   inplace_.leaky_relu_enable = false;
-    //   inplace_.relu6_enable = false;
-    //   inplace_.sigmoid_enable = false;
-    //   inplace_.global_pool_en = false;
-    //   config_inplace(inplace_);
-    //   globalPoolArgs.global_pool_factor = float_to_half(0);
-    //   config_global_pool(globalPoolArgs);
-    // }
 
     return ret;
   }
@@ -266,8 +238,6 @@ class PoolingPE : public PE {
  private:
   PoolingParam param_;
   bool use_cpu_;
-  // InplaceArgs inplace_ = {0};
-  // GlobalPoolArgs globalPoolArgs;
 };
 
 }  // namespace zynqmp

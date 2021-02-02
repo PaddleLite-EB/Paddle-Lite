@@ -25,9 +25,7 @@ namespace paddle {
 namespace zynqmp {
 class BatchnormPE : public PE {
  public:
-  bool init(FPGALock* lock = nullptr) {
-    FPGALock fpga_lock(lock);
-    fpga_lock.lock();
+  bool init() {
     Tensor* output = param_.output;
     output->setAligned(true);
     output->setDataLocation(Device);
@@ -67,51 +65,19 @@ class BatchnormPE : public PE {
     scale_param.bias = bias_;
     scale_param.activeParam.type = param_.activeParam.type;
 
-    scalePE_.init(&fpga_lock);
-
-    // inplace_.power_enable = false;
-    // inplace_.normalize_enable = false;
+    scalePE_.init();
 
     return true;
   }
 
-  void apply(FPGALock* lock = nullptr) {
-    FPGALock fpga_lock(lock);
-    fpga_lock.lock();
-    scalePE_.apply(&fpga_lock);
-  }
+  void apply() { scalePE_.apply(); }
 
-  bool dispatch(FPGALock* lock = nullptr) {
-    FPGALock fpga_lock(lock);
-    fpga_lock.lock();
-    // if (param_.activeParam.type == TYPE_RELU) {
-    //   inplace_.relu_enable = true;
-    // } else if (param_.activeParam.type == TYPE_RELU6) {
-    //   inplace_.relu6_enable = true;
-    // } else if (param_.activeParam.type == TYPE_SIGMOID) {
-    //   inplace_.sigmoid_enable = true;
-    // } else if (param_.activeParam.type == TYPE_LEAKY_RELU) {
-    //   inplace_.leaky_relu_enable = true;
-    // }
-
-    // if (inplace_.relu_enable || inplace_.leaky_relu_enable ||
-    //     inplace_.relu6_enable || inplace_.sigmoid_enable) {
-    //   config_inplace(inplace_);
-    // }
-
+  bool dispatch() {
     ScaleParam& scale_param = scalePE_.param();
     float16* input = scale_param.input->mutableData<float16>();
 
-    bool ret = scalePE_.dispatch(&fpga_lock);
-    // bool ret = cpu_compute();
-    // if (inplace_.relu_enable || inplace_.leaky_relu_enable ||
-    //     inplace_.relu6_enable || inplace_.sigmoid_enable) {
-    //   inplace_.relu_enable = false;
-    //   inplace_.leaky_relu_enable = false;
-    //   inplace_.relu6_enable = false;
-    //   inplace_.sigmoid_enable = false;
-    //   config_inplace(inplace_);
-    // }
+    bool ret = scalePE_.dispatch();
+
     return ret;
   }
 

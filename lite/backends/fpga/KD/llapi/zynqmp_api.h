@@ -306,10 +306,6 @@ struct FpgaResetArgs {
   uint32_t dummy;
 };
 
-struct CNNLockArgs {
-  uint32_t reserved;
-};
-
 #define IOCTL_FPGA_MAGIC (('F' + 'P' + 'G' + 'A') / 4)
 // #define IOCTL_MEMORY_MAGIC                  (('M' + 'E' + 'M' + 'Y') / 4)
 
@@ -351,8 +347,6 @@ struct CNNLockArgs {
 #define IOCTL_DEVICE_INFO _IOW(IOCTL_FPGA_MAGIC, 100, struct DeviceInfoArgs)
 
 #define IOCTL_SEPARATOR_2 110
-#define IOCTL_LOCK_TRY_LOCKING _IOW(IOCTL_FPGA_MAGIC, 111, struct CNNLockArgs)
-#define IOCTL_LOCK_UNLOCK _IOW(IOCTL_FPGA_MAGIC, 112, struct CNNLockArgs)
 
 #define IOCTL_SEPARATOR_3 200
 #define IOCTL_PREPROCESS _IOW(IOCTL_FPGA_MAGIC, 201, struct PreprocessArgs)
@@ -397,8 +391,6 @@ struct GroupConvArgs {
   struct SplitConvArgs* conv_args;
   struct ConcatArgs concat_arg;
 };
-
-class FPGALock;
 
 //===========
 std::ostream& operator<<(std::ostream& os, const ConvArgs& args);
@@ -445,54 +437,8 @@ int invalidate_cache(void* addr, int size);
 int fpga_reset();
 int compute_preprocess(const struct PreprocessArgs& args);
 
-int fpga_lock(const struct CNNLockArgs& args);
-int fpga_unlock(const struct CNNLockArgs& args);
-
 int16_t fp32_2_fp16(float fp32_num);
 float fp16_2_fp32(int16_t fp16_num);
-
-class FPGALock {
- public:
-  FPGALock() {}
-
-  explicit FPGALock(FPGALock* internal_lock) { internal_lock_ = internal_lock; }
-
-  void lock() {
-    // if (internal_lock_ == nullptr) {
-    //   uint32_t ret = zynqmp::fpga_lock(args_);
-    //   if (ret > 0) {
-    //     locked_ = true;
-    //   } else {
-    //     std::cout << "fail to lock，ret:" << ret << std::endl;
-    //     std::ofstream ofs;
-    //     ofs.open("fpga_lock.txt");
-    //     ofs << "fail to lock，ret:" << ret << std::endl;
-    //     ofs.close();
-    //   }
-    // }
-  }
-
-  ~FPGALock() {
-    // if (locked_) {
-    //   uint32_t ret = zynqmp::fpga_unlock(args_);
-    //   if (ret > 0) {
-    //     locked_ = false;
-    //     internal_lock_ = nullptr;
-    //   } else {
-    //     std::cout << "fail to unlock，ret:" << ret << std::endl;
-    //     std::ofstream ofs;
-    //     ofs.open("fpga_lock.txt");
-    //     ofs << "fail to lock，ret:" << ret << std::endl;
-    //     ofs.close();
-    //   }
-    // }
-  }
-
- private:
-  struct CNNLockArgs args_ = {0};
-  volatile bool locked_ = false;
-  FPGALock* internal_lock_;
-};
 
 }  // namespace zynqmp
 }  // namespace paddle
