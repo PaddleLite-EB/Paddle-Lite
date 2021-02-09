@@ -452,34 +452,11 @@ class FPGALock {
   explicit FPGALock(FPGALock* internal_lock) { internal_lock_ = internal_lock; }
 
   void lock() {
-    if (internal_lock_ == nullptr) {
-      uint32_t ret = zynqmp::fpga_lock(args_);
-      if (ret > 0) {
-        locked_ = true;
-      } else {
-        // std::cout << "fail to lock，ret:" << ret << std::endl;
-        // std::ofstream ofs;
-        // ofs.open("fpga_lock.txt");
-        // ofs << "fail to lock，ret:" << ret << std::endl;
-        // ofs.close();
-      }
-    }
+
   }
 
   ~FPGALock() {
-    if (locked_) {
-      uint32_t ret = zynqmp::fpga_unlock(args_);
-      if (ret > 0) {
-        locked_ = false;
-        internal_lock_ = nullptr;
-      } else {
-        // std::cout << "fail to unlock，ret:" << ret << std::endl;
-        // std::ofstream ofs;
-        // ofs.open("fpga_lock.txt");
-        // ofs << "fail to lock，ret:" << ret << std::endl;
-        // ofs.close();
-      }
-    }
+
   }
 
  private:
