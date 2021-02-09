@@ -24,7 +24,14 @@ using float16 = zynqmp::float16;
 
 void SliceCompute::PrepareForRun() {
   auto& param = this->Param<param_t>();
-  param.Out->mutable_data<float16>();
+
+  auto in_type = param.X->ZynqTensor()->dataType();
+  if (in_type == zynqmp::FP32 || in_type == zynqmp::FP16) {
+    param.Out->mutable_data<float16>();
+  }
+  if (in_type == zynqmp::INT32) {
+    param.Out->mutable_data<int32_t>();
+  }
 
   zynqmp::SliceParam& slice_param = pe_.param();
 
@@ -40,7 +47,7 @@ void SliceCompute::PrepareForRun() {
   pe_.apply();
 }
 
-void SliceCompute::Run() { pe_.dispatch(); }
+void SliceCompute::Run() {pe_.dispatch();}
 
 }  // namespace fpga
 }  // namespace kernels
@@ -51,14 +58,33 @@ REGISTER_LITE_KERNEL(
     slice, kFPGA, kFP16, kNHWC, paddle::lite::kernels::fpga::SliceCompute, def)
     .BindInput("Input",
                {LiteType::GetTensorTy(TARGET(kFPGA),
-                                      PRECISION(kFP16),
-                                      DATALAYOUT(kNHWC))})
+                                      PRECISION(kAny),
+                                      DATALAYOUT(kAny))})
     .BindInput("StartsTensor", {LiteType::GetTensorTy(TARGET(kARM))})
     .BindInput("EndsTensor", {LiteType::GetTensorTy(TARGET(kARM))})
     .BindInput("StartsTensorList", {LiteType::GetTensorTy(TARGET(kARM))})
     .BindInput("EndsTensorList", {LiteType::GetTensorTy(TARGET(kARM))})
     .BindOutput("Out",
                 {LiteType::GetTensorTy(TARGET(kFPGA),
-                                       PRECISION(kFP16),
-                                       DATALAYOUT(kNHWC))})
+                                       PRECISION(kAny),
+                                       DATALAYOUT(kAny))})
     .Finalize();
+
+// using slice_int32 =
+//     paddle::lite::kernels::fpga::SliceCompute<int, PRECISION(kInt32)>;
+// REGISTER_LITE_KERNEL(
+//     slice, kFPGA, kInt32, kNHWC, slice_int32, def)
+//     .BindInput("Input",
+//                {LiteType::GetTensorTy(TARGET(kFPGA),
+//                                       PRECISION(kInt32),
+//                                       DATALAYOUT(kNHWC))})
+//     .BindInput("StartsTensor", {LiteType::GetTensorTy(TARGET(kARM))})
+//     .BindInput("EndsTensor", {LiteType::GetTensorTy(TARGET(kARM))})
+//     .BindInput("StartsTensorList", {LiteType::GetTensorTy(TARGET(kARM))})
+//     .BindInput("EndsTensorList", {LiteType::GetTensorTy(TARGET(kARM))})
+//     .BindOutput("Out",
+//                 {LiteType::GetTensorTy(TARGET(kFPGA),
+//                                        PRECISION(kInt32),
+//                                        DATALAYOUT(kNHWC))})
+//     .Finalize();
+

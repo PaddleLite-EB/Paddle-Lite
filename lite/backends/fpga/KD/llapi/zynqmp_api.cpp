@@ -41,7 +41,11 @@ static size_t memory_size = 0;
 
 static inline int do_ioctl(uint64_t req, const void *arg) {
 #ifdef PADDLE_MOBILE_OS_LINUX
-  return ioctl(fd, req, arg);
+  int ret = ioctl(fd, req, arg);
+  // if (ret == -1) {
+  //   exit(-1);
+  // }
+  return ret;//ioctl(fd, req, arg);
 #else
   return -1;
 #endif

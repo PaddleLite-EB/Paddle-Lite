@@ -27,6 +27,16 @@ namespace fpga {
 
 using float16 = zynqmp::float16;
 
+template <typename T>
+inline std::vector<T> get_new_data_from_tensor(const Tensor* new_data_tensor) {
+  std::vector<T> vec_new_data;
+  auto* new_data = new_data_tensor->data<T>();
+  lite::Tensor cpu_starts_tensor;
+  vec_new_data =
+      std::vector<T>(new_data, new_data + new_data_tensor->dims().production());
+  return vec_new_data;
+}
+
 void BilinearInterpCompute::Run() {
   // auto& param = Param<operators::InterpolateParam>();
   // lite::Tensor* X = param.X;
@@ -59,6 +69,12 @@ void BilinearInterpCompute::Run() {
   auto channels = param.X->dims()[1];
   auto in_h = param.X->dims()[2];
   auto in_w = param.X->dims()[3];
+
+  if (param.OutSize != nullptr) {
+    int* new_data = param.OutSize->ZynqTensor()->data<int32_t>();
+    out_h = new_data[0];
+    out_w = new_data[1];
+  }
 
   zynqmp::Tensor input_float;
   input_float.setDataLocation(zynqmp::CPU);
@@ -196,16 +212,6 @@ inline std::vector<int> get_new_shape(
   return vec_new_shape;
 }
 
-template <typename T>
-inline std::vector<T> get_new_data_from_tensor(const Tensor* new_data_tensor) {
-  std::vector<T> vec_new_data;
-  auto* new_data = new_data_tensor->data<T>();
-  lite::Tensor cpu_starts_tensor;
-  vec_new_data =
-      std::vector<T>(new_data, new_data + new_data_tensor->dims().production());
-  return vec_new_data;
-}
-
 void interpolate(lite::Tensor* X,
                  lite::Tensor* OutSize,
                  std::vector<const lite::Tensor*> SizeTensor,
@@ -319,7 +325,7 @@ REGISTER_LITE_KERNEL(bilinear_interp,
                                       PRECISION(kFP16),
                                       DATALAYOUT(kNHWC))})
     .BindInput("OutSize",
-               {LiteType::GetTensorTy(TARGET(kARM), PRECISION(kInt32))})
+               {LiteType::GetTensorTy(TARGET(kFPGA), PRECISION(kInt32))})
     .BindInput("SizeTensor",
                {LiteType::GetTensorTy(TARGET(kARM), PRECISION(kInt32))})
     .BindInput("Scale", {LiteType::GetTensorTy(TARGET(kARM))})
@@ -340,7 +346,7 @@ REGISTER_LITE_KERNEL(nearest_interp,
                                       PRECISION(kFP16),
                                       DATALAYOUT(kNHWC))})
     .BindInput("OutSize",
-               {LiteType::GetTensorTy(TARGET(kARM), PRECISION(kInt32))})
+               {LiteType::GetTensorTy(TARGET(kFPGA), PRECISION(kInt32))})
     .BindInput("SizeTensor",
                {LiteType::GetTensorTy(TARGET(kARM), PRECISION(kInt32))})
     .BindInput("Scale", {LiteType::GetTensorTy(TARGET(kARM))})
