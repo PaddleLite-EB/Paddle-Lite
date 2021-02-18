@@ -103,6 +103,7 @@ void ElementwiseMulCompute::PrepareForRun() {
   // std::cout << "scale_value:" <<
   // std::to_string(zynqmp::half_to_float(scale_value)) << std::endl;
   // exit(-1);
+  scale_param.re_assign = param.Y->dims().production() != 1;
 
   for (int i = 0; i < channel; i++) {
     if (param.Y->dims().production() != 1) {
@@ -131,7 +132,6 @@ void ElementwiseMulCompute::Run() {
     // TODO(chonwhite) alignment;
 
     param.Y->ZynqTensor()->invalidate();
-    // param.Y->ZynqTensor()->saveToFile("param_y", true);
     scale_.copyFrom(param.Y->ZynqTensor());
     scale_.flush();
     if (param.X->ZynqTensor()->shape().channel() == 512) {
