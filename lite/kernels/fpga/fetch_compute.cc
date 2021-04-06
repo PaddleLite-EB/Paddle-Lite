@@ -23,7 +23,7 @@ namespace fpga {
 
 using float16 = zynqmp::float16;
 
-void resize_output(const Tensor* input, Tensor& out) {
+void resize_output(const Tensor* input, Tensor& out) {  // NOLINT
   auto in_type = input->ZynqTensor()->dataType();
   out.Resize(input->dims());
   switch (in_type) {
@@ -70,9 +70,8 @@ void FetchCompute::Run() {
 
   Tensor& out = param.fetch_list->at(param.col);
   resize_output(param.input, out);
-  // out.Resize(param.input->dims());
-
   pe_.dispatch();
+// fetch_param.output->saveToFile("fetch", true);
 
 #ifdef FPGA_PRINT_TENSOR
   zynqmp::OutputParam& fetch_param = pe_.param();

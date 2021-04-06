@@ -33,9 +33,7 @@ class YoloBoxCompute
   void PrepareForRun() override;
   void Run() override;
 
-  virtual ~YoloBoxCompute(){
-
-  };
+  virtual ~YoloBoxCompute() {}
 
  private:
   zynqmp::YoloBoxPE pe_;

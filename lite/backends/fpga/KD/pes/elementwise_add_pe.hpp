@@ -14,6 +14,8 @@ limitations under the License. */
 
 #pragma once
 
+#include <memory>
+
 #include "lite/backends/fpga/KD/pe.hpp"
 #include "lite/backends/fpga/KD/pe_params.hpp"
 
@@ -22,18 +24,14 @@ namespace zynqmp {
 
 class ElementwiseAddPE : public PE {
  public:
-  bool init(FPGALock* lock = nullptr) {
-    FPGALock fpga_lock(lock);
-    fpga_lock.lock();
+  bool init() {
     Tensor* output = param_.output;
     output->setAligned(true);
     output->setDataLocation(Device);
     return true;
   }
 
-  void apply(FPGALock* lock = nullptr) {
-    FPGALock fpga_lock(lock);
-    fpga_lock.lock();
+  void apply() {
     Tensor* input0 = param_.inputs[0];
     Tensor* input1 = param_.inputs[1];
     Tensor* output = param_.output;
@@ -56,46 +54,32 @@ class ElementwiseAddPE : public PE {
     args.image1.pad_width = 0;
     args.output.scale_address = output->scale();
     args.output.address = output->data<float16>();
-    param_.ewargs = args;
+    args.output_idx = output->scaleIndex(true);
+
+    args.inplace.findmax_restart = true;
+    args.inplace.active_param.type = param_.activeParam.type;
+
+    args.inplace.active_param.leaky_relu_factor =
+        float_to_half(param_.activeParam.leaky_relu_factor);
+
+    param_.ewargs = args;  // delete ewargs;
+
+    transaction_ = TransactionManager::get_instance().getTransaction();
+    Action* action = new Action(compute_fpga_ewadd(args));
+    action_.reset(action);
+    transaction_->appendAction(action);
   }
 
-  bool dispatch(FPGALock* lock = nullptr) {
-    FPGALock fpga_lock(lock);
-    fpga_lock.lock();
-    param_.inputs[0]->syncToDevice();
-    param_.inputs[1]->syncToDevice();
-    // InplaceArgs inplace_ = {0};
-
-    if (param_.activeParam.type == TYPE_RELU) {
-      inplace_.relu_enable = true;
-    } else if (param_.activeParam.type == TYPE_RELU6) {
-      inplace_.relu6_enable = true;
-    } else if (param_.activeParam.type == TYPE_SIGMOID) {
-      inplace_.sigmoid_enable = true;
-    } else if (param_.activeParam.type == TYPE_LEAKY_RELU) {
-      inplace_.leaky_relu_enable = true;
-    }
-    if (inplace_.relu_enable || inplace_.leaky_relu_enable ||
-        inplace_.relu6_enable || inplace_.sigmoid_enable) {
-      config_inplace(inplace_);
-    }
-    compute_fpga_ewadd(param_.ewargs);
-    if (inplace_.relu_enable || inplace_.leaky_relu_enable ||
-        inplace_.relu6_enable || inplace_.sigmoid_enable) {
-      inplace_.relu_enable = false;
-      inplace_.relu6_enable = false;
-      inplace_.sigmoid_enable = false;
-      inplace_.leaky_relu_enable = false;
-      config_inplace(inplace_);
-    }
-    return true;
-  }
+  bool dispatch() { return true; }
 
   ElementwiseAddParam& param() { return param_; }
 
  private:
   ElementwiseAddParam param_;
   InplaceArgs inplace_ = {0};
+
+  std::shared_ptr<Transaction> transaction_;
+  std::unique_ptr<Action> action_;
 };
 
 }  // namespace zynqmp

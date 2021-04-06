@@ -16,25 +16,26 @@ limitations under the License. */
 
 #include "lite/backends/fpga/KD/pe.hpp"
 #include "lite/backends/fpga/KD/pe_params.hpp"
+
+#include "lite/backends/fpga/KD/pes/cpu_pe.hpp"
+
 namespace paddle {
 namespace zynqmp {
 
 class ReluPE : public PE {
  public:
-  bool init(FPGALock* lock = nullptr) {
-    FPGALock fpga_lock(lock);
-    fpga_lock.lock();
+  bool init() {
     Tensor* output = param_.output;
     output->setAligned(param_.input->aligned());
     output->setDataLocation(CPU);
-    return true;
+    return pe_.init();
   }
 
-  void apply(FPGALock* lock = nullptr) {}
+  void apply() { pe_.apply(); }
 
-  bool dispatch(FPGALock* lock = nullptr) {
-    // FPGALock fpga_lock(lock);
-    // fpga_lock.lock();
+  bool dispatch() {
+    pe_.dispatch();
+
     param_.input->invalidate();
     int16_t* input_data = param_.input->data<int16_t>();
     float16* out_data = param_.output->data<float16>();
@@ -56,6 +57,7 @@ class ReluPE : public PE {
  private:
   InputParam param_;
   float16 zero = float_to_half(0.0f);
+  CPUPE pe_;
 };
 
 }  // namespace zynqmp

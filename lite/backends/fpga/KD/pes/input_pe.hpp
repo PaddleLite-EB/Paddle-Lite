@@ -14,56 +14,119 @@ limitations under the License. */
 
 #pragma once
 
+#include <memory>
+
 #include "lite/backends/fpga/KD/pe.hpp"
 #include "lite/backends/fpga/KD/pe_params.hpp"
 #include "lite/backends/fpga/KD/pes/bypass_pe.hpp"
+#include "lite/backends/fpga/KD/tensor_util.hpp"
+
 namespace paddle {
 namespace zynqmp {
 
 class InputPE : public PE {
  public:
-  bool init(FPGALock* lock = nullptr) {
-    FPGALock fpga_lock(lock);
-    fpga_lock.lock();
+  bool init() {
     Tensor* output = param_.output;
     output->setAligned(true);
     output->setDataLocation(Device);
     return true;
   }
 
-  bool dispatch(FPGALock* lock = nullptr) {
-    FPGALock fpga_lock(lock);
-    fpga_lock.lock();
-    Tensor* input = param_.input;
-    Tensor* output = param_.output;
+  // bool dispatch() {
+  //   Tensor* input = param_.input;
+  //   Tensor* output = param_.output;
 
-    Tensor* src = input;
-    input->flush();
-    Tensor half_tensor;
-    DataType dataType = input->dataType();
-    switch (dataType) {
-      case FP32:
-        half_tensor.mutableData<void*>(DataType::FP16, input->shape());
-        half_tensor.copyFrom(input, &fpga_lock);
-        src = &half_tensor;
-        output->mutableData<void>();
-        src->alignImage(&fpga_lock);
-        output->copyFrom(src, &fpga_lock);
-        break;
-      case FP16:
-        input->setAligned(true);
-        bypassPE_.param().input = input;
-        bypassPE_.param().output = output;
-        bypassPE_.init(&fpga_lock);
-        bypassPE_.apply(&fpga_lock);
-        bypassPE_.dispatch(&fpga_lock);
-        break;
-      default:
-        output->mutableData<void>();
-        src->alignImage(&fpga_lock);
-        output->copyFrom(src, &fpga_lock);
+  //   Tensor* src = input;
+  //   input->flush();
+  //   Tensor half_tensor;
+  //   DataType dataType = input->dataType();
+  //   switch (dataType) {
+  //     case FP32:
+  //       half_tensor.mutableData<void*>(DataType::FP16, input->shape());
+  //       half_tensor.copyFrom(input, &fpga_lock);
+  //       src = &half_tensor;
+  //       output->mutableData<void>();
+  //       src->alignImage(&fpga_lock);
+  //       output->copyFrom(src, &fpga_lock);
+  //       break;
+  //     case FP16:
+  //       input->setAligned(true);
+  //       bypassPE_.param().input = input;
+  //       bypassPE_.param().output = output;
+  //       bypassPE_.init(&fpga_lock);
+  //       bypassPE_.apply(&fpga_lock);
+  //       bypassPE_.dispatch(&fpga_lock);
+  //       break;
+  //     default:
+  //       output->mutableData<void>();
+  //       src->alignImage(&fpga_lock);
+  //       output->copyFrom(src, &fpga_lock);
+  //       break;
+  //   }
+  // }
+
+  int config_bypass() {
+    DDataType in_type =
+        param_.input->dataType() == FP32 ? DATA_TYPE_FP32 : DATA_TYPE_FP16;
+    DDataType out_type =
+        param_.output->dataType() == FP32 ? DATA_TYPE_FP32 : DATA_TYPE_FP16;
+    switch (param_.output->dataType()) {
+      case INT32:
+        in_type = DATA_TYPE_FP32;
+        out_type = DATA_TYPE_FP32;  // hack;
         break;
     }
+
+    tmp_tensor_.mutableData<void>(param_.input->dataType(),
+                                  param_.input->shape());
+
+    BypassArgs args;
+    args.input_data_type = in_type;
+    args.output_data_type = out_type;
+    args.input_layout_type = LAYOUT_HWC;
+    args.output_layout_type = LAYOUT_HWC;
+    args.image.address = tmp_tensor_.data<void>();
+    args.image.scale_address = tmp_tensor_.scale();
+    args.image.channels = tmp_tensor_.shape().alignedElementCount();
+    args.image.height = 1;
+    args.image.width = 1;
+    args.image.pad_height = 0;
+    args.image.pad_width = 0;
+    args.output.address = param_.output->data<void>();
+    args.output.scale_address = param_.output->scale();
+    args.output_idx = param_.output->scaleIndex(true);
+
+    args.inplace.findmax_restart = true;
+    args.inplace.active_param.type = TYPE_NONE;
+    args.inplace.normalize_param.enabled = false;
+    return perform_bypass(args);
+  }
+
+  void apply() {
+    transaction_ = TransactionManager::get_instance().getTransaction();
+
+    Action* action = new Action(config_bypass());
+    action_.reset(action);
+    transaction_->appendAction(action);
+
+    // TransactionManager::get_instance().endTransaction();
+    // BypassParam& bypass_param = bypass_pe_.param();
+    // bypass_param.input = param_.input;
+    // bypass_param.output = param_.output;
+
+    // bypass_pe_.init();
+    // bypass_pe_.apply();
+  }
+
+  bool dispatch() {
+    // we need to align image first;
+    Tensor* input = param_.input;
+    memcpy(tmp_tensor_.data<void>(),
+           input->data<void>(),
+           tmp_tensor_.memorySize());
+    tmp_tensor_.alignImage();
+    tmp_tensor_.flush();
     return true;
   }
 
@@ -71,7 +134,13 @@ class InputPE : public PE {
 
  private:
   InputParam param_;
-  BypassPE bypassPE_;
+  // BypassPE bypassPE_;
+  Tensor tmp_tensor_;
+  // BypassPE bypass_pe_;
+
+  std::shared_ptr<Transaction> transaction_;
+  std::unique_ptr<Action> action_;
 };
+
 }  // namespace zynqmp
 }  // namespace paddle

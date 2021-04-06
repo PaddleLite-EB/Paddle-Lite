@@ -36,18 +36,14 @@ class ScalePE : public PE {
   }
 
   inline int lcm(int a, int b) { return a * b / gcd(a, b); }
-  bool init(FPGALock* lock = nullptr) {
-    FPGALock fpga_lock(lock);
-    fpga_lock.lock();
+  bool init() {
     Tensor* output = param_.output;
     output->setAligned(true);
     output->setDataLocation(Device);
     return true;
   }
 
-  void apply(FPGALock* lock = nullptr) {
-    FPGALock fpga_lock(lock);
-    fpga_lock.lock();
+  void apply() {
     Tensor* input = param_.input;
     Tensor* output = param_.output;
     Shape& input_shape = input->shape();
@@ -132,8 +128,10 @@ class ScalePE : public PE {
     dw_param.kernelSize = {1, 1};
     dw_param.dilations = {1, 1};
 
-    dw_pe_.init(&fpga_lock);
-    dw_pe_.apply(&fpga_lock);
+    dw_param.activeParam.type = zynqmp::TYPE_NONE;
+
+    dw_pe_.init();
+    dw_pe_.apply();
   }
 
   void cpu_compute() {
@@ -178,9 +176,7 @@ class ScalePE : public PE {
     output->scale()[1] = 127.0f / max;
   }
 
-  bool dispatch(FPGALock* lock = nullptr) {
-    FPGALock fpga_lock(lock);
-    fpga_lock.lock();
+  bool dispatch() {
     if (param_.scale->dataType() == FP16) {
       DepthwiseConvParam& dw_param = dw_pe_.param();
       memcpy(dw_param.quantizedFilter()->mutableData<float16>(),
@@ -191,10 +187,10 @@ class ScalePE : public PE {
       dw_param.quantizedFilter()->flush();
     }
     param_.input->syncToDevice();
-    return dw_pe_.dispatch(&fpga_lock);
+    return dw_pe_.dispatch();
 
     // cpu_compute();
-    return true;
+    // return true;
   }
 
   ScaleParam& param() { return param_; }

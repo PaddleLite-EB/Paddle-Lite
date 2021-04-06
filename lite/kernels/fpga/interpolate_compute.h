@@ -13,7 +13,10 @@
 // limitations under the License.
 
 #pragma once
+#include <memory>
 #include <string>
+
+#include "lite/backends/fpga/KD/pes/cpu_pe.hpp"
 #include "lite/backends/fpga/KD/pes/resize_pe.hpp"
 #include "lite/core/kernel.h"
 #include "lite/core/op_registry.h"
@@ -42,6 +45,7 @@ class NearestInterpCompute
 
  private:
   zynqmp::ResizePE pe_;
+  std::unique_ptr<zynqmp::CPUPE> cpu_pe_;
 };
 
 } /* namespace fpga */

@@ -41,18 +41,14 @@ class PoolingSplitPE : public PE {
 
   inline int lcm_(int a, int b) { return a * b / gcd_(a, b); }
 
-  bool init(FPGALock* lock = nullptr) {
-    FPGALock fpga_lock(lock);
-    fpga_lock.lock();
+  bool init() {
     Tensor* output = param_.output;
     output->setAligned(true);
     output->setDataLocation(Device);
     return true;
   }
 
-  void apply(FPGALock* lock = nullptr) {
-    FPGALock fpga_lock(lock);
-    fpga_lock.lock();
+  void apply() {
     PoolingParam& param = param_;
     Tensor* input = param.input;
     Tensor* output = param.output;
@@ -86,20 +82,20 @@ class PoolingSplitPE : public PE {
       for (auto pooling_param : splitParams_) {
         split_param.outputs.push_back(pooling_param->input);
       }
-      splitPE_.init(&fpga_lock);
-      splitPE_.apply(&fpga_lock);
+      splitPE_.init();
+      splitPE_.apply();
 
       ConcatParam& concat_param = concatPE_.param();
       for (auto pooling_param : splitParams_) {
         concat_param.inputs.push_back(pooling_param->output);
       }
       concat_param.output = param_.output;
-      concatPE_.init(&fpga_lock);
-      concatPE_.apply(&fpga_lock);
+      concatPE_.init();
+      concatPE_.apply();
     }
   }
 
-  void compute(FPGALock* lock = nullptr) {
+  void compute() {
     Tensor* input = param_.input;
     Tensor* output = param_.output;
     input->syncToCPU();
@@ -107,7 +103,7 @@ class PoolingSplitPE : public PE {
     Tensor float_input;
     // Tensor float_output;
     float* image_addr = float_input.mutableData<float>(FP32, input->shape());
-    float_input.copyFrom(input, lock);
+    float_input.copyFrom(input);
     float16* data_out = output->data<float16>();
 
     int image_height = input->shape().height();
@@ -163,62 +159,59 @@ class PoolingSplitPE : public PE {
     output->flush();
   }
 
-  bool dispatch(FPGALock* lock = nullptr) {
+  bool dispatch() {
     Tensor* output = param_.output;
     param_.input->syncToDevice();
 
     if (use_cpu_) {
-      compute(lock);
+      compute();
       return true;
     }
 
-    FPGALock fpga_lock(lock);
-    fpga_lock.lock();
-
     if (splitParams_.size() > 1) {
-      splitPE_.dispatch(&fpga_lock);
+      splitPE_.dispatch();
     }
 
     int ret = 0;
     int index = 0;
 
-    InplaceArgs inplace_ = {0};
-    GlobalPoolArgs globalPoolArgs;
-    if (param_.globalPooling) {
-      inplace_.relu_enable = false;
-      inplace_.leaky_relu_enable = false;
-      inplace_.relu6_enable = false;
-      inplace_.sigmoid_enable = false;
-      inplace_.global_pool_en = true;
-      config_inplace(inplace_);
+    // InplaceArgs inplace_ = {0};
+    // GlobalPoolArgs globalPoolArgs;
+    // if (param_.globalPooling) {
+    //   inplace_.relu_enable = false;
+    //   inplace_.leaky_relu_enable = false;
+    //   inplace_.relu6_enable = false;
+    //   inplace_.sigmoid_enable = false;
+    //   inplace_.global_pool_en = true;
+    //   config_inplace(inplace_);
 
-      int kernel_height = param_.kernelSize[1];
-      int kernel_width = param_.kernelSize[0];
-      globalPoolArgs.global_pool_factor =
-          fp32_2_fp16(1.0f / (kernel_height * kernel_width));
-      config_global_pool(globalPoolArgs);
-    }
-    for (auto pooling_param : splitParams_) {
-      ret |= compute_fpga_pool(pooling_param->poolingArgs);
+    //   int kernel_height = param_.kernelSize[1];
+    //   int kernel_width = param_.kernelSize[0];
+    //   globalPoolArgs.global_pool_factor =
+    //       fp32_2_fp16(1.0f / (kernel_height * kernel_width));
+    //   config_global_pool(globalPoolArgs);
+    // }
+    // for (auto pooling_param : splitParams_) {
+    //   ret |= compute_fpga_pool(pooling_param->poolingArgs);
 
-      float* scale_address = pooling_param->poolingArgs.output.scale_address;
-      output->scale()[0] = scale_address[0];
-      output->scale()[1] = scale_address[1];
-    }
+    //   float* scale_address = pooling_param->poolingArgs.output.scale_address;
+    //   output->scale()[0] = scale_address[0];
+    //   output->scale()[1] = scale_address[1];
+    // }
 
-    if (param_.globalPooling) {
-      inplace_.relu_enable = false;
-      inplace_.leaky_relu_enable = false;
-      inplace_.relu6_enable = false;
-      inplace_.sigmoid_enable = false;
-      inplace_.global_pool_en = false;
-      config_inplace(inplace_);
-      globalPoolArgs.global_pool_factor = fp32_2_fp16(1.0f);
-      config_global_pool(globalPoolArgs);
-    }
+    // if (param_.globalPooling) {
+    //   inplace_.relu_enable = false;
+    //   inplace_.leaky_relu_enable = false;
+    //   inplace_.relu6_enable = false;
+    //   inplace_.sigmoid_enable = false;
+    //   inplace_.global_pool_en = false;
+    //   config_inplace(inplace_);
+    //   globalPoolArgs.global_pool_factor = fp32_2_fp16(1.0f);
+    //   config_global_pool(globalPoolArgs);
+    // }
 
     if (splitParams_.size() > 1) {
-      concatPE_.dispatch(&fpga_lock);
+      concatPE_.dispatch();
     }
 
     return ret;

@@ -15,6 +15,8 @@
 #pragma once
 #include "lite/core/kernel.h"
 #include "lite/core/op_registry.h"
+// #include "lite/backends/fpga/KD/pes/cpu_pe.hpp"
+// #include "lite/backends/fpga/KD/pes/bypass_pe.hpp"
 
 namespace paddle {
 namespace lite {

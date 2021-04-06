@@ -129,20 +129,15 @@ void NMSFast(const Tensor& bbox,
              std::vector<int>* selected_indices,
              const bool normalized) {
   // The total boxes for each instance.
-  // std::cout << "1\n";
   int64_t num_boxes = bbox.dims()[0];
-  // std::cout << "1,1\n";
   // 4: [xmin ymin xmax ymax]
   // 8: [x1 y1 x2 y2 x3 y3 x4 y4]
   // 16, 24, or 32: [x1 y1 x2 y2 ...  xn yn], n = 8, 12 or 16
   int64_t box_size = bbox.dims()[1];
-  // std::cout << "1,2\n";
 
   std::vector<T> scores_data(num_boxes);
   std::copy_n(scores.data<T>(), num_boxes, scores_data.begin());
-  // std::cout << "1,3\n";
   std::vector<std::pair<T, int>> sorted_indices;
-  // std::cout << "1,4\n";
   GetMaxScoreIndex(scores_data, score_threshold, top_k, &sorted_indices);
 
   // std::cout << "2\n";
@@ -337,7 +332,13 @@ void MultiClassOutput(const Tensor& scores,
   }
 }
 
+void MulticlassNmsCompute::PrepareForRun() {
+  cpu_pe_.init();
+  cpu_pe_.apply();
+}
+
 void MulticlassNmsCompute::Run() {
+  cpu_pe_.dispatch();
   auto& param = Param<operators::MulticlassNmsParam>();
   auto* boxes = param.bboxes;
   auto* scores = param.scores;
@@ -451,9 +452,11 @@ void MulticlassNmsCompute::Run() {
   }
   outs->set_lod(lod);
 
-  // boxes->ZynqTensor()->saveToFile("boxes", true);
-  // scores->ZynqTensor()->saveToFile("scores", true);
-  // outs->ZynqTensor()->saveToFile("nms", true);
+#ifdef FPGA_PRINT_TENSOR
+  Debugger::get_instance().registerOutput("nms_boxes", boxes->ZynqTensor());
+  Debugger::get_instance().registerOutput("nms_scores", scores->ZynqTensor());
+  Debugger::get_instance().registerOutput("nms_out", outs->ZynqTensor());
+#endif
 }
 }  // namespace fpga
 }  // namespace kernels

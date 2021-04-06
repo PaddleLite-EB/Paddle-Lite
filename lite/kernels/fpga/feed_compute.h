@@ -39,7 +39,7 @@ class FeedCompute
       CHECK(!inputs.empty());
       // std::cout << "inputs: " << inputs << std::endl;
       auto* type = inputs.at("Input");
-      std::cout << "type: " << type << std::endl;
+
       exit(-1);
       CHECK(type->target() == TARGET(kHost));
 

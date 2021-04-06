@@ -32,12 +32,7 @@ void transposeCompute(operators::TransposeParam param) {
   const auto* input_x = param.x;
   const auto input_x_dims = input_x->dims();
   input_x->ZynqTensor()->invalidate();
-  input_x->ZynqTensor()->unalignImage();
-
-  // Tensor float_input;
-  // float_input.Resize(input_x_dims);
-  // float_input.mutable_data<float>();
-  // float_input.ZynqTensor()->copyFrom(input_x->ZynqTensor());
+  // input_x->ZynqTensor()->unalignImage();
 
   const auto* input_x_data = input_x->data<float16>();
 
@@ -84,35 +79,62 @@ void transposeCompute(operators::TransposeParam param) {
 void TransposeCompute::Run() {
   auto& param = this->Param<param_t>();
   param.output->mutable_data<zynqmp::float16>();
-  // param.x->ZynqTensor()->invalidate();
-  param.x->ZynqTensor()->unalignImage();
-  if (param.x->dims().size() != 4) {
-    transposeCompute(param);
-    param.output->ZynqTensor()->setAligned(param.x->ZynqTensor()->aligned());
-  } else {
-    param.output->ZynqTensor()->copyFrom(param.x->ZynqTensor());
+
+  bypass_pe_.dispatch();
+
+  if (cpu_pe_) {
+    cpu_pe_->dispatch();
+    param.output->ZynqTensor()->invalidate();
+    param.output->ZynqTensor()->setAligned(true);
+    param.output->ZynqTensor()->unalignImage();
+    param.output->ZynqTensor()->flush();
+    param.output->ZynqTensor()->setAligned(false);
+  }
+}
+
+void Transpose2Compute::PrepareForRun() {
+  auto& param = Param<operators::TransposeParam>();
+  auto output = param.output;
+  output->mutable_data<float16>();
+  auto* input = param.x->ZynqTensor();
+
+  zynqmp::BypassParam& bypass_param = bypass_pe_.param();
+  bypass_param.input = input;
+  bypass_param.output = output->ZynqTensor();
+  bypass_pe_.init();
+  bypass_pe_.apply();
+  if ((input->aligned() && input->shape().shouldAlign()) ||
+      param.x->dims().size() != 4) {
+    cpu_pe_.reset(new zynqmp::CPUPE());
+    zynqmp::CPUParam& cpu_param = cpu_pe_->param();
+    cpu_param.outputs.push_back(output->ZynqTensor());
+    cpu_pe_->init();
+    cpu_pe_->apply();
   }
 }
 
 // Transpose2
 void Transpose2Compute::Run() {
-  auto& param = this->Param<param_t>();
-  param.output->mutable_data<float16>();
-  // param.x->ZynqTensor()->syncToCPU();
-  param.x->ZynqTensor()->unalignImage();
-  param.x->ZynqTensor()->flush();
-  param.x->ZynqTensor()->invalidate();
-
-  if (param.x->dims().size() != 4) {
-    transposeCompute(param);
-    param.output->ZynqTensor()->setAligned(param.x->ZynqTensor()->aligned());
-  } else {
-    param.output->ZynqTensor()->copyFrom(param.x->ZynqTensor());
+  bypass_pe_.dispatch();
+  if (cpu_pe_ != nullptr) {
+    cpu_pe_->dispatch();
   }
 
-  // param.output->ZynqTensor()->copyFrom(param.x->ZynqTensor());
-  param.output->ZynqTensor()->flush();
-  // param.output->ZynqTensor()->saveToFile("Transpose2", true);
+  auto& param = Param<operators::TransposeParam>();
+  // param.output->ZynqTensor()->syncToCPU();
+  // param.output->ZynqTensor()->unalignImage();
+  // param.x->ZynqTensor()->flush();
+
+  if (param.x->dims().size() != 4) {
+    param.x->ZynqTensor()->syncToCPU();
+    param.x->ZynqTensor()->unalignImage();
+    param.x->ZynqTensor()->flush();
+    transposeCompute(param);
+  } else {
+    param.output->ZynqTensor()->syncToCPU();
+    param.output->ZynqTensor()->unalignImage();
+    param.output->ZynqTensor()->flush();
+  }
 }
 
 }  // namespace fpga
@@ -125,7 +147,7 @@ REGISTER_LITE_KERNEL(transpose,
                      kFPGA,
                      kFP16,
                      kNHWC,
-                     paddle::lite::kernels::fpga::TransposeCompute,
+                     paddle::lite::kernels::fpga::Transpose2Compute,
                      def)
     .BindInput("X",
                {LiteType::GetTensorTy(TARGET(kFPGA),

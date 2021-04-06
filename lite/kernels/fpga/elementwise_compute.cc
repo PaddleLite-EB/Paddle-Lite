@@ -129,20 +129,15 @@ void ElementwiseMulCompute::Run() {
 
   if (!param.Y->persistable()) {
     // TODO(chonwhite) alignment;
-
     param.Y->ZynqTensor()->invalidate();
-    // param.Y->ZynqTensor()->saveToFile("param_y", true);
     scale_.copyFrom(param.Y->ZynqTensor());
     scale_.flush();
-    if (param.X->ZynqTensor()->shape().channel() == 512) {
-      // exit(-1);
-    }
   }
   pe_.dispatch();
 #ifdef FPGA_PRINT_TENSOR
   zynqmp::ScaleParam& scale_param = pe_.param();
-  // Debugger::get_instance().registerOutput("ew_mul_in", scale_param.input);
-  Debugger::get_instance().registerOutput("ew_mul", scale_param.output);
+// Debugger::get_instance().registerOutput("ew_mul_in", scale_param.input);
+// Debugger::get_instance().registerOutput("ew_mul", scale_param.output);
 #endif
 }
 

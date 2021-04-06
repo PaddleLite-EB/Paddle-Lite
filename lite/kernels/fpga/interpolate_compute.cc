@@ -101,12 +101,17 @@ void NearestInterpCompute::PrepareForRun() {
 
   Out->mutable_data<float16>();
 
-  zynqmp::ResizeParam& norm_param = pe_.param();
-  norm_param.input = X->ZynqTensor();
-  norm_param.output = Out->ZynqTensor();
+  cpu_pe_.reset(new zynqmp::CPUPE());
+  zynqmp::CPUParam& cpu_param = cpu_pe_->param();
+  cpu_param.outputs.push_back(Out->ZynqTensor());
+  cpu_pe_->init();
+  cpu_pe_->apply();
+  // zynqmp::ResizeParam& norm_param = pe_.param();
+  // norm_param.input = X->ZynqTensor();
+  // norm_param.output = Out->ZynqTensor();
 
-  pe_.init();
-  pe_.apply();
+  // pe_.init();
+  // pe_.apply();
 }
 
 inline std::vector<int> get_new_shape(
@@ -210,9 +215,12 @@ void NearestInterpCompute::Run() {
   int out_h = param.out_h;
   bool align_corners = param.align_corners;
 
+  cpu_pe_->dispatch();
+
   std::string interp_method = "";
 
-  X->ZynqTensor()->syncToCPU();
+  X->ZynqTensor()->invalidate();
+  // X->ZynqTensor()->saveToFile("n_in", true);
   interpolate(X,
               OutSize,
               SizeTensor,

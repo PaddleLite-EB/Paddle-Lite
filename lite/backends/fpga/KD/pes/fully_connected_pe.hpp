@@ -26,24 +26,20 @@ namespace zynqmp {
 
 class FullyConnectedPE : public PE {
  public:
-  bool init(FPGALock* lock = nullptr) {
-    FPGALock fpga_lock(lock);
-    fpga_lock.lock();
+  bool init() {
     Tensor* output = param_.output;
     output->setAligned(true);
     output->setDataLocation(Device);
     return true;
   }
 
-  void apply(FPGALock* lock = nullptr) {
-    FPGALock fpga_lock(lock);
-    fpga_lock.lock();
+  void apply() {
     ConvParam& convParam_ = convPE_.param();
     Tensor* input = param_.input;
     convParam_.input = param_.input;
     convParam_.output = param_.output;
 
-    convParam_.activeParam.type = param_.activeParam.type;
+    convParam_.activeParam = param_.activeParam;
     convParam_.groups = 1;
     convParam_.strides = {1, 1};
     convParam_.paddings = {0, 0};
@@ -84,8 +80,8 @@ class FullyConnectedPE : public PE {
     convParam_.scale()->flush();
     convParam_.bias()->flush();
 
-    convPE_.init(&fpga_lock);
-    convPE_.apply(&fpga_lock);
+    convPE_.init();
+    convPE_.apply();
   }
 
   void cpu_compute() {
@@ -118,15 +114,13 @@ class FullyConnectedPE : public PE {
     output->scale()[1] = 127.0f / max;
   }
 
-  bool dispatch(FPGALock* lock = nullptr) {
-    FPGALock fpga_lock(lock);
-    fpga_lock.lock();
+  bool dispatch() {
     // int num = param_.filter->shape().channel();
     // if (num == 2) {
     //   cpu_compute();
     //   return 1;
     // } else {
-    return convPE_.dispatch(&fpga_lock);
+    return convPE_.dispatch();
     // }
   }
 

@@ -15,8 +15,11 @@ limitations under the License. */
 #pragma once
 
 #include <algorithm>
+
 #include "lite/backends/fpga/KD/pe.hpp"
 #include "lite/backends/fpga/KD/pe_params.hpp"
+#include "lite/backends/fpga/KD/pes/bypass_pe.hpp"
+#include "lite/backends/fpga/KD/pes/cpu_pe.hpp"
 
 namespace paddle {
 namespace zynqmp {
@@ -85,9 +88,7 @@ inline void CalcLabelScore(float* scores,
 
 class YoloBoxPE : public PE {
  public:
-  bool init(FPGALock* lock = nullptr) {
-    FPGALock fpga_lock(lock);
-    fpga_lock.lock();
+  bool init() {
     param_.outputBoxes->setAligned(false);
     param_.outputScores->setAligned(false);
     param_.outputBoxes->setDataLocation(CPU);
@@ -95,9 +96,10 @@ class YoloBoxPE : public PE {
     return true;
   }
 
-  bool dispatch(FPGALock* lock = nullptr) {
-    // FPGALock fpga_lock(lock);
-    // fpga_lock.lock();
+  bool dispatch() {
+    input_bypass_pe_.dispatch();
+    cpu_pe_.dispatch();
+
     auto* input = param_.input;
     auto* imgsize = param_.imgSize;
     auto* boxes = param_.outputBoxes;
@@ -122,15 +124,15 @@ class YoloBoxPE : public PE {
     auto anchors_data = anchors_.mutableData<int32_t>(INT32, anchors_shape);
     std::copy(anchors.begin(), anchors.end(), anchors_data);
 
-    input->syncToCPU();
+    // input->syncToCPU();
     // input->unalignImage();
     // input->setAligned(false);
-    Tensor input_float;
-    input_float.setDataLocation(CPU);
+    // Tensor input_float;
+    // input_float.setDataLocation(CPU);
     float* input_data = input_float.mutableData<float>(FP32, input->shape());
-    input_float.copyFrom(input, lock);
+    // input_float.copyFrom(input);
     input_float.setAligned(input->aligned());
-    input_float.unalignImage(lock);
+    input_float.unalignImage();
     input_float.setAligned(false);
 
     Tensor boxes_float;
@@ -155,6 +157,7 @@ class YoloBoxPE : public PE {
     // for (int n = 0; n < num; n++) {
     // int img_height = imgsize_data[2 * i];
     // int img_width = imgsize_data[2 * i + 1];
+
     int img_height = 0;
     int img_width = 0;
     if (imgsize->dataType() == FP32) {
@@ -211,18 +214,36 @@ class YoloBoxPE : public PE {
         }
       }
     }
+    boxes_float.flush();
+    scores_float.flush();
 
-    boxes->copyFrom(&boxes_float, lock);
-    scores->copyFrom(&scores_float, lock);
-    // input->setAligned(true);
+    boxes->copyFrom(&boxes_float);
+    scores->copyFrom(&scores_float);
   }
 
-  void apply() {}
+  void apply() {
+    input_float.setDataLocation(CPU);
+    input_float.mutableData<float>(FP32, param_.input->shape());
+    input_float.setAligned(param_.input->aligned());
+
+    BypassParam& bypass_param = input_bypass_pe_.param();
+    bypass_param.input = param_.input;
+    bypass_param.output = &input_float;
+
+    input_bypass_pe_.init();
+    input_bypass_pe_.apply();
+
+    cpu_pe_.init();
+    cpu_pe_.apply();
+  }
 
   YoloBoxParam& param() { return param_; }
 
  private:
+  Tensor input_float;
   YoloBoxParam param_;
+  CPUPE cpu_pe_;
+  BypassPE input_bypass_pe_;
 };
 }  // namespace zynqmp
 }  // namespace paddle

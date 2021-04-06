@@ -85,10 +85,6 @@ void bgr_to_tensor_hwc(const uint8_t* src,
                        int dsth,
                        float* means,
                        float* scales) {
-  paddle::zynqmp::FPGALock* lock = nullptr;
-  paddle::zynqmp::FPGALock fpga_lock(lock);
-  fpga_lock.lock();
-
   int channel = 3;
   if (srcFormat == ImageFormat::BGR || srcFormat == ImageFormat::RGB) {
     channel = 3;

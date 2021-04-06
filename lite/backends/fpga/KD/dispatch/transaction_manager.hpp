@@ -14,6 +14,9 @@ limitations under the License. */
 
 #pragma once
 
+#include "lite/backends/fpga/KD/dispatch/transaction.hpp"
+
+#include <memory>
 #include <vector>
 
 namespace paddle {
@@ -22,23 +25,21 @@ namespace zynqmp {
 class TransactionManager {
  public:
   static TransactionManager& get_instance() {
-    static TransactionManager s_instance;
+    thread_local static TransactionManager s_instance;
     return s_instance;
   }
 
-  Transaction* getTransaction() {
+  std::shared_ptr<Transaction> getTransaction() {
     if (currentTransaction_ == nullptr) {
-      currentTransaction_ = new Transaction();
-      transactions_.push_back(currentTransaction_);
+      currentTransaction_.reset(new Transaction());
     }
     return currentTransaction_;
-  };
+  }
 
-  void endTransaction() { currentTransaction_ = nullptr; }
+  void endTransaction() { currentTransaction_.reset(); }
 
  private:
-  Transaction* currentTransaction_ = nullptr;
-  std::vector<Transaction*> transactions_;
-}
-}
-}
+  std::shared_ptr<Transaction> currentTransaction_;
+};
+}  // namespace zynqmp
+}  // namespace paddle

@@ -157,9 +157,32 @@ class Tensor {
 
   float* scale() { return placeHolder_->scale_; }
 
-  void alignImage(FPGALock* lock = nullptr,
-                  Tensor* dst = nullptr,
-                  bool copy = false) {
+  void readScale() {
+    zynqmp::ReadScaleArgs args;
+    args.idx = scaleIndex(false);
+    args.address = reinterpret_cast<uint32_t*>(placeHolder_->scale_);
+    read_scale(args);
+  }
+
+  void writeScale(float scale_value) {
+    scale()[0] = scale_value;
+    scale()[1] = 1.0 / scale_value;
+    WriteScaleArgs writeScaleArgs;
+    writeScaleArgs.idx = scaleIndex();
+    writeScaleArgs.address = (uint64_t)scale();
+    write_scale(writeScaleArgs);
+  }
+
+  int scaleIndex(bool auto_alloc = false) {
+    if (scale_index_ <= 0 && auto_alloc) {
+      scale_index_ = alloc_scale_reg();
+    }
+    return scale_index_;
+  }
+
+  void allocScaleIndex() { scaleIndex(true); }
+
+  void alignImage(Tensor* dst = nullptr, bool copy = false) {
     if (shape_->shouldAlign()) {
       int cell_size = CellSize(this->dataType_);
       char* dst_data = nullptr;
@@ -192,7 +215,7 @@ class Tensor {
       }
     } else {
       if (copy) {
-        dst->copyFrom(this, lock);
+        dst->copyFrom(this);
       } else {
         // TODO(chonwhite) share data.
       }
@@ -207,13 +230,11 @@ class Tensor {
     placeHolder_->scale_[1] = src->placeHolder_->scale_[1];
   }
 
-  void unalignImage(FPGALock* lock = nullptr,
-                    Tensor* dst = nullptr,
-                    bool copy = false) {
+  void unalignImage(Tensor* dst = nullptr, bool copy = false) {
     Tensor* target = dst == nullptr ? this : dst;
     if (!target->aligned_) {
       if (copy && dst != nullptr) {
-        dst->copyFrom(this, lock);
+        dst->copyFrom(this);
       }
       return;
     }
@@ -249,7 +270,7 @@ class Tensor {
       }
     } else {
       if (copy) {
-        dst->copyFrom(this, lock);
+        dst->copyFrom(this);
       } else {
         // TODO(chonwhite) share data.
       }
@@ -270,7 +291,7 @@ class Tensor {
     shape_ = new Shape(const_cast<Shape&>(shape));
   }
 
-  void copyFrom(Tensor* src, FPGALock* lock = nullptr) {
+  void copyFrom(Tensor* src) {
     if (src->dataType_ == dataType_) {
       src->syncToCPU();
       memcpy(data<void>(), src->data<void>(), memorySize());
@@ -278,9 +299,6 @@ class Tensor {
       flush();
       return;
     }
-
-    FPGALock fpga_lock(lock);
-    fpga_lock.lock();
 
     int count = src->aligned_ ? src->shape().alignedElementCount()
                               : src->shape().numel();
@@ -377,7 +395,7 @@ class Tensor {
   void saveToFile() {
     // std::string path = std::to_string(id_) + ".txt";
     std::string path = dimsFileName();
-    // saveToFile(path);
+    saveToFile(path);
   }
 
   void saveToFile(std::string prefix, bool with_shape) {
@@ -476,15 +494,35 @@ class Tensor {
     // DLOG << "\ttensor file " << path << " loaded!";
   }
 
+  friend std::ostream& operator<<(std::ostream& os, Tensor& tensor) {
+    os << "tensor:"
+       << "\n";
+    os << "dims: {";
+    for (int i = 0; i < tensor.shape().dimSize(); ++i) {
+      os << tensor.shape()[i] << " ";
+    }
+    os << "}\n";
+    for (int i = 0; i < tensor.shape().numel(); i++) {
+      float value = 0;
+      if (tensor.dataType() == FP32) {
+        value = tensor.data<float>()[i];
+      } else {
+        value = half_to_float(tensor.data<float16>()[i]);
+      }
+      os << value << " ";
+    }
+  }
+
   ~Tensor() {
-    if (shape_ != nullptr) {
-      delete shape_;
-      shape_ = nullptr;
+    if (release_scale_reg > 0) {
+      release_scale_reg(scale_index_);
     }
   }
 
  private:
+  bool released = false;
   int offset_ = 0;
+  int scale_index_ = 0;
   float mem_factor_ = 1.0f;
   std::shared_ptr<PlaceHolder> placeHolder_;
   Shape* shape_ = nullptr;

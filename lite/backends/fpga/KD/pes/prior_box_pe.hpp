@@ -14,14 +14,18 @@ limitations under the License. */
 
 #pragma once
 
+#include <memory>
+
 #include "lite/backends/fpga/KD/pe.hpp"
 #include "lite/backends/fpga/KD/pe_params.hpp"
+#include "lite/backends/fpga/KD/pes/cpu_pe.hpp"
+
 namespace paddle {
 namespace zynqmp {
 
 class PriorBoxPE : public PE {
  public:
-  bool init(FPGALock* lock = nullptr) {
+  bool init() {
     param_.outputBoxes->setAligned(false);
     param_.outputVariances->setAligned(false);
     param_.outputBoxes->setDataLocation(CPU);
@@ -29,9 +33,9 @@ class PriorBoxPE : public PE {
     return true;
   }
 
-  bool dispatch(FPGALock* lock = nullptr);
+  bool dispatch();
 
-  void apply(FPGALock* lock = nullptr);
+  void apply();
 
   PriorBoxParam& param() { return param_; }
 
@@ -44,10 +48,12 @@ class PriorBoxPE : public PE {
 
  private:
   PriorBoxParam param_;
+
   Tensor* cachedBoxes_ = nullptr;
   Tensor* cachedVariances_ = nullptr;
+  CPUPE cpu_pe_;
 
-  void compute_prior_box(FPGALock* lock = nullptr);
+  void compute_prior_box();
 };
 }  // namespace zynqmp
 }  // namespace paddle

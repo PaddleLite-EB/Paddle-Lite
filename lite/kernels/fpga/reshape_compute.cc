@@ -25,24 +25,50 @@ namespace fpga {
 
 using float16 = zynqmp::float16;
 
+void FlattenCompute::PrepareForRun() {
+  auto& param = Param<operators::ReshapeParam>();
+  auto output = param.output;
+  output->mutable_data<float16>();
+  auto* input = param.x->ZynqTensor();
+
+  zynqmp::BypassParam& bypass_param = bypass_pe_.param();
+  bypass_param.input = input;
+  bypass_param.output = output->ZynqTensor();
+  bypass_pe_.init();
+  bypass_pe_.apply();
+  if (input->aligned() && input->shape().shouldAlign()) {
+    cpu_pe_.reset(new zynqmp::CPUPE());
+    zynqmp::CPUParam& cpu_param = cpu_pe_->param();
+    cpu_param.outputs.push_back(output->ZynqTensor());
+    cpu_pe_->init();
+    cpu_pe_->apply();
+  }
+}
+
 void FlattenCompute::Run() {
   auto& param = Param<operators::ReshapeParam>();
   auto x = param.x;
   auto output = param.output;
-  output->mutable_data<float16>();
+
+  bypass_pe_.dispatch();
+
   auto output_dims = output->dims();
   if (param.inplace) {
     output->ShareDataWith(*x);
   } else {
     // output->CopyDataFrom(*x);
   }
-  x->ZynqTensor()->unalignImage();
-  // x->ZynqTensor()->saveToFile("fi", true);
 
-  output->ZynqTensor()->copyFrom(x->ZynqTensor());
-  // output->ZynqTensor()->saveToFile("fo", true);
+  if (cpu_pe_) {
+    cpu_pe_->dispatch();
+    output->ZynqTensor()->invalidate();
+    output->ZynqTensor()->setAligned(true);
+    output->ZynqTensor()->unalignImage();
+    output->ZynqTensor()->flush();
+    output->ZynqTensor()->setAligned(false);
+  }
+
   output->ZynqTensor()->flush();
-  output->ZynqTensor()->setAligned(x->ZynqTensor()->aligned());
   output->Resize(output_dims);
 
 #ifdef FPGA_PRINT_TENSOR
@@ -52,37 +78,77 @@ void FlattenCompute::Run() {
 
 void ReshapeCompute::PrepareForRun() {
   auto& param = Param<operators::ReshapeParam>();
-  auto x = param.x;
   auto output = param.output;
-  auto output_dims = output->dims();
 
-  output->Resize(output_dims);
-  output->mutable_data<float16>();
+  auto* input = param.x->ZynqTensor();
+
+  if (input->dataType() == zynqmp::FP16) {
+    output->mutable_data<float16>();
+  } else {
+    output->mutable_data<float>();
+  }
+
+  zynqmp::BypassParam& bypass_param = bypass_pe_.param();
+  bypass_param.input = input;
+  bypass_param.output = output->ZynqTensor();
+  bypass_pe_.init();
+  bypass_pe_.apply();
+  // if (input->aligned() && input->shape().shouldAlign()) {
+  cpu_pe_.reset(new zynqmp::CPUPE());
+  zynqmp::CPUParam& cpu_param = cpu_pe_->param();
+  cpu_param.outputs.push_back(output->ZynqTensor());
+  cpu_pe_->init();
+  cpu_pe_->apply();
+  // }
 }
 
 void ReshapeCompute::Run() {
-  auto& param = Param<operators::ReshapeParam>();
-  auto x = param.x;
-  auto output = param.output;
+  // auto& param = Param<operators::ReshapeParam>();
+  // auto x = param.x;
+  // auto output = param.output;
   // auto output_dims = output->dims();
 
-  // x->ZynqTensor()->invalidate();// TODO
-  x->ZynqTensor()->unalignImage();
-  x->ZynqTensor()->flush();
+  // // x->ZynqTensor()->invalidate();// TODO
+  // x->ZynqTensor()->unalignImage();
+  // x->ZynqTensor()->flush();
 
   // output->Resize(output_dims);
   // output->mutable_data<float16>();
 
+  // if (param.inplace) {
+  //   // output->ShareDataWith(*x);
+  // } else {
+  //   // output->CopyDataFrom(*x);
+  // }
+
+  // output->ZynqTensor()->copyFrom(x->ZynqTensor());
+  // // output->ZynqTensor()->saveToFile("ro", true);
+  // output->ZynqTensor()->flush();
+  // output->ZynqTensor()->setAligned(x->ZynqTensor()->aligned());
+
+  auto& param = Param<operators::ReshapeParam>();
+  auto x = param.x;
+  auto output = param.output;
+
+  bypass_pe_.dispatch();
+
+  auto output_dims = output->dims();
   if (param.inplace) {
     // output->ShareDataWith(*x);
   } else {
     // output->CopyDataFrom(*x);
   }
 
-  output->ZynqTensor()->copyFrom(x->ZynqTensor());
-  // output->ZynqTensor()->saveToFile("ro", true);
+  if (cpu_pe_) {
+    cpu_pe_->dispatch();
+    output->ZynqTensor()->invalidate();
+    // output->ZynqTensor()->setAligned(true);
+    output->ZynqTensor()->unalignImage();
+    output->ZynqTensor()->flush();
+    output->ZynqTensor()->setAligned(false);
+  }
+
   output->ZynqTensor()->flush();
-// output->ZynqTensor()->setAligned(x->ZynqTensor()->aligned());
 
 #ifdef FPGA_PRINT_TENSOR
   Debugger::get_instance().registerOutput("reshape", output->ZynqTensor());

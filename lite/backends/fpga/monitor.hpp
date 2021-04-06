@@ -21,6 +21,7 @@
 #include <unordered_map>
 #include <vector>
 
+#include "lite/backends/fpga/KD/debugger.hpp"
 #include "lite/core/program.h"
 #include "lite/core/tensor.h"
 
@@ -46,10 +47,15 @@ class Monitor {
     auto in_names = op_info->input_names();
 
     // for (auto name : in_names) {
-    // auto *var = op->scope()->FindVar(name);
-    // CHECK(var) << "no variable called " << name << " found";
-    // auto tensor = var->Get<lite::Tensor>();
-    // VLOG(4) << "\n in_tensor:::" << name;
+    //   std::size_t found = name.rfind("feed");
+    //   VLOG(4) << "\n out_tensor:::" << name << "," << found;
+    //   if (found != std::string::npos) {
+    //       return;
+    //   }
+    //   auto *var = op->scope()->FindVar(name);
+    //   CHECK(var) << "no variable called " << name << " found";
+    //   auto tensor = var->Get<lite::Tensor>();
+    //   VLOG(4) << "\n in_tensor:::" << name;
     // }
   }
 
@@ -85,7 +91,8 @@ class Monitor {
           VLOG(4) << "\n out_tensor:::" << name;
           // tensor->ZynqTensor()->saveToFile(name, true);
           if (tensor->ZynqTensor() != nullptr && should_print(name)) {
-            tensor->ZynqTensor()->saveToFile(name, true);
+            // tensor->ZynqTensor()->saveToFile(name, true);
+            Debugger::get_instance().registerOutput(name, tensor->ZynqTensor());
           }
         }
       }

@@ -53,7 +53,7 @@ void PoolCompute::PrepareForRun() {
     pool_param.input = param.x->ZynqTensor();
     pool_param.output = param.output->ZynqTensor();
 
-    // pool_param.activeParam.type = zynqmp::TYPE_NONE;
+    pool_param.activeParam.type = zynqmp::TYPE_NONE;
 
     pool_param.type = param.pooling_type == "max"
                           ? zynqmp::PoolingType::MAX
@@ -72,7 +72,7 @@ void PoolCompute::PrepareForRun() {
     pool_param.input = param.x->ZynqTensor();
     pool_param.output = param.output->ZynqTensor();
 
-    // pool_param.activeParam.type = zynqmp::TYPE_NONE;
+    pool_param.activeParam.type = zynqmp::TYPE_NONE;
 
     pool_param.type = param.pooling_type == "max"
                           ? zynqmp::PoolingType::MAX

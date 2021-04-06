@@ -23,9 +23,7 @@ namespace zynqmp {
 
 class SplitPE : public PE {
  public:
-  bool init(FPGALock* lock = nullptr) {
-    FPGALock fpga_lock(lock);
-    fpga_lock.lock();
+  bool init() {
     std::vector<Tensor*> outputs = param_.outputs;
     for (size_t i = 0; i < outputs.size(); i++) {
       Tensor* out = outputs[i];
@@ -87,9 +85,7 @@ class SplitPE : public PE {
     // StridedNumelCopyWithAxis();
   }
 
-  bool dispatch(FPGALock* lock = nullptr) {
-    // FPGALock fpga_lock(lock);
-    // fpga_lock.lock();
+  bool dispatch() {
     Tensor* input = param_.input;
     input->syncToCPU();
     if (input->shape().dimSize() <= 3) {

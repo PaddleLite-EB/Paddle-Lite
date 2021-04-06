@@ -19,22 +19,23 @@ limitations under the License. */
 
 #include "lite/backends/fpga/KD/pe.hpp"
 #include "lite/backends/fpga/KD/pe_params.hpp"
+#include "lite/backends/fpga/KD/pes/cpu_pe.hpp"
 
 namespace paddle {
 namespace zynqmp {
 
 class ConcatPE : public PE {
  public:
-  bool init(FPGALock* lock = nullptr) {
-    FPGALock fpga_lock(lock);
-    fpga_lock.lock();
+  bool init() {
     Tensor* output = param_.output;
     output->setAligned(false);
     output->setDataLocation(CPU);
+    output->scaleIndex(true);
+    pe_.init();
     return true;
   }
 
-  void apply(FPGALock* lock = nullptr) {}
+  void apply() { pe_.apply(); }
 
   void concat2D() {
     int offset = 0;
@@ -84,21 +85,26 @@ class ConcatPE : public PE {
     output->flush();
   }
 
-  bool dispatch(FPGALock* lock = nullptr) {
-    FPGALock fpga_lock(lock);
-    fpga_lock.lock();
+  bool dispatch() {
+    pe_.dispatch();
+    std::cout << "concat + cpu_pe " << std::endl;
     Tensor* output = param_.output;
     Shape& output_shape = output->shape();
-
     float scale = 0;
     for (unsigned int n = 0; n < param_.inputs.size(); n++) {
       Tensor* input = param_.inputs[n];
       input->syncToCPU();
-      input->unalignImage(&fpga_lock);
+      input->unalignImage();
       scale = std::max(scale, input->scale()[0]);
+
+      if (merge_scale_) {
+        input->readScale();
+        scale = std::max(scale, input->scale()[0]);
+      }
     }
-    output->scale()[0] = scale;
-    output->scale()[1] = 1.0f / scale;
+    if (merge_scale_) {
+      output->writeScale(scale);
+    }
 
     if (output_shape.dimSize() == 3) {
       concat3D();
@@ -126,13 +132,18 @@ class ConcatPE : public PE {
       channel_sum += input_shape.channel();
     }
     output->flush();
+    // output->saveToFile("concat_out", true);
     return true;
   }
 
   ConcatParam& param() { return param_; }
 
+  void setMergeScale(bool merge) { merge_scale_ = merge; }
+
  private:
   ConcatParam param_;
+  CPUPE pe_;
+  bool merge_scale_ = true;
 };
 
 }  // namespace zynqmp

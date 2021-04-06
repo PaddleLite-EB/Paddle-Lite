@@ -14,6 +14,8 @@ limitations under the License. */
 
 #pragma once
 
+#include <memory>
+
 #include "lite/backends/fpga/KD/float16.hpp"
 #include "lite/backends/fpga/KD/pe.hpp"
 #include "lite/backends/fpga/KD/pe_params.hpp"
@@ -35,18 +37,14 @@ class DepthwiseConvPE : public PE {
 
   inline int lcm_(int a, int b) { return a * b / gcd_(a, b); }
 
-  bool init(FPGALock* lock = nullptr) {
-    FPGALock fpga_lock(lock);
-    fpga_lock.lock();
+  bool init() {
     Tensor* output = param_.output;
     output->setAligned(true);
     output->setDataLocation(Device);
     return true;
   }
 
-  void apply(FPGALock* lock = nullptr) {
-    FPGALock fpga_lock(lock);
-    fpga_lock.lock();
+  void apply() {
     DepthwiseConvParam& param = param_;
     Tensor* input = param.input;
     Tensor* output = param.output;
@@ -125,55 +123,33 @@ class DepthwiseConvPE : public PE {
     args.output.scale_address = output->scale();
     args.out_width = param.output->shape().width();
     args.out_height = param.output->shape().height();
+    args.dilation_rate = param.dilations[0];
     args.sub_conv_num = 1;
+    args.output_idx = param.output->scaleIndex(true);
+
+    args.inplace.findmax_restart = true;
+    args.inplace.active_param.type = param_.activeParam.type;
+    args.inplace.active_param.leaky_relu_factor =
+        float_to_half(param_.activeParam.leaky_relu_factor);
+
     param.args = args;
 
-    // inplace_.relu_enable = param_.relu.enabled;
-    inplace_.power_enable = false;
-    inplace_.normalize_enable = false;
+    transaction_ = TransactionManager::get_instance().getTransaction();
+    Action* action = new Action(compute_fpga_dwconv(args));
+    action_.reset(action);
+    transaction_->appendAction(action);
   }
 
-  // bool dispatch() {
-  //   FPGALock* lock = nullptr;
-  //   dispatch(lock);
-  // }
-
-  bool dispatch(FPGALock* lock = nullptr) {
-    FPGALock fpga_lock(lock);
-    fpga_lock.lock();
-    param_.input->syncToDevice();
-    if (param_.activeParam.type == TYPE_RELU) {
-      inplace_.relu_enable = true;
-    } else if (param_.activeParam.type == TYPE_RELU6) {
-      inplace_.relu6_enable = true;
-    } else if (param_.activeParam.type == TYPE_SIGMOID) {
-      inplace_.sigmoid_enable = true;
-    } else if (param_.activeParam.type == TYPE_LEAKY_RELU) {
-      inplace_.leaky_relu_enable = true;
-    }
-
-    if (inplace_.relu_enable || inplace_.leaky_relu_enable ||
-        inplace_.relu6_enable || inplace_.sigmoid_enable) {
-      config_inplace(inplace_);
-    }
-    bool ret = compute_fpga_dwconv(param_.args) == 0;
-    if (inplace_.relu_enable || inplace_.leaky_relu_enable ||
-        inplace_.relu6_enable || inplace_.sigmoid_enable) {
-      inplace_.relu_enable = false;
-      inplace_.leaky_relu_enable = false;
-      inplace_.relu6_enable = false;
-      inplace_.sigmoid_enable = false;
-      config_inplace(inplace_);
-    }
-    return ret;
-  }
+  bool dispatch() { return true; }
 
   DepthwiseConvParam& param() { return param_; }
 
  private:
   DepthwiseConvParam param_;
   Tensor bias_;
-  InplaceArgs inplace_ = {0};
+
+  std::shared_ptr<Transaction> transaction_;
+  std::unique_ptr<Action> action_;
 };
 
 }  // namespace zynqmp

@@ -84,9 +84,9 @@ inline void pooling_split_channel(
 
     PoolingArgs& args = pooling_param->poolingArgs;
     args.mode = param.type;
-    args.kernel_reciprocal = fp32_2_fp16(1.0f / (w_kernel * h_kernel));
+    args.kernel_reciprocal = float_to_half(1.0f / (w_kernel * h_kernel));
     if (param.globalPooling) {
-      args.kernel_reciprocal = fp32_2_fp16(1.0f);
+      args.kernel_reciprocal = float_to_half(1.0f);
     }
 
     args.image.address = input_address;

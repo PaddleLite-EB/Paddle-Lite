@@ -37,18 +37,14 @@ class DepthwiseConvSplitPE : public PE {
 
   inline int lcm_(int a, int b) { return a * b / gcd_(a, b); }
 
-  bool init(FPGALock* lock = nullptr) {
-    FPGALock fpga_lock(lock);
-    fpga_lock.lock();
+  bool init() {
     Tensor* output = param_.output;
     output->setAligned(true);
     output->setDataLocation(Device);
     return true;
   }
 
-  void apply(FPGALock* lock = nullptr) {
-    FPGALock fpga_lock(lock);
-    fpga_lock.lock();
+  void apply() {
     DepthwiseConvSplitParam& param = param_;
     Tensor* input = param.input;
     Tensor* output = param.output;
@@ -70,14 +66,12 @@ class DepthwiseConvSplitPE : public PE {
         concat_param.inputs.push_back(&dwconv_param->output);
       }
       concat_param.output = param_.output;
-      concatPE_.init(&fpga_lock);
-      concatPE_.apply(&fpga_lock);
+      concatPE_.init();
+      concatPE_.apply();
     }
   }
 
-  bool dispatch(FPGALock* lock = nullptr) {
-    FPGALock fpga_lock(lock);
-    fpga_lock.lock();
+  bool dispatch() {
     param_.input->syncToDevice();
     if (param_.activeParam.type == TYPE_RELU) {
       inplace_.relu_enable = true;
@@ -97,7 +91,7 @@ class DepthwiseConvSplitPE : public PE {
     std::vector<BasicDWConvParam*>& params = param_.splitParams();
 
     if (params.size() > 1) {
-      splitPE_.dispatch(&fpga_lock);
+      splitPE_.dispatch();
     }
 
     int ret = 0;
@@ -106,7 +100,7 @@ class DepthwiseConvSplitPE : public PE {
     }
 
     if (params.size() > 1) {
-      concatPE_.dispatch(&fpga_lock);
+      concatPE_.dispatch();
     }
 
     if (inplace_.relu_enable || inplace_.leaky_relu_enable ||

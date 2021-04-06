@@ -22,6 +22,8 @@ limitations under the License. */
 #include <iostream>
 #include <limits>
 
+#include "lite/backends/fpga/KD/float16.hpp"
+
 namespace paddle {
 namespace zynqmp {
 
@@ -51,6 +53,7 @@ enum ActiveType {
   TYPE_RELU6 = 2,
   TYPE_LEAKY_RELU = 3,
   TYPE_SIGMOID = 4,
+  TYPE_GLOBAL_POOL = 5
 };
 
 struct DeviceInfoArgs {
@@ -84,6 +87,23 @@ struct MemoryCacheArgs {
 
 struct MemoryBarrierArgs {
   uint16_t dummy;
+};
+
+struct ActiveParamterArgs {
+  enum ActiveType type;
+  uint16_t leaky_relu_factor;
+};
+
+struct NormalizeParameterArgs {
+  uint32_t channel;
+  uint32_t hight_width;
+  bool enabled;
+};
+
+struct InplaceArgs {
+  bool findmax_restart;
+  struct ActiveParamterArgs active_param;
+  struct NormalizeParameterArgs normalize_param;
 };
 
 struct BNArgs {
@@ -125,23 +145,32 @@ struct DeconvArgs {
                              // each row directly in FPGA
 };
 
+struct StrideArgs {
+  bool wr_enabled;
+  uint32_t wr_offset;
+  bool rd_enabled;
+  uint32_t rd_offset;
+};
+
 struct ConvArgs {
-  bool relu_enabled;
   void* sb_address;  // scale and bias are interlaced;
   void* filter_address;
   void* filter_scale_address;
   uint32_t filter_num;
   uint32_t group_num;
   uint32_t dilation;
+  uint32_t output_idx;  // output scale index
+  uint32_t input_idx;   // input scale index
 
   struct DeconvArgs deconv;
   struct KernelArgs kernel;
+  struct StrideArgs stride;
   struct ImageInputArgs image;  // input image;
   struct ImageOutputArgs output;
+  struct InplaceArgs inplace;
 };
 
 struct DWconvArgs {
-  bool relu_enabled;
   void* bias_address;
   void* filter_address;
   struct KernelArgs kernel;
@@ -150,6 +179,9 @@ struct DWconvArgs {
   uint16_t out_width;
   uint16_t out_height;
   uint16_t sub_conv_num;
+  uint32_t dilation_rate;
+  uint32_t output_idx;  // output scale index
+  struct InplaceArgs inplace;
 };
 
 struct PoolingArgs {
@@ -160,17 +192,21 @@ struct PoolingArgs {
   struct ImageOutputArgs output;
   uint16_t out_width;
   uint16_t out_height;
+  uint32_t output_idx;  // output scale index
+  struct InplaceArgs inplace;
 };
 
 // elementwise add arguments
 struct EWAddArgs {
-  bool relu_enabled;
+  // bool                    relu_enabled;
 
   uint32_t const0;  // output0 = const0 x input0 + const1 x input1;
   uint32_t const1;
   struct ImageInputArgs image0;
   struct ImageInputArgs image1;
   struct ImageOutputArgs output;
+  uint32_t output_idx;  // output scale index
+  struct InplaceArgs inplace;
 };
 
 struct BypassArgs {
@@ -180,6 +216,8 @@ struct BypassArgs {
   enum DLayoutType output_layout_type;
   struct ImageInputArgs image;
   struct ImageOutputArgs output;
+  uint32_t output_idx;  // output scale index
+  struct InplaceArgs inplace;
 };
 
 struct ScaleArgs {
@@ -199,6 +237,8 @@ struct NormalizeArgs {
   uint32_t image_height;
   uint32_t image_channel;
   uint32_t* output_scale_address;
+  uint32_t output_idx;  // output scale index
+  struct InplaceArgs inplace;
 };
 
 struct PreprocessArgs {
@@ -243,29 +283,19 @@ struct PowerParameterArgs {
   uint16_t power;
 };
 
-struct NormalizeParameterArgs {
-  uint32_t channel;
-  uint32_t hight_width;
-};
-
-struct ActiveParamterArgs {
-  enum ActiveType type;
-  uint16_t leaky_relu_factor;
-};
-
 struct GlobalPoolArgs {
   uint16_t global_pool_factor;
 };
 
-struct InplaceArgs {
-  bool leaky_relu_enable;
-  bool relu_enable;
-  bool sigmoid_enable;
-  bool relu6_enable;
-  bool power_enable;
-  bool normalize_enable;
-  bool global_pool_en;
-};
+// struct InplaceArgs {
+//   bool leaky_relu_enable;
+//   bool relu_enable;
+//   bool sigmoid_enable;
+//   bool relu6_enable;
+//   bool power_enable;
+//   bool normalize_enable;
+//   bool global_pool_en;
+// };
 
 struct FpgaRegWriteArgs {
   uint64_t address;  //
@@ -281,8 +311,35 @@ struct FpgaResetArgs {
   uint32_t dummy;
 };
 
-struct CNNLockArgs {
-  uint32_t reserved;
+struct CnnCmdArgs {
+  uint32_t action_id;
+};
+
+struct LinkActionArgs {
+  uint32_t action_id_1;
+  uint32_t action_id_2;
+};
+
+struct GenerateIdxArgs {
+  uint32_t idx;
+};
+
+struct WriteScaleArgs {
+  uint32_t idx;
+  uint64_t address;
+};
+
+struct ReadScaleArgs {
+  uint32_t idx;
+  uint32_t* address;
+};
+
+struct ReleaseActionArgs {
+  uint32_t action_id;
+};
+
+struct ReleaseIdxArgs {
+  uint32_t idx_id;
 };
 
 #define IOCTL_FPGA_MAGIC (('F' + 'P' + 'G' + 'A') / 4)
@@ -322,60 +379,29 @@ struct CNNLockArgs {
 #define IOCTL_FPGA_REG_READ _IOW(IOCTL_FPGA_MAGIC, 50, struct FpgaRegReadArgs)
 #define IOCTL_FPGA_REG_WRITE _IOW(IOCTL_FPGA_MAGIC, 51, struct FpgaRegWriteArgs)
 #define IOCTL_FPGA_RESET _IOW(IOCTL_FPGA_MAGIC, 52, struct FpgaResetArgs)
-
+#define IOCTL_CNN_CMD _IOW(IOCTL_FPGA_MAGIC, 90, struct CnnCmdArgs)
 #define IOCTL_DEVICE_INFO _IOW(IOCTL_FPGA_MAGIC, 100, struct DeviceInfoArgs)
-
-#define IOCTL_SEPARATOR_2 110
-#define IOCTL_LOCK_TRY_LOCKING _IOW(IOCTL_FPGA_MAGIC, 111, struct CNNLockArgs)
-#define IOCTL_LOCK_UNLOCK _IOW(IOCTL_FPGA_MAGIC, 112, struct CNNLockArgs)
+#define IOCTL_LINK_ACTION _IOW(IOCTL_FPGA_MAGIC, 150, struct LinkActionArgs)
+#define IOCTL_GENERATE_IDX _IOW(IOCTL_FPGA_MAGIC, 151, struct GenerateIdxArgs)
+#define IOCTL_WRITE_SCALE_IDX _IOW(IOCTL_FPGA_MAGIC, 152, struct WriteScaleArgs)
+#define IOCTL_READ_SCALE_IDX _IOW(IOCTL_FPGA_MAGIC, 153, struct ReadScaleArgs)
+#define IOCTL_RELEASE_ACTION \
+  _IOW(IOCTL_FPGA_MAGIC, 154, struct ReleaseActionArgs)
+#define IOCTL_RELEASE_IDX _IOW(IOCTL_FPGA_MAGIC, 155, struct ReleaseIdxArgs)
 
 #define IOCTL_SEPARATOR_3 200
 #define IOCTL_PREPROCESS _IOW(IOCTL_FPGA_MAGIC, 201, struct PreprocessArgs)
 
 //============================== API =============================
 
-struct SplitArgs {
-  uint32_t image_num;
-  int16_t* image_in;
-  float* scale_in;
-  void** images_out;
-  float** scales_out;
-  uint32_t* out_channel_nums;
-  uint32_t height;
-  uint32_t width;
-};
-
-struct ConcatArgs {
-  uint32_t image_num;
-  half** images_in;
-  float** scales_in;
-  void* image_out;
-  float* scale_out;
-  uint32_t* channel_num;
-  uint32_t height;
-  uint32_t width;
-};
-
-struct SplitConvArgs {
-  uint32_t split_num;
-  uint32_t group_num;
-  uint32_t filter_num;
-  struct ImageOutputArgs output;
-  struct ConvArgs* conv_arg;
-  struct ConcatArgs concat_arg;
-};
-
-struct GroupConvArgs {
-  uint32_t group_num;
-  uint32_t filter_num;
-  struct ImageOutputArgs output;
-  struct SplitConvArgs* conv_args;
-  struct ConcatArgs concat_arg;
-};
-
-class FPGALock;
+// class FPGALock;
 
 inline int align_to_x(int num, int x) { return (num + x - 1) / x * x; }
+inline int align_to_x_floor(int num, int x) { return (num / x) * x; }
+
+std::ostream& operator<<(std::ostream& os, const ConvArgs& args);
+std::ostream& operator<<(std::ostream& os, const DWconvArgs& args);
+
 int open_device();
 void close_device();
 void reset_device();
@@ -406,50 +432,33 @@ int compute_fpga_resize(const struct ResizeArgs& args);
 int config_activation(const struct ActiveParamterArgs& args);
 int config_global_pool(const struct GlobalPoolArgs& args);
 int config_power(const struct PowerArgs& args);
-int compute_fpga_dwconv(const struct DWconvArgs& args);
+int config_inplace(const struct InplaceArgs& args);
 int config_norm_param(const struct NormalizeParameterArgs& args);
+
+int compute_fpga_dwconv(const struct DWconvArgs& args);
 int compute_norm(const struct NormalizeArgs& args);
 
-int config_inplace(const struct InplaceArgs& args);
+//=======
+int link_actions(int action0, int action1);
+void release_action(int action_id);
 
 int flush_cache(void* addr, int size);
 int invalidate_cache(void* addr, int size);
 
+int alloc_scale_reg();
+void release_scale_reg(int scale_index);
+
+int start_transaction(const struct CnnCmdArgs& args);  // NOLINT
+
 int fpga_reset();
 int compute_preprocess(const struct PreprocessArgs& args);
-
-int fpga_lock(const struct CNNLockArgs& args);
-int fpga_unlock(const struct CNNLockArgs& args);
 
 int16_t fp32_2_fp16(float fp32_num);
 float fp16_2_fp32(int16_t fp16_num);
 
-class FPGALock {
- public:
-  FPGALock() {}
+int write_scale(struct WriteScaleArgs& args);  // NOLINT
 
-  explicit FPGALock(FPGALock* internal_lock) { internal_lock_ = internal_lock; }
-
-  void lock() {
-    if (internal_lock_ == nullptr) {
-      zynqmp::fpga_lock(args_);
-      locked_ = true;
-    }
-  }
-
-  ~FPGALock() {
-    if (locked_) {
-      zynqmp::fpga_unlock(args_);
-      locked_ = false;
-      internal_lock_ = nullptr;
-    }
-  }
-
- private:
-  struct CNNLockArgs args_ = {0};
-  volatile bool locked_ = false;
-  FPGALock* internal_lock_;
-};
+int read_scale(struct ReadScaleArgs& args);  // NOLINT
 
 }  // namespace zynqmp
 }  // namespace paddle

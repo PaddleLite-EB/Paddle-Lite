@@ -18,14 +18,16 @@
 #include <iostream>
 #include <string>
 #include <unordered_map>
+#include <utility>
+#include <vector>
 
-#include "lite/core/program.h"
+#include "lite/backends/fpga/KD/llapi/zynqmp_api.h"
 #include "lite/core/tensor.h"
 
 namespace paddle {
 namespace lite {
 
-#define FPGA_PRINT_TENSOR
+// #define FPGA_PRINT_TENSOR
 
 class Debugger {
  public:
@@ -35,9 +37,12 @@ class Debugger {
   }
 
   void registerOutput(std::string op_type, zynqmp::Tensor* tensor) {
-    if (op_config[op_type]) {
-      // tensor->saveToFile(op_type, true);
-    }
+    // if (op_config[op_type]) {
+    // tensor->saveToFile(op_type, true);
+    std::pair<std::string, zynqmp::Tensor*> p;
+    p.first = op_type;
+    p.second = tensor;
+    tensors_.push_back(p);
   }
 
   void tick(std::string key) {
@@ -51,8 +56,29 @@ class Debugger {
 
   void setEnable(bool en) { enabled_ = en; }
 
+  void clear() { tensors_.clear(); }
+
+  void commit() {
+    float out_scale[2] = {0, 0};
+
+    for (int i = 0; i < tensors_.size(); i++) {
+      std::pair<std::string, zynqmp::Tensor*> p = tensors_[i];
+
+      // zynqmp::ReadScaleArgs args;
+      // args.idx = p.second->scaleIndex(false);
+      // args.address = reinterpret_cast<uint32_t*>(out_scale);
+      // read_scale(args);
+      // p.second->scale()[0] = out_scale[0];
+      // p.second->scale()[1] = out_scale[1];
+      p.second->readScale();
+      p.second->saveToFile(p.first, true);
+    }
+  }
+
  private:
   bool enabled_ = false;
+
+  std::vector<std::pair<std::string, zynqmp::Tensor*>> tensors_;
 
   std::unordered_map<std::string, bool> op_config;
   std::unordered_map<std::string, float> tick_tock_map;
@@ -61,6 +87,7 @@ class Debugger {
     op_config["pooling"] = true;
     op_config["conv"] = true;
     op_config["dropout"] = true;
+    op_config["flatten"] = true;
     op_config["dwconv"] = true;
     op_config["ew_add"] = true;
     op_config["ew_mul"] = true;

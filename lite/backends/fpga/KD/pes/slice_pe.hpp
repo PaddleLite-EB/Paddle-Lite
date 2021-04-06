@@ -23,11 +23,9 @@ namespace zynqmp {
 
 class SlicePE : public PE {
  public:
-  bool init(FPGALock* lock = nullptr) { return true; }
+  bool init() { return true; }
 
-  bool dispatch(FPGALock* lock = nullptr) {
-    // FPGALock fpga_lock(lock);
-    // fpga_lock.lock();
+  bool dispatch() {
     Tensor* input = param_.input;
     Tensor* output = param_.output;
     input->syncToCPU();

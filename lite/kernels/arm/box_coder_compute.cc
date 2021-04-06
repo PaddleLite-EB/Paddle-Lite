@@ -16,6 +16,7 @@
 #include <string>
 #include <vector>
 #include "lite/backends/arm/math/funcs.h"
+#include "lite/backends/fpga/KD/pes/cpu_pe.hpp"
 
 namespace paddle {
 namespace lite {
@@ -172,6 +173,8 @@ void BoxCoderCompute::Run() {
                              box_normalized,
                              axis);
   */
+  // bypass_pe_->dispatch();
+  // cpu_pe_->dispatch();
   auto& param = Param<operators::BoxCoderParam>();
   auto* prior_box = param.prior_box;
   auto* prior_box_var = param.prior_box_var;

@@ -14,6 +14,8 @@ limitations under the License. */
 
 #pragma once
 
+#include <memory>
+
 #include "lite/backends/fpga/KD/pe.hpp"
 #include "lite/backends/fpga/KD/pe_params.hpp"
 namespace paddle {
@@ -21,18 +23,14 @@ namespace zynqmp {
 
 class ElementwiseMulPE : public PE {
  public:
-  bool init(FPGALock* lock = nullptr) {
-    FPGALock fpga_lock(lock);
-    fpga_lock.lock();
+  bool init() {
     Tensor* output = param_.output;
     output->setAligned(true);
     output->setDataLocation(Device);
     return true;
   }
 
-  void apply(FPGALock* lock = nullptr) {
-    FPGALock fpga_lock(lock);
-    fpga_lock.lock();
+  void apply() {
     Tensor* input = param_.input_x;
     Tensor* output = param_.output;
 
@@ -56,6 +54,11 @@ class ElementwiseMulPE : public PE {
     args.image.pad_height = 0;
     args.output.address = output->data<void>();
     args.output.scale_address = output->scale();
+
+    transaction_ = TransactionManager::get_instance().getTransaction();
+    Action* action = new Action(compute_fpga_scale(args));
+    action_.reset(action);
+    transaction_->appendAction(action);
   }
 
   void updateInput(Tensor* t, int index) {
@@ -64,10 +67,8 @@ class ElementwiseMulPE : public PE {
     }
   }
 
-  bool dispatch(FPGALock* lock = nullptr) {
-    FPGALock fpga_lock(lock);
-    fpga_lock.lock();
-    compute_fpga_scale(args_) == 0;
+  bool dispatch() {
+    // compute_fpga_scale(args_) == 0;
     return true;
   }
 
@@ -77,6 +78,9 @@ class ElementwiseMulPE : public PE {
   ElementwiseMulParam param_;
   ScaleArgs args_ = {0};
   Tensor bias_tensor;
+
+  std::shared_ptr<Transaction> transaction_;
+  std::unique_ptr<Action> action_;
 };
 
 }  // namespace zynqmp

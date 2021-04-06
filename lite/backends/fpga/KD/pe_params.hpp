@@ -24,32 +24,23 @@ limitations under the License. */
 namespace paddle {
 namespace zynqmp {
 
-struct ReLUParam {
- public:
-  bool enabled = false;
-  float leaky_relu_factor = 0.0f;
-};
-
 struct ActiveParam {
   enum ActiveType type = TYPE_NONE;
-  float leaky_relu_factor;
+  float leaky_relu_factor = 0.0f;
 };
 
 struct PEParam {
   ActiveParam activeParam;
 };
 
-struct InputParam : PEParam {
+struct BypassParam : PEParam {
  public:
   Tensor* input = nullptr;
   Tensor* output = nullptr;
 };
 
-struct OutputParam : PEParam {
- public:
-  Tensor* input = nullptr;
-  Tensor* output = nullptr;
-};
+using InputParam = BypassParam;
+using OutputParam = BypassParam;
 
 struct BatchnormParam : PEParam {
  public:
@@ -69,6 +60,7 @@ struct BasicConvParam {
   Tensor filter;
   Tensor scaleBias;
   ConvArgs args;
+  float output_scale = 0;
 };
 
 struct ConvParam : PEParam {
@@ -79,6 +71,7 @@ struct ConvParam : PEParam {
 
   int groups = 1;
   bool deconv = false;
+  bool cpu_concat = false;
   std::vector<int> strides;
   std::vector<int> paddings;
   std::vector<int> kernelSize;
@@ -322,10 +315,10 @@ struct GRUParam : PEParam {
   bool origin_mode = false;
 };
 
-struct BypassParam : PEParam {
+struct CPUParam : PEParam {
  public:
-  Tensor* input = nullptr;
-  Tensor* output = nullptr;
+  std::vector<Tensor*> inputs;
+  std::vector<Tensor*> outputs;
 };
 
 }  // namespace zynqmp

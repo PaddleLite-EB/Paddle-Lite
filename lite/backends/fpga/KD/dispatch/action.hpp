@@ -14,18 +14,25 @@ limitations under the License. */
 
 #pragma once
 
+#include "lite/backends/fpga/KD/llapi/zynqmp_api.h"
+
 namespace paddle {
 namespace zynqmp {
 
 class Action {
  public:
-  void readScale(float* scale) {}
+  explicit Action(int id) { id_ = id; }
 
-  void writeScale(float* scale) {}
+  int id() { return id_; }
+
+  ~Action() {
+    if (id_ > 0) {
+      release_action(id_);
+    }
+  }
 
  private:
   int id_ = -1;
-  int scaleIndex_ = -1;
-}
-}
-}
+};
+}  // namespace zynqmp
+}  // namespace paddle

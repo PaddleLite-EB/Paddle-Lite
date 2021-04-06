@@ -13,10 +13,15 @@
 // limitations under the License.
 
 #include "lite/api/paddle_place.h"
+#include "lite/backends/fpga/KD/pe_params.hpp"
+#include "lite/backends/fpga/KD/pes/bypass_pe.hpp"
+#include "lite/backends/fpga/KD/pes/cpu_pe.hpp"
 #include "lite/core/kernel.h"
 #include "lite/core/op_registry.h"
 #include "lite/core/target_wrapper.h"
 #include "lite/core/type_system.h"
+
+#include <memory>  // NOLINT
 
 namespace paddle {
 namespace lite {
@@ -24,6 +29,9 @@ namespace kernels {
 namespace fpga {
 
 using float16 = zynqmp::float16;
+using BypassParam = zynqmp::BypassParam;
+using CPUPE = zynqmp::CPUPE;
+using BypassPE = zynqmp::BypassPE;
 
 void copy_properties(operators::IoCopyParam& param) {  // NOLINT
   param.y->set_persistable(param.x->persistable());
@@ -32,92 +40,31 @@ void copy_properties(operators::IoCopyParam& param) {  // NOLINT
   param.y->ZynqTensor()->copyScaleFrom(param.x->ZynqTensor());
 }
 
-/*
- * This kernel copies a tensor from host to FPGA space.
- */
-class IoCopyHostCHWToFpgaHWCCompute
-    : public KernelLite<TARGET(kFPGA), PRECISION(kAny), DATALAYOUT(kAny)> {
- public:
-  void Run() override {
-    auto& param = Param<operators::IoCopyParam>();
-    CHECK(param.x->target() == TARGET(kHost) ||
-          param.x->target() == TARGET(kFPGA));
-    param.x->ZynqTensor()->flush();
-
-    if (param.x->ZynqTensor()->dataType() == zynqmp::INT32) {
-      param.y->mutable_data<int>();
-      param.y->ZynqTensor()->copyFrom(param.x->ZynqTensor());
-      param.y->ZynqTensor()->flush();
-      copy_properties(param);
-      return;
+template <typename T>
+void chw_to_hwc(
+    T* hwc_data, T* chw_data, int num, int channel, int height, int width) {
+  int chw = channel * height * width;
+  int wc = width * channel;
+  int wh = width * height;
+  int index = 0;
+  for (int n = 0; n < num; n++) {
+    for (int c = 0; c < channel; c++) {
+      for (int h = 0; h < height; h++) {
+        for (int w = 0; w < width; w++) {
+          hwc_data[n * chw + h * wc + w * channel + c] = chw_data[index];
+          index++;
+        }
+      }
     }
-
-    param.y->mutable_data<float16>();
-    param.y->ZynqTensor()->setDataLocation(zynqmp::Device);
-    if (param.x->ZynqTensor()->aligned() &&
-        param.x->ZynqTensor()->shape().shouldAlign()) {
-      zynqmp::Tensor tempTensor;
-      tempTensor.mutableData<float16>(zynqmp::FP16,
-                                      param.x->ZynqTensor()->shape());
-      tempTensor.copyFrom(param.x->ZynqTensor());
-      tempTensor.setAligned(true);
-      tempTensor.unalignImage();
-      tempTensor.flush();
-      param.y->ZynqTensor()->copyFrom(&tempTensor);
-    } else {
-      param.y->ZynqTensor()->copyFrom(param.x->ZynqTensor());
-    }
-    copy_properties(param);
-    param.y->ZynqTensor()->invalidate();
   }
+}
 
-  std::string doc() const override { return "Copy IO from HOST to FPGA"; }
-};
-
-/*
- * This kernel copies a tensor from FPGA to host space.
- */
-class IoCopyFpgaToHostCompute
-    : public KernelLite<TARGET(kFPGA), PRECISION(kAny), DATALAYOUT(kAny)> {
- public:
-  void Run() override {
-    auto& param = Param<operators::IoCopyParam>();
-    CHECK(param.x->target() == TARGET(kHost) ||
-          param.x->target() == TARGET(kFPGA));
-
-    param.x->ZynqTensor()->syncToDevice();
-    param.y->mutable_data<float>();
-    param.y->ZynqTensor()->setDataType(zynqmp::FP32);
-    param.y->ZynqTensor()->setDataLocation(zynqmp::CPU);
-
-    if (param.x->ZynqTensor()->aligned() &&
-        param.x->ZynqTensor()->shape().shouldAlign()) {
-      zynqmp::Tensor tempTensor;
-      tempTensor.mutableData<float16>(zynqmp::FP16,
-                                      param.x->ZynqTensor()->shape());
-      tempTensor.copyFrom(param.x->ZynqTensor());
-      tempTensor.setAligned(true);
-      tempTensor.unalignImage();
-      param.y->ZynqTensor()->copyFrom(&tempTensor);
-    } else {
-      param.y->ZynqTensor()->copyFrom(param.x->ZynqTensor());
-    }
-
-    param.y->ZynqTensor()->invalidate();
-    copy_properties(param);
-  }
-  std::string doc() const override { return "Copy IO from FPGA to HOST"; }
-};
-
-void hwc_to_chw(float* chw_data,
-                float* hwc_data,
-                int num,
-                int channel,
-                int height,
-                int width) {
+template <typename T>
+void hwc_to_chw(
+    T* chw_data, T* hwc_data, int num, int channel, int height, int width) {
   // channel == 1 || width == 1 直接拷贝，优化性能
   if (channel == 1 || width == 1) {
-    memcpy(chw_data, hwc_data, num * channel * height * width * sizeof(float));
+    memcpy(chw_data, hwc_data, num * channel * height * width * sizeof(T));
     return;
   }
   int chw = channel * height * width;
@@ -136,89 +83,211 @@ void hwc_to_chw(float* chw_data,
   }
 }
 
+/*
+ * This kernel copies a tensor from host to FPGA space.
+ */
+class IoCopyHostCHWToFpgaHWCCompute
+    : public KernelLite<TARGET(kFPGA), PRECISION(kAny), DATALAYOUT(kAny)> {
+ public:
+  void PrepareForRun() {
+    auto& param = Param<operators::IoCopyParam>();
+    param.x->ZynqTensor()->syncToDevice();
+    param.y->mutable_data<float16>();
+    param.y->ZynqTensor()->setDataType(zynqmp::FP16);
+    param.y->ZynqTensor()->setDataLocation(zynqmp::Device);
+    param.y->ZynqTensor()->setAligned(true);
+
+    chw_fp16_.mutableData<float16>(zynqmp::FP16,
+                                   param.y->ZynqTensor()->shape());
+    param.y->ZynqTensor()->mutableData<float16>(zynqmp::FP16,
+                                                param.y->ZynqTensor()->shape());
+
+    BypassParam& out_param = bypass_pe_.param();
+
+    out_param.input = param.x->ZynqTensor();
+    out_param.output = &chw_fp16_;
+    bypass_pe_.init();
+    bypass_pe_.apply();
+
+    cpu_pe_.init();
+    cpu_pe_.apply();
+  }
+
+  void Run() override {
+    auto& param = Param<operators::IoCopyParam>();
+    CHECK(param.x->target() == TARGET(kHost) ||
+          param.x->target() == TARGET(kFPGA));
+    param.x->ZynqTensor()->flush();
+
+    if (param.x->ZynqTensor()->dataType() == zynqmp::INT32) {
+      param.y->mutable_data<int>();
+      param.y->ZynqTensor()->copyFrom(param.x->ZynqTensor());
+      param.y->ZynqTensor()->flush();
+      copy_properties(param);
+      return;
+    }
+
+    // FP32 -> FP16
+    bypass_pe_.dispatch();
+    cpu_pe_.dispatch();
+    chw_fp16_.invalidate();
+    auto dims = param.y->ZynqTensor()->shape();
+    float16* chw_fp16_data = chw_fp16_.data<float16>();
+    float16* hwc_fp16_data = param.y->mutable_data<float16>();
+    // chw->hwc
+    chw_to_hwc<float16>(hwc_fp16_data,
+                        chw_fp16_data,
+                        dims.num(),
+                        dims.channel(),
+                        dims.height(),
+                        dims.width());
+    param.y->ZynqTensor()->alignImage();
+    param.y->ZynqTensor()->copyScaleFrom(&chw_fp16_);
+    copy_properties(param);
+  }
+
+  std::string doc() const override { return "Copy IO from HOST to FPGA"; }
+
+ private:
+  zynqmp::Tensor chw_fp16_;
+  CPUPE cpu_pe_;
+  BypassPE bypass_pe_;
+};
+
+/*
+ * This kernel copies a tensor from FPGA to host space.
+ */
+class IoCopyFpgaToHostCompute
+    : public KernelLite<TARGET(kFPGA), PRECISION(kAny), DATALAYOUT(kAny)> {
+ public:
+  void PrepareForRun() {
+    auto& param = Param<operators::IoCopyParam>();
+    param.x->ZynqTensor()->syncToDevice();
+    param.y->mutable_data<float>();
+    param.y->ZynqTensor()->setDataType(zynqmp::FP32);
+    param.y->ZynqTensor()->setDataLocation(zynqmp::CPU);
+
+    hwc_fp32_.mutableData<float>(zynqmp::FP32, param.y->ZynqTensor()->shape());
+    param.y->ZynqTensor()->mutableData<float>(zynqmp::FP32,
+                                              param.y->ZynqTensor()->shape());
+
+    BypassParam& out_param = bypass_pe_.param();
+
+    out_param.input = param.x->ZynqTensor();
+    out_param.output = &hwc_fp32_;
+    bypass_pe_.init();
+    bypass_pe_.apply();
+
+    cpu_pe_.init();
+    cpu_pe_.apply();
+  }
+
+  void Run() override {
+    auto& param = Param<operators::IoCopyParam>();
+    CHECK(param.x->target() == TARGET(kHost) ||
+          param.x->target() == TARGET(kFPGA));
+
+    // FP32 -> FP16
+    bypass_pe_.dispatch();
+    cpu_pe_.dispatch();
+    hwc_fp32_.invalidate();
+    auto dims = param.y->ZynqTensor()->shape();
+    // unalign
+    hwc_fp32_.unalignImage();
+    float* hwc_fp32_data = hwc_fp32_.data<float>();
+    float* chw_fp32_data = param.y->mutable_data<float>();
+    // chw->hwc
+    hwc_to_chw<float>(chw_fp32_data,
+                      hwc_fp32_data,
+                      dims.num(),
+                      dims.channel(),
+                      dims.height(),
+                      dims.width());
+
+    param.y->ZynqTensor()->copyScaleFrom(&hwc_fp32_);
+    copy_properties(param);
+  }
+  std::string doc() const override { return "Copy IO from FPGA to HOST"; }
+
+ private:
+  zynqmp::Tensor hwc_fp32_;
+
+  CPUPE cpu_pe_;
+  BypassPE bypass_pe_;
+};
+
 class IoCopyFpgaToHostCHWCompute
     : public KernelLite<TARGET(kFPGA), PRECISION(kAny), DATALAYOUT(kAny)> {
  public:
+  void PrepareForRun() {
+    auto& param = Param<operators::IoCopyParam>();
+    param.x->ZynqTensor()->syncToDevice();
+    param.y->mutable_data<float>();
+    // param.y->ZynqTensor()->setDataType(zynqmp::FP16);
+    // param.y->ZynqTensor()->setDataLocation(zynqmp::Device);
+
+    // hwc_.Resize(param.y->dims());
+    hwc_fp32_.mutableData<float>(zynqmp::FP32, param.y->ZynqTensor()->shape());
+    // param.y->ZynqTensor()->mutableData<float>(zynqmp::FP32,
+    // param.y->ZynqTensor()->shape());
+    // param.y->ZynqTensor()->setDataType(zynqmp::FP32);
+
+    hwc_fp32_.setDataLocation(zynqmp::CPU);
+    param.y->ZynqTensor()->setDataLocation(zynqmp::CPU);
+
+    BypassParam& bypass_param = bypass_pe_.param();
+    bypass_param.input = param.x->ZynqTensor();
+    bypass_param.output = &hwc_fp32_;
+    bypass_pe_.init();
+    bypass_pe_.apply();
+
+    cpu_pe_.init();
+    cpu_pe_.apply();
+  }
+
   void Run() override {
     auto& param = Param<operators::IoCopyParam>();
     CHECK(param.x->target() == TARGET(kHost) ||
           param.x->target() == TARGET(kFPGA));
 
     param.x->ZynqTensor()->syncToDevice();
-    if (param.x->ZynqTensor()->dataType() == zynqmp::INT32) {
-      param.y->mutable_data<int32_t>();
-      param.y->ZynqTensor()->copyFrom(param.x->ZynqTensor());
-      return;
-    }
-
-    Tensor hwc;
-    hwc.Resize(param.y->dims());
-    float* hwc_data = hwc.mutable_data<float>();
-    float* chw_data = param.y->mutable_data<float>();
-    param.y->ZynqTensor()->setDataType(zynqmp::FP32);
-
-    hwc.ZynqTensor()->setDataLocation(zynqmp::CPU);
-    param.y->ZynqTensor()->setDataLocation(zynqmp::CPU);
-
-    if (param.x->ZynqTensor()->aligned() &&
-        param.x->ZynqTensor()->shape().shouldAlign()) {
-      zynqmp::Tensor tempTensor;
-      tempTensor.mutableData<float16>(zynqmp::FP16,
-                                      param.x->ZynqTensor()->shape());
-      tempTensor.copyFrom(param.x->ZynqTensor());
-      tempTensor.setAligned(true);
-      // tempTensor.saveToFile("temp_1", true);
-      tempTensor.unalignImage();
-      // tempTensor.saveToFile("temp_2", true);
-
-      hwc.ZynqTensor()->copyFrom(&tempTensor);
-    } else {
-      hwc.ZynqTensor()->copyFrom(param.x->ZynqTensor());
-      // float16* in_data = param.x->ZynqTensor()->data<float16>();
-      // // float* f_data =
-      // param.x->ZynqTensor()->flush();
-      // float max = 0;
-
-      // for (int i = 0; i < param.x->dims().production(); i++) {
-      //   float value = zynqmp::half_to_float(in_data[i]);
-      //   hwc_data[i] = value;
-      //   if (value < 0) {
-      //     value = -value;
-      //   }
-      //   if (value > max) {
-      //     max = value;
-      //   }
-      // }
-      // param.x->ZynqTensor()->scale()[0] = max / 127;
-      // param.x->ZynqTensor()->scale()[1] = 127 / max;
-    }
-
-    int num = 1;
-    int channel = 1;
-    int height = 1;
-    int width = 1;
+    // if (param.x->ZynqTensor()->dataType() == zynqmp::INT32) {
+    //   param.y->mutable_data<int32_t>();
+    //   param.y->ZynqTensor()->copyFrom(param.x->ZynqTensor());
+    //   return;
+    // }
+    // FP16 -> FP32
+    cpu_pe_.dispatch();
+    bypass_pe_.dispatch();
+    hwc_fp32_.invalidate();
+    // unalign
+    hwc_fp32_.unalignImage();
 
     auto dims = param.y->ZynqTensor()->shape();
+    float* hwc_fp32_data = hwc_fp32_.data<float>();
+    float* chw_fp32_data = param.y->mutable_data<float>();
 
-    hwc_to_chw(chw_data,
-               hwc_data,
+    hwc_to_chw(chw_fp32_data,
+               hwc_fp32_data,
                dims.num(),
                dims.channel(),
                dims.height(),
                dims.width());
 
-    // param.y->ZynqTensor()->copyFrom(hwc.ZynqTensor());
-    // param.y->ZynqTensor()->copyScaleFrom(param.x->ZynqTensor());
+    param.y->ZynqTensor()->copyScaleFrom(&hwc_fp32_);
     param.y->ZynqTensor()->flush();
     copy_properties(param);
 
-    param.x->ZynqTensor()->invalidate();
-    param.x->ZynqTensor()->flush();
-    // hwc.ZynqTensor()->saveToFile("hwc", true);
-    // param.x->ZynqTensor()->saveToFile("io2_x", true);
-    // param.y->ZynqTensor()->saveToFile("io2_y", true);
+    // param.x->ZynqTensor()->invalidate();
+    // param.x->ZynqTensor()->flush();
   }
   std::string doc() const override { return "Copy IO from FPGA to HOST"; }
+
+ private:
+  zynqmp::Tensor hwc_fp32_;
+
+  CPUPE cpu_pe_;
+  BypassPE bypass_pe_;
 };
 
 }  // namespace fpga

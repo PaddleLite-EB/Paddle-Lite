@@ -26,6 +26,7 @@ namespace filter {
 
 static int FILTER_SIZE = 2048;
 static int COLUMN = 4;
+static int DMA_UNIT = 128;
 
 void saveToFile(std::string name, void* data_in, int size) {
   // std::ofstream ofs;
@@ -65,7 +66,14 @@ int calc_division_capacity(int chw) {
 }
 
 int calc_split_num(int num, int division_capacity) {
-  return (num + division_capacity - 1) / division_capacity;
+  int dc_align = division_capacity < DMA_UNIT
+                     ? division_capacity
+                     : align_to_x_floor(division_capacity, DMA_UNIT);
+  if (num > division_capacity) {
+    return (num + dc_align - 1) / dc_align;
+  } else {
+    return 1;
+  }
 }
 
 int calc_division_number(int num, int group_num, int division_capacity) {
@@ -76,7 +84,10 @@ int calc_division_number(int num, int group_num, int division_capacity) {
 int calc_num_per_div(int num, int group_num, int division_capacity) {
   if (group_num == 1) {
     if (num > division_capacity) {
-      return division_capacity;
+      int dc_align = division_capacity < DMA_UNIT
+                         ? division_capacity
+                         : align_to_x_floor(division_capacity, DMA_UNIT);
+      return dc_align;
     } else {
       return num;
     }
@@ -248,8 +259,8 @@ int8_t* format_filter(float* data_in,
 
   for (int n = 0; n < num; n++) {
     float* filter_start = data_in + n * chw;
-    // float f_max = find_max(filter_start, chw);
-    float f_max = max;
+    float f_max = find_max(filter_start, chw);
+    // float f_max = max;
     int8_t* quantized_start = quantized_data + n * chw;
     quantize(filter_start, quantized_start, chw, f_max);
     // quantize(filter_start, quantized_start, chw, max);

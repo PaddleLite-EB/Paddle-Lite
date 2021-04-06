@@ -12,39 +12,43 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License. */
 
+#pragma once
+
 #include <algorithm>
+#include <memory>
 #include <vector>
 
-#include "lite/backends/fpga/KD/dispatch/action.hpp"
-#include "lite/backends/fpga/KD/llapi/zynqmp_api.h"
+#include "lite/backends/fpga/KD/pe.hpp"
+#include "lite/backends/fpga/KD/pe_params.hpp"
 
-#pragma once
+#include "lite/backends/fpga/KD/dispatch/transaction_manager.hpp"
 
 namespace paddle {
 namespace zynqmp {
 
-class Transaction {
+class CPUPE : public PE {
  public:
-  void appendAction(Action* action) {
-    if (!actions_.empty()) {
-      Action* last = actions_.back();
-      link_actions(last->id(), action->id());
+  bool init() {
+    for (Tensor* t : param_.outputs) {
+      t->scaleIndex(true);
     }
-    actions_.push_back(action);
+    return true;
   }
 
-  void startTraction() {
-    if (actions_.size() > 0) {
-      struct CnnCmdArgs args;
-      Action* action = actions_[0];
-      args.action_id = action->id();
-      start_transaction(args);
-    }
+  void apply() {
+    transaction_ = TransactionManager::get_instance().getTransaction();
+    TransactionManager::get_instance().endTransaction();
   }
+
+  bool dispatch() { transaction_->startTraction(); }
+
+  CPUParam& param() { return param_; }
 
  private:
-  std::vector<Action*> actions_;
-  int id_ = -1;
+  CPUParam param_;
+
+  std::shared_ptr<Transaction> transaction_;
 };
+
 }  // namespace zynqmp
 }  // namespace paddle

@@ -131,42 +131,38 @@ static void softmax(Tensor *X, Tensor *Y) {
   }
 }
 
-bool SoftmaxPE::init(FPGALock *lock) {
-  FPGALock fpga_lock(lock);
-  fpga_lock.lock();
+bool SoftmaxPE::init() {
+  Tensor *input = param_.input;
   Tensor *output = param_.output;
   output->setAligned(false);
   output->setDataLocation(CPU);
+  output->scaleIndex(true);
   return true;
 }
 
-bool SoftmaxPE::dispatch(FPGALock *lock) {
+void SoftmaxPE::apply() {
+  Tensor *input = param_.input;
+  float_input.mutableData<float>(DataType::FP32, input->shape());
+  // float_output.mutableData<float>(DataType::FP32, input->shape());
+
+  BypassParam &input_param = bypass_in_pe_.param();
+  input_param.input = param_.input;
+  input_param.output = &float_input;
+  bypass_in_pe_.init();
+  bypass_in_pe_.apply();
+
+  cpu_pe_.init();
+  cpu_pe_.apply();
+}
+
+bool SoftmaxPE::dispatch() {
   Tensor *input = param_.input;
   Tensor *output = param_.output;
 
-  Tensor float_input;
-  Tensor float_output;
-  float_input.mutableData<float>(DataType::FP32, input->shape());
-  // input->saveToFile("in", true);
-  input->syncToDevice();
-  float_input.copyFrom(input, lock);
-  // float_input.invalidate();
-  // float_input.saveToFile("fin", true);
+  bypass_in_pe_.dispatch();
+  cpu_pe_.dispatch();
 
-  // input->syncToCPU();
-  // float16 *in_data = input->data<float16>();
-  // float *f_data = float_input.data<float>();
-  // for (int i = 0; i < input->shape().channel(); i++) {
-  //   f_data[i] = half_to_float(in_data[i]);
-  // }
-
-  float *out_data =
-      float_output.mutableData<float>(DataType::FP32, input->shape());
-
-  softmax(&float_input, &float_output);
-  float_output.flush();
-
-  output->copyFrom(&float_output, lock);
+  softmax(&float_input, output);
   output->flush();
   return true;
 }

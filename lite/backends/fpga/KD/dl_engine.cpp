@@ -12,6 +12,8 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License. */
 #include "lite/backends/fpga/KD/dl_engine.hpp"
+// #include "lite/backends/fpga/KD/repo_version.h"
+#include "lite/core/version.h"
 
 namespace paddle {
 namespace zynqmp {
@@ -43,6 +45,21 @@ DLEngine::DLEngine() {
     }
     delete[] args.buffer;
   }
+
+  std::cout << "[GitVersion] " << GIT_VERSION << std::endl;
+  std::cout << "[GitDate] " << GIT_DATE << std::endl;
+  std::cout << "[GitHash] " << GIT_HASH << std::endl;
+  std::cout << "[BuildDate] " << __DATE__ << std::endl;
+  std::cout << "[BuildTime] " << __TIME__ << std::endl;
+
+  std::cout << "paddle_lite_commit:" << lite::paddlelite_commit() << std::endl;
+  std::cout << "paddlelite_branch:" << lite::paddlelite_branch() << std::endl;
+  std::cout << "paddlelite_tag:" << lite::paddlelite_tag() << std::endl;
+  std::cout << "version:" << lite::version() << std::endl;
+
+  // printf("version: %s\n", REPO_VERSION);
+  // printf("date: %s\n", REPO_DATE);
+  // printf("hash: %s\n", REPO_HASH);
 }
 
 }  // namespace zynqmp
