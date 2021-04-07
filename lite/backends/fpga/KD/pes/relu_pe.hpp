@@ -25,8 +25,8 @@ class ReluPE : public PE {
     FPGALock fpga_lock(lock);
     fpga_lock.lock();
     Tensor* output = param_.output;
-    output->setAligned(param_.input->aligned());
-    output->setDataLocation(CPU);
+    output->setAligned(true);
+    output->setDataLocation(Device);
     return true;
   }
 
@@ -74,6 +74,7 @@ class ReluPE : public PE {
     fpga_lock.lock();
       
     param_.input->syncToDevice();
+    inplace_args_.relu_enable = true;
     config_inplace(inplace_args_);
     perform_bypass(bypass_args_);
     inplace_args_.relu_enable = false;
