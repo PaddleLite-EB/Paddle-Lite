@@ -74,7 +74,8 @@ void StaticKernelPickPass::Apply(const std::unique_ptr<SSAGraph>& graph) {
                                 in_types,
                                 out_types,
                                 instruct.op_info()->input_names(),
-                                instruct.op_info()->output_names());
+                                instruct.op_info()->output_names(),
+                                graph->isMainBlock);
       VLOG(4) << "kernel->summary():" << kernel->summary()
               << " score:" << score;
       scored.emplace_back(score, std::move(kernel));

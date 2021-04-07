@@ -299,6 +299,8 @@ class Optimizer {
         if (kSubblockUnsupportedPasses.count(x)) {
           pass->Apply(graphs_[kRootBlockIdx]);
         } else {
+          std::cout << "graphs size:" << graphs_.size() << std::endl;
+          graphs_[0]->isMainBlock = true;
           for (auto& graph : graphs_) {
             pass->Apply(graph);
           }

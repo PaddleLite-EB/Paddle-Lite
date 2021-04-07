@@ -5,11 +5,11 @@ endif()
 set(fpga_deps fpga_target_wrapper kernel_fpga)
 
 
-add_kernel(activation_compute_fpga FPGA basic SRCS activation_compute.cc DEPS ${fpga_deps})
+# add_kernel(activation_compute_fpga FPGA basic SRCS activation_compute.cc DEPS ${fpga_deps})
 # add_kernel(box_coder_compute_fpga FPGA basic SRCS box_coder_compute.cc DEPS ${fpga_deps})
 
 
-add_kernel(cast_compute_fpga FPGA basic SRCS cast_compute.cc DEPS ${fpga_deps})
+# add_kernel(cast_compute_fpga FPGA basic SRCS cast_compute.cc DEPS ${fpga_deps})
 add_kernel(concat_compute_fpga FPGA basic SRCS concat_compute.cc DEPS ${fpga_deps})
 
 add_kernel(conv_compute_fpga FPGA basic SRCS conv_compute.cc DEPS ${fpga_deps})
@@ -20,7 +20,7 @@ add_kernel(elementwise_compute_fpga FPGA basic SRCS elementwise_compute.cc DEPS 
 
 add_kernel(interpolate_compute_fpga FPGA basic SRCS interpolate_compute.cc DEPS ${fpga_deps})
 
-add_kernel(fc_compute_fpga FPGA basic SRCS fc_compute.cc DEPS ${fpga_deps})
+# add_kernel(fc_compute_fpga FPGA basic SRCS fc_compute.cc DEPS ${fpga_deps})
 add_kernel(gru_compute_fpga FPGA extra SRCS gru_compute.cc DEPS ${fpga_deps})
 
 # add_kernel(mul_compute_fpga FPGA basic SRCS mul_compute.cc DEPS ${fpga_deps})

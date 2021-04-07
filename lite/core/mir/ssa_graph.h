@@ -78,6 +78,8 @@ class SSAGraph : GraphBase {
   const std::vector<Place> &valid_places() const { return valid_places_; }
   void SetValidPlaces(const std::vector<Place> &x) { valid_places_ = x; }
 
+  bool isMainBlock = false;
+
  private:
   mir::Node *Argument(const std::string &name);
   // Check the bidirectional connection.

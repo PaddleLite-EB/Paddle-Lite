@@ -70,6 +70,9 @@ void TypeTargetTransformPass::ComplementInputs(
   auto in_arg_name = in->AsArg().name;
   std::string tmp;
   CHECK(inst.op_info()->GetInputArgname(in_arg_name, &tmp));
+  VLOG(4) << ":::temp::" << tmp;
+  auto op_type = inst_node->AsStmt().op_type();
+  VLOG(4) << ":::op_type::" << op_type << ":" << &(inst.picked_kernel());
   auto decl_arg_type = inst.picked_kernel().GetInputDeclType(tmp);
   CHECK(in->AsArg().type);
   if (!TargetCompatibleTo(*in->AsArg().type, *decl_arg_type)) {

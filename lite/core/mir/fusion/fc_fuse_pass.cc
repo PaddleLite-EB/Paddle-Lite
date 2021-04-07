@@ -25,18 +25,18 @@ namespace mir {
 void FcFusePass::Apply(const std::unique_ptr<SSAGraph>& graph) {
 #if defined(LITE_WITH_X86) || defined(LITE_WITH_CUDA)
 #ifdef LITE_WITH_MLU
-  fusion::FcFuser fuser(false);
-  fuser(graph.get());
+// fusion::FcFuser fuser(false);
+// fuser(graph.get());
 #else
-  fusion::FcFuser fuser(true);
-  fuser(graph.get());
+// fusion::FcFuser fuser(true);
+// fuser(graph.get());
 #endif
 #endif
-  fusion::FcFuser fuser2(false);
-  fuser2(graph.get());
+// fusion::FcFuser fuser2(false);
+// fuser2(graph.get());
 #ifdef LITE_WITH_FPGA
-  fusion::FcFuser fpga_fuser(true);
-  fpga_fuser(graph.get());
+// fusion::FcFuser fpga_fuser(true);
+// fpga_fuser(graph.get());
 #endif
 }
 

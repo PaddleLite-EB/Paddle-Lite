@@ -125,27 +125,27 @@ class FPGAKernelPlaceCorrectPass : public ProgramPass {
         }
       }
 
-      if (inst.op_type() == "elementwise_mul") {
-        UpdateTarget(inst, TargetType::kFPGA);
-        for (auto* in : x->inlinks) {
-          std::string in_name =
-              get_argname(in->AsArg().name, inst.op_info()->inputs());
-          if (in_name == "Y") {
-            in = in;
-            p = in->AsArg().type->precision();
-            std::unique_ptr<KernelBase> best_match;
-            for (auto& k : inst.kernels()) {
-              auto kp = k->GetInputDeclType(in_name)->precision();
-              if (kp == p) {
-                best_match = std::move(k);
-              }
-            }
-            inst.kernels().clear();
-            inst.kernels().emplace_back(std::move(best_match));
-            break;
-          }
-        }
-      }
+      // if (inst.op_type() == "elementwise_mul") {
+      //   UpdateTarget(inst, TargetType::kFPGA);
+      //   for (auto* in : x->inlinks) {
+      //     std::string in_name =
+      //         get_argname(in->AsArg().name, inst.op_info()->inputs());
+      //     if (in_name == "Y") {
+      //       in = in;
+      //       p = in->AsArg().type->precision();
+      //       std::unique_ptr<KernelBase> best_match;
+      //       for (auto& k : inst.kernels()) {
+      //         auto kp = k->GetInputDeclType(in_name)->precision();
+      //         if (kp == p) {
+      //           best_match = std::move(k);
+      //         }
+      //       }
+      //       inst.kernels().clear();
+      //       inst.kernels().emplace_back(std::move(best_match));
+      //       break;
+      //     }
+      //   }
+      // }
     }
   }
 

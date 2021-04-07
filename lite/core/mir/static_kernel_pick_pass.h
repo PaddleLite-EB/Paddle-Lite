@@ -56,7 +56,8 @@ class StaticKernelPickPass : public mir::StmtPass {
                      const std::map<std::string, PrecisionType>& in_types,
                      const std::map<std::string, PrecisionType>& out_types,
                      const std::vector<std::string>& in_names,
-                     const std::vector<std::string>& out_names) {
+                     const std::vector<std::string>& out_names,
+                     bool main_block = true) {
     CHECK_GT(places.size(), static_cast<size_t>(0)) << "valid_places is empty.";
     float final_score{-1.};
     Place winner_place{places[0]};
@@ -114,6 +115,14 @@ class StaticKernelPickPass : public mir::StmtPass {
       // quantization op.
       if (!instruct.op_info()->HasAttr("enable_int8")) {
         bool type_match = true;
+
+        std::cout << "==op type:" << instruct.op_type() << std::endl;
+        // if (instruct.op_type() == "while") {
+        //   std::cout << "While";
+        //   // exit(-1);
+        //   // throw -1;
+        // }
+
         if (instruct.op_type() == "feed") {
           for (size_t i = 0; i < out_names.size(); ++i) {
             std::string tmp;
@@ -211,6 +220,10 @@ class StaticKernelPickPass : public mir::StmtPass {
     // might have different data layout.
     // TODO(Superjomn) reconsider the idea of taking the data layout as a kernel
     // specification.
+
+    if (!main_block) {
+      final_score = 1;
+    }
     return final_score;
   }
 
