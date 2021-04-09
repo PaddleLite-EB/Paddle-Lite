@@ -49,6 +49,7 @@ struct Program {
           const std::vector<Place>& valid_places,
           const std::vector<std::string>& var_names = {})
       : scope_(root_scope), valid_places_(valid_places) {
+    program_desc_ = program_desc;
     CHECK(scope_) << "scope should be init first";
     VLOG(4) << "prepare work";
     PrepareWorkspace(program_desc, var_names);
@@ -80,6 +81,8 @@ struct Program {
   Scope* exec_scope() { return exec_scope_; }
   Scope* scope() { return scope_.get(); }
 
+  cpp::ProgramDesc* program_desc() const { return program_desc_.get(); }
+
   const std::map<std::string, const Type*>& var_type_map() const {
     return var_type_map_;
   }
@@ -98,6 +101,7 @@ struct Program {
   std::vector<std::list<std::shared_ptr<OpLite>>> ops_;
   // the scope to run the kernels, NOTE this is the execution scope.
   std::shared_ptr<Scope> scope_;
+  std::shared_ptr<cpp::ProgramDesc> program_desc_;
   std::vector<Place> valid_places_;
   // Runtime scope.
   Scope* exec_scope_{};

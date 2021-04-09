@@ -67,6 +67,7 @@ void StaticKernelPickPass::Apply(const std::unique_ptr<SSAGraph>& graph) {
     CHECK(!instruct.kernels().empty()) << "No kernels found for "
                                        << instruct.op_type();
     VLOG(4) << "instruct.kernels().size():" << instruct.kernels().size();
+
     for (auto&& kernel : instruct.kernels()) {
       float score = KernelGrade(instruct,
                                 *kernel,
@@ -74,10 +75,14 @@ void StaticKernelPickPass::Apply(const std::unique_ptr<SSAGraph>& graph) {
                                 in_types,
                                 out_types,
                                 instruct.op_info()->input_names(),
-                                instruct.op_info()->output_names(),
-                                graph->isMainBlock);
+                                instruct.op_info()->output_names());
       VLOG(4) << "kernel->summary():" << kernel->summary()
               << " score:" << score;
+      if (graph->block_desc()->Idx() != 0) {
+        if (kernel->target() == TARGET(kFPGA)) {
+          score = 1;
+        }
+      }
       scored.emplace_back(score, std::move(kernel));
     }
     std::stable_sort(scored.begin(), scored.end(), KernelScoreCmp);
@@ -131,6 +136,7 @@ void StaticKernelPickPass::Apply(const std::unique_ptr<SSAGraph>& graph) {
             one_adj_instruct.op_info()->GetInputScale(out_node_name));
 
         auto update_desc = *instruct.mutable_op_info();
+
         instruct.ResetOp(update_desc, graph->valid_places());
         scored.clear();
         for (auto&& kernel : instruct.kernels()) {

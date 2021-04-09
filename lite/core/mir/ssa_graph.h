@@ -78,7 +78,7 @@ class SSAGraph : GraphBase {
   const std::vector<Place> &valid_places() const { return valid_places_; }
   void SetValidPlaces(const std::vector<Place> &x) { valid_places_ = x; }
 
-  bool isMainBlock = false;
+  general::BlockDesc *block_desc() { return block_desc_; }
 
  private:
   mir::Node *Argument(const std::string &name);
@@ -109,6 +109,7 @@ class SSAGraph : GraphBase {
   std::list<mir::Node> node_storage_;
   std::map<std::string, mir::Node *> arguments_;
   std::vector<Place> valid_places_;
+  general::BlockDesc *block_desc_ = nullptr;
 };
 
 // Remove the link between a -> b.
