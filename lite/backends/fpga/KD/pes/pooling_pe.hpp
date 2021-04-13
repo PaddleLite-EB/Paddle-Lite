@@ -62,6 +62,7 @@ class PoolingPE : public PE {
 
     use_cpu_ = align_to_x(k_width * input_c, IMAGE_ALIGNMENT) > IMAGE_ALIGNMENT * pool_limit;
     divide_pool_ = align_to_x(k_width * input_c, IMAGE_ALIGNMENT) * k_height > IMAGE_ALIGNMENT * pool_limit;
+    align_channel_ = (param_.paddings[0] * input_c) % IMAGE_ALIGNMENT != 0;
 
     PoolingArgs args = {0};
     args.mode = param_.type;
@@ -116,6 +117,19 @@ class PoolingPE : public PE {
         args.output.address = output->mutableData<float16>();
         args.out_height = output->shape().height();
         args.out_width = output->shape().width();
+
+        if (align_channel_) {
+            int align_c = align_to_x(input_c, IMAGE_ALIGNMENT);
+
+            Shape in_shape(NHWC, {1, input->shape().height(), input->shape().width(), align_c});
+            Shape out_shape(NHWC, {1, output->shape().height(), output->shape().width(), align_c});
+            float16* tmp_in = input_tmp_.mutableData<float16>(FP16, in_shape);
+            float16* tmp_out = output_tmp_.mutableData<float16>(FP16, out_shape);
+
+            args.image.channels = align_c;   
+            args.image.address = tmp_in;
+            args.output.address = tmp_out;
+        } 
 
         param_.poolingArgs = args;
     }  
@@ -260,7 +274,35 @@ class PoolingPE : public PE {
     int ret1 = 0;
     int ret2 = 0;
     param_.input->syncToDevice();
+
+    int channel = param_.input->shape().channel();
+    int in_h = param_.input->shape().height();
+    int in_w = param_.input->shape().width();
+    int out_h = param_.output->shape().height();
+    int out_w = param_.output->shape().width();
+    int align_c = align_to_x(channel, IMAGE_ALIGNMENT); 
+
+    if (align_channel_) {
+        float16* tmp_in = input_tmp_.data<float16>();
+        float16* in_data = param_.input->data<float16>();
+        for (int hw = 0; hw < in_h * in_w; hw++) {
+            memcpy(tmp_in + hw * align_c, in_data + hw * channel, 
+                                        channel * sizeof(float16));
+        }  
+        input_tmp_.flush();
+    } 
+
     ret1 = compute_fpga_pool(param_.poolingArgs);
+
+    if (align_channel_) {
+        float16* tmp_out = output_tmp_.data<float16>();
+        float16* out_data = param_.output->data<float16>();
+        output_tmp_.invalidate();
+        for (int hw = 0; hw < out_h * out_w; hw++) {
+            memcpy(out_data + hw * channel, tmp_out + hw * align_c, 
+                                      channel * sizeof(float16));
+        }       
+    } 
         
     if (divide_pool_) {
         ret2 = compute_fpga_pool(param_divide_.poolingArgs);  
@@ -274,8 +316,11 @@ class PoolingPE : public PE {
   PoolingParam param_;
   PoolingParam param_divide_;
   Tensor mid_out_;
+  Tensor input_tmp_;
+  Tensor output_tmp_;
   bool use_cpu_;
   bool divide_pool_;
+  bool align_channel_;
 };
 
 }  // namespace zynqmp
