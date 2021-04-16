@@ -197,7 +197,7 @@ int ioctl_conv(const struct ConvArgs &args) {
 }
 
 int compute_fpga_conv_basic(const struct ConvArgs &args) {
-  std::cout << args;
+  // std::cout << args;
   return do_ioctl(IOCTL_CONFIG_CONV, &args);
 }
 

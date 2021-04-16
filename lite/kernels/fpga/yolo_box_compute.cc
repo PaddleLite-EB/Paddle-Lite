@@ -16,6 +16,7 @@
 #include <vector>
 #include "lite/backends/arm/math/funcs.h"
 #include "lite/core/tensor.h"
+#include "lite/backends/fpga/KD/debugger.hpp"
 
 namespace paddle {
 namespace lite {
@@ -49,11 +50,15 @@ void YoloBoxCompute::PrepareForRun() {
 void YoloBoxCompute::Run() {
   pe_.dispatch();
 
-  zynqmp::YoloBoxParam& yolobox_param = pe_.param();
   // yolobox_param.imgSize->saveToFile("img_size", true);
   // //   exit(-1);
   // yolobox_param.outputBoxes->saveToFile("yolo_boxes", true);
   // yolobox_param.outputScores->saveToFile("yolo_scores", true);
+#ifdef FPGA_PRINT_TENSOR
+  zynqmp::YoloBoxParam& yolobox_param = pe_.param();
+  Debugger::get_instance().registerOutput("yolo_boxes", yolobox_param.outputBoxes);
+  Debugger::get_instance().registerOutput("yolo_scores", yolobox_param.outputScores);
+#endif
 }
 
 }  // namespace fpga

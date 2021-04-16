@@ -19,6 +19,7 @@
 #include "lite/core/tensor.h"
 #include "lite/core/type_system.h"
 #include "lite/kernels/fpga/transpose_compute.h"
+#include "lite/backends/fpga/KD/debugger.hpp"
 
 namespace paddle {
 namespace lite {
@@ -90,6 +91,9 @@ void TransposeCompute::Run() {
     param.output->ZynqTensor()->flush();
     param.output->ZynqTensor()->setAligned(false);
   }
+#ifdef FPGA_PRINT_TENSOR
+  Debugger::get_instance().registerOutput("transpose", param.output->ZynqTensor());
+#endif
 }
 
 void Transpose2Compute::PrepareForRun() {
@@ -135,6 +139,9 @@ void Transpose2Compute::Run() {
     param.output->ZynqTensor()->unalignImage();
     param.output->ZynqTensor()->flush();
   }
+#ifdef FPGA_PRINT_TENSOR
+  Debugger::get_instance().registerOutput("transpose2", param.output->ZynqTensor());
+#endif
 }
 
 }  // namespace fpga

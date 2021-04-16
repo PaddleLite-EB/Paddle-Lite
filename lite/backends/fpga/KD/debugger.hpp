@@ -27,7 +27,7 @@
 namespace paddle {
 namespace lite {
 
-// #define FPGA_PRINT_TENSOR
+#define FPGA_PRINT_TENSOR
 
 class Debugger {
  public:
@@ -43,6 +43,7 @@ class Debugger {
     p.first = op_type;
     p.second = tensor;
     tensors_.push_back(p);
+    // std::cout << "registerOutput : " << op_type << std::endl;
   }
 
   void tick(std::string key) {
@@ -60,10 +61,8 @@ class Debugger {
 
   void commit() {
     float out_scale[2] = {0, 0};
-
     for (int i = 0; i < tensors_.size(); i++) {
       std::pair<std::string, zynqmp::Tensor*> p = tensors_[i];
-
       // zynqmp::ReadScaleArgs args;
       // args.idx = p.second->scaleIndex(false);
       // args.address = reinterpret_cast<uint32_t*>(out_scale);
@@ -101,6 +100,10 @@ class Debugger {
     op_config["nms"] = true;
     op_config["pb_boxes"] = true;
     op_config["pb_variances"] = true;
+    op_config["yolo_boxes"] = true;
+    op_config["yolo_scores"] = true;
+    op_config["transpose"] = true;
+    op_config["transpose2"] = true;
     op_config["reshape"] = true;
     op_config["softmax"] = true;
     op_config["split"] = true;

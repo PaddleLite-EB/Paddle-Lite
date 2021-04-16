@@ -31,11 +31,11 @@ class ConcatPE : public PE {
     output->setAligned(false);
     output->setDataLocation(CPU);
     output->scaleIndex(true);
-    pe_.init();
+    cpu_pe_.init();
     return true;
   }
 
-  void apply() { pe_.apply(); }
+  void apply() { cpu_pe_.apply(); }
 
   void concat2D() {
     int offset = 0;
@@ -86,8 +86,8 @@ class ConcatPE : public PE {
   }
 
   bool dispatch() {
-    pe_.dispatch();
-    std::cout << "concat + cpu_pe " << std::endl;
+    cpu_pe_.dispatch();
+
     Tensor* output = param_.output;
     Shape& output_shape = output->shape();
     float scale = 0;
@@ -142,7 +142,7 @@ class ConcatPE : public PE {
 
  private:
   ConcatParam param_;
-  CPUPE pe_;
+  CPUPE cpu_pe_;
   bool merge_scale_ = true;
 };
 

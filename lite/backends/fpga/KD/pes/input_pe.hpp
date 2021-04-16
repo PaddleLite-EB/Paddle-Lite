@@ -104,11 +104,15 @@ class InputPE : public PE {
   }
 
   void apply() {
-    transaction_ = TransactionManager::get_instance().getTransaction();
+    Tensor* input = param_.input;
+    auto in_type = input->dataType();
+    if (in_type != zynqmp::INT32) {  
+      transaction_ = TransactionManager::get_instance().getTransaction();
 
-    Action* action = new Action(config_bypass());
-    action_.reset(action);
-    transaction_->appendAction(action);
+      Action* action = new Action(config_bypass());
+      action_.reset(action);
+      transaction_->appendAction(action);
+    }
 
     // TransactionManager::get_instance().endTransaction();
     // BypassParam& bypass_param = bypass_pe_.param();
@@ -122,11 +126,22 @@ class InputPE : public PE {
   bool dispatch() {
     // we need to align image first;
     Tensor* input = param_.input;
-    memcpy(tmp_tensor_.data<void>(),
-           input->data<void>(),
-           tmp_tensor_.memorySize());
-    tmp_tensor_.alignImage();
-    tmp_tensor_.flush();
+    auto in_type = input->dataType();
+    int count = input->shape().numel();
+    if (in_type == zynqmp::INT32) {  
+      int32_t* input_data = input->mutableData<int32_t>();
+      int32_t* out_data = param_.output->mutableData<int32_t>(DataType::INT32, input->shape());
+      for (int i = 0; i < count; ++i) {
+        out_data[i] =  input_data[i];
+      }
+      param_.output->flush();
+    } else {
+      memcpy(tmp_tensor_.data<void>(),
+             input->data<void>(),
+             tmp_tensor_.memorySize());
+      tmp_tensor_.alignImage();
+      tmp_tensor_.flush();
+    }
     return true;
   }
 
@@ -134,7 +149,6 @@ class InputPE : public PE {
 
  private:
   InputParam param_;
-  // BypassPE bypassPE_;
   Tensor tmp_tensor_;
   // BypassPE bypass_pe_;
 

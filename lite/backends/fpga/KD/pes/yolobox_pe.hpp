@@ -124,17 +124,13 @@ class YoloBoxPE : public PE {
     auto anchors_data = anchors_.mutableData<int32_t>(INT32, anchors_shape);
     std::copy(anchors.begin(), anchors.end(), anchors_data);
 
-    // input->syncToCPU();
-    // input->unalignImage();
-    // input->setAligned(false);
-    // Tensor input_float;
-    // input_float.setDataLocation(CPU);
-    float* input_data = input_float.mutableData<float>(FP32, input->shape());
-    // input_float.copyFrom(input);
     input_float.setAligned(input->aligned());
     input_float.unalignImage();
     input_float.setAligned(false);
-
+    // float* input_data = input_float.mutableData<float>(FP32, input->shape());
+    float* input_data = input_float.mutableData<float>();
+    // input_float.saveToFile("yolo-box_", true);
+    
     Tensor boxes_float;
     Tensor scores_float;
 
@@ -164,11 +160,14 @@ class YoloBoxPE : public PE {
       float* imgsize_data = imgsize->mutableData<float>();
       img_height = imgsize_data[0];
       img_width = imgsize_data[1];
+      std::cout << "img_height_:" << img_height << ", img_width:" << img_width << std::endl;
     } else {
-      int32_t* imgsize_data = imgsize->mutableData<int32_t>();
+      int32_t* imgsize_data = imgsize->data<int32_t>();
       img_height = imgsize_data[0];
       img_width = imgsize_data[1];
+      std::cout << "img_height:" << img_height << ", img_width:" << img_width << std::endl;
     }
+   
 
     int channel = input_float.shape().channel();
     int count = 0;
