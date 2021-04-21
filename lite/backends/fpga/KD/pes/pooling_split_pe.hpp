@@ -81,17 +81,32 @@ class PoolingSplitPE : public PE {
       split_param.input = param_.input;
       for (auto pooling_param : splitParams_) {
         split_param.outputs.push_back(pooling_param->input);
+        // std::cout << "pooling split size:" << splitParams_.size() << std::endl;
       }
       splitPE_.init();
       splitPE_.apply();
 
+      transaction_ = TransactionManager::get_instance().getTransaction();
+      int index = 0;
+      for (auto pooling_param : splitParams_) {
+        pooling_param->poolingArgs.output_idx = param_.output->scaleIndex(true);
+        pooling_param->poolingArgs.inplace.findmax_restart = (index == 0);
+        Action* action = new Action(compute_fpga_pool(pooling_param->poolingArgs));
+        actions_.push_back(action);
+        transaction_->appendAction(action);
+        index++;
+        // std::cout << "pooling action size:" << splitParams_.size() << std::endl;
+      }
+    
       ConcatParam& concat_param = concatPE_.param();
       for (auto pooling_param : splitParams_) {
         concat_param.inputs.push_back(pooling_param->output);
+        // std::cout << "pooling concat_param size:" << splitParams_.size() << std::endl;
       }
       concat_param.output = param_.output;
       concatPE_.init();
       concatPE_.apply();
+      concatPE_.setMergeScale(false);
     }
   }
 
@@ -164,6 +179,7 @@ class PoolingSplitPE : public PE {
     param_.input->syncToDevice();
 
     if (use_cpu_) {
+      std::cout << "Pooling split use_cpu_:" << std::endl;
       compute();
       return true;
     }
@@ -172,49 +188,11 @@ class PoolingSplitPE : public PE {
       splitPE_.dispatch();
     }
 
-    int ret = 0;
-    int index = 0;
-
-    // InplaceArgs inplace_ = {0};
-    // GlobalPoolArgs globalPoolArgs;
-    // if (param_.globalPooling) {
-    //   inplace_.relu_enable = false;
-    //   inplace_.leaky_relu_enable = false;
-    //   inplace_.relu6_enable = false;
-    //   inplace_.sigmoid_enable = false;
-    //   inplace_.global_pool_en = true;
-    //   config_inplace(inplace_);
-
-    //   int kernel_height = param_.kernelSize[1];
-    //   int kernel_width = param_.kernelSize[0];
-    //   globalPoolArgs.global_pool_factor =
-    //       fp32_2_fp16(1.0f / (kernel_height * kernel_width));
-    //   config_global_pool(globalPoolArgs);
-    // }
-    // for (auto pooling_param : splitParams_) {
-    //   ret |= compute_fpga_pool(pooling_param->poolingArgs);
-
-    //   float* scale_address = pooling_param->poolingArgs.output.scale_address;
-    //   output->scale()[0] = scale_address[0];
-    //   output->scale()[1] = scale_address[1];
-    // }
-
-    // if (param_.globalPooling) {
-    //   inplace_.relu_enable = false;
-    //   inplace_.leaky_relu_enable = false;
-    //   inplace_.relu6_enable = false;
-    //   inplace_.sigmoid_enable = false;
-    //   inplace_.global_pool_en = false;
-    //   config_inplace(inplace_);
-    //   globalPoolArgs.global_pool_factor = fp32_2_fp16(1.0f);
-    //   config_global_pool(globalPoolArgs);
-    // }
-
     if (splitParams_.size() > 1) {
       concatPE_.dispatch();
     }
 
-    return ret;
+    return true;
   }
 
   ~PoolingSplitPE() {
@@ -226,6 +204,12 @@ class PoolingSplitPE : public PE {
       }
     }
     splitParams_.clear();
+
+    for (int i = 0; i < actions_.size(); i++) {
+      Action* action = actions_[i];
+      delete action;
+    }
+    actions_.clear();
   }
 
   PoolingParam& param() { return param_; }
@@ -236,6 +220,8 @@ class PoolingSplitPE : public PE {
   SplitPE splitPE_;
   std::vector<PoolingParam*> splitParams_;
   bool use_cpu_ = false;
+  std::shared_ptr<Transaction> transaction_;
+  std::vector<Action*> actions_;
 };
 
 }  // namespace zynqmp

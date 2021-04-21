@@ -53,14 +53,26 @@ class DepthwiseConvSplitPE : public PE {
     dwconv_split_channel(param);
 
     if (param.splitParams().size() > 1) {
+      std::cout << "dwconv_split size:" << param.splitParams().size() << std::endl;
+      splitPE_.init();
+      splitPE_.apply();
+
       SplitParam& split_param = splitPE_.param();
       split_param.input = param_.input;
       for (auto dwconv_param : param_.splitParams()) {
+        dwconv_param->args.output_idx = param_.output->scaleIndex(true);
+        dwconv_param->args.inplace.findmax_restart = i == 0;
+        dwconv_param->args.inplace.active_param.type = param_.activeParam.type;
+        dwconv_param->args.inplace.active_param.leaky_relu_factor =
+            float_to_half(param_.activeParam.leaky_relu_factor);
+        int action_id = compute_fpga_dwconv(dwconv_param->args);
+        Action* action = new Action(action_id);
+        actions_.push_back(action);
+        transaction_->appendAction(action);
+
         split_param.outputs.push_back(&dwconv_param->input);
       }
-      splitPE_.init(&fpga_lock);
-      splitPE_.apply(&fpga_lock);
-
+      
       ConcatParam& concat_param = concatPE_.param();
       for (auto dwconv_param : param_.splitParams()) {
         concat_param.inputs.push_back(&dwconv_param->output);
@@ -72,55 +84,44 @@ class DepthwiseConvSplitPE : public PE {
   }
 
   bool dispatch() {
-    param_.input->syncToDevice();
-    if (param_.activeParam.type == TYPE_RELU) {
-      inplace_.relu_enable = true;
-    } else if (param_.activeParam.type == TYPE_RELU6) {
-      inplace_.relu6_enable = true;
-    } else if (param_.activeParam.type == TYPE_SIGMOID) {
-      inplace_.sigmoid_enable = true;
-    } else if (param_.activeParam.type == TYPE_LEAKY_RELU) {
-      inplace_.leaky_relu_enable = true;
-    }
-
-    if (inplace_.relu_enable || inplace_.leaky_relu_enable ||
-        inplace_.relu6_enable || inplace_.sigmoid_enable) {
-      config_inplace(inplace_);
-    }
-
     std::vector<BasicDWConvParam*>& params = param_.splitParams();
 
     if (params.size() > 1) {
       splitPE_.dispatch();
     }
 
-    int ret = 0;
-    for (auto dwconv_param : params) {
-      ret |= compute_fpga_dwconv(dwconv_param->args);
-    }
-
     if (params.size() > 1) {
       concatPE_.dispatch();
     }
 
-    if (inplace_.relu_enable || inplace_.leaky_relu_enable ||
-        inplace_.relu6_enable || inplace_.sigmoid_enable) {
-      inplace_.relu_enable = false;
-      inplace_.leaky_relu_enable = false;
-      inplace_.relu6_enable = false;
-      inplace_.sigmoid_enable = false;
-      config_inplace(inplace_);
-    }
     return ret;
   }
 
   DepthwiseConvSplitParam& param() { return param_; }
 
+  ~DepthwiseConvSplitPE() {
+    for (auto dwconv_param : param_.splitParams()) {
+      if (param_.splitParams().size() > 1) {
+        delete dwconv_param->input;
+        delete dwconv_param->output;
+        delete dwconv_param;
+      }
+    }
+    splitParams_.clear();
+
+    for (int i = 0; i < actions_.size(); i++) {
+      Action* action = actions_[i];
+      delete action;
+    }
+    actions_.clear();
+  }
+
  private:
   DepthwiseConvSplitParam param_;
   ConcatPE concatPE_;
   SplitPE splitPE_;
-  InplaceArgs inplace_ = {0};
+  std::shared_ptr<Transaction> transaction_;
+  std::vector<Action*> actions_;
 };
 
 }  // namespace zynqmp

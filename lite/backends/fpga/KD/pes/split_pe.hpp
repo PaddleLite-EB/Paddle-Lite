@@ -18,6 +18,10 @@ limitations under the License. */
 
 #include "lite/backends/fpga/KD/pe.hpp"
 #include "lite/backends/fpga/KD/pe_params.hpp"
+#include "lite/backends/fpga/KD/pes/cpu_pe.hpp"
+#include <iostream>
+#include <string>
+
 namespace paddle {
 namespace zynqmp {
 
@@ -30,8 +34,11 @@ class SplitPE : public PE {
       out->setAligned(false);
       out->setDataLocation(CPU);
     }
+    cpu_pe_.init();
     return true;
   }
+
+  void apply() { cpu_pe_.apply(); }
 
   std::vector<int> stride_numel(std::vector<int> ddim) {
     std::vector<int> strides(ddim.size());
@@ -86,8 +93,10 @@ class SplitPE : public PE {
   }
 
   bool dispatch() {
+    cpu_pe_.dispatch();
     Tensor* input = param_.input;
     input->syncToCPU();
+    // input->saveToFile("split_in_", true);
     if (input->shape().dimSize() <= 3) {
       auto in_stride = stride_numel(input->shape().dims());
       int64_t axis = param_.axis;
@@ -97,7 +106,6 @@ class SplitPE : public PE {
       for (auto& out : param_.outputs) {
         float16* out_data = out->mutableData<float16>();
         auto out_stride = stride_numel(out->shape().dims());
-
         StridedNumelCopyWithAxis<float16>(axis,
                                           out_data,
                                           out_stride,
@@ -134,6 +142,7 @@ class SplitPE : public PE {
       Tensor* out = outputs[n];
       out->flush();
       out->copyScaleFrom(input);
+      // out->saveToFile("split_out_" + std::to_string(n) + "_", true);
     }
     return true;
   }
@@ -142,6 +151,7 @@ class SplitPE : public PE {
 
  private:
   SplitParam param_;
+  CPUPE cpu_pe_;
 };
 
 }  // namespace zynqmp

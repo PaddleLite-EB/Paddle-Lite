@@ -35,26 +35,25 @@ void ReluCompute::PrepareForRun() {
 
 void ReluCompute::Run() { pe_.dispatch(); }
 
-void SigmoidCompute::Run() {
-  // TODO(chonwhite) use fpga and arm implementation;
-  auto& param = this->Param<param_t>();
-  auto output_data = param.Out->mutable_data<float16>();
-  int numel = param.Out->numel();
+void SigmoidCompute::PrepareForRun() {
+  auto& param = Param<param_t>();
+  param.Out->mutable_data<float16>();
+  
+  zynqmp::SigmoidParam& sigmoid_param = pe_.param();
+  sigmoid_param.input = param.X->ZynqTensor();
+  sigmoid_param.output = param.Out->ZynqTensor();
+  pe_.init();
+  pe_.apply();
+}
 
-  float16* in_data = param.X->ZynqTensor()->data<float16>();
-  float16* out_data = param.Out->ZynqTensor()->data<float16>();
-  param.X->ZynqTensor()->syncToCPU();
-  float max = 0.0f;
-  for (int i = 0; i < numel; i++) {
-    /* code */
-    float value = zynqmp::half_to_float(in_data[i]);
-    value = 1 / (1 + exp(-value));
-    out_data[i] = zynqmp::float_to_half(value);
-    max = std::max(std::abs(value), max);
-  }
-  param.Out->ZynqTensor()->scale()[0] = max / 127.0;
-  param.Out->ZynqTensor()->scale()[1] = 127.0 / max;
-  param.Out->ZynqTensor()->flush();
+void SigmoidCompute::Run() {
+  pe_.dispatch();
+#ifdef FPGA_PRINT_TENSOR
+  zynqmp::SigmoidParam& sigmoid_param = pe_.param();
+  Debugger::get_instance().registerOutput("sigmoid", sigmoid_param.output);
+  std::cout << "SigmoidCompute::Run()" << std::endl;
+#endif
+
 }
 
 }  // namespace fpga

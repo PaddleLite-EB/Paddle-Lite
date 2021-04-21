@@ -623,18 +623,8 @@ inline void pack_channel_filter(const ConvParam& c_param) {
       // bias_data[n] = float_to_half(param.bias()->data<float>()[n +
       // chnnnel_start]);
     }
-    // Shape sb_shape(N, {sb_num});
-    // format_scale_bias(&scale, &bias, &conv_param->filter,
-    //                   &conv_param->scaleBias, param.groups);
     format_bias_scale_new(&bias, &scale, &conv_param->scaleBias);
-    // conv_param->scaleBias.saveToFile("sb.txt");
     conv_param->scaleBias.flush();
-    // float* bs_data = conv_param->scaleBias.data<float>();
-    // conv_param->scaleBias.saveToFile("sb.txt");
-    // param.scale()->saveToFile("scale.txt");
-    // param.bias()->saveToFile("bias.txt");
-
-    // exit(-1);
 
     args.group_num = new_group;
     // args.relu_enabled = param.relu.enabled;
@@ -650,6 +640,7 @@ inline void pack_channel_filter(const ConvParam& c_param) {
     args.filter_scale_address = conv_param->filter.scale();
     args.image.address = input_address;
     args.image.scale_address = input->scale();
+    args.input_idx = input->scaleIndex();
     args.image.channels = channel_current_pack;
     args.image.width = input->shape().width();
     args.image.height = input->shape().height();
@@ -741,7 +732,7 @@ inline void split_channel(const ConvParam& c_param) {
     args.filter_scale_address = conv_param->filter.scale();
     args.image.address = conv_param->input.mutableData<void>();
     args.image.scale_address = conv_param->input.scale();
-
+    args.input_idx = input->scaleIndex();
     args.image.channels = conv_param->input.shape().channel();
     args.image.width = conv_param->input.shape().width();
     args.image.height = conv_param->input.shape().height();
@@ -904,6 +895,12 @@ inline void dwconv_split_channel(DepthwiseConvSplitParam& param) {  // NOLINT
     args.out_width = param.output->shape().width();
     args.out_height = param.output->shape().height();
     args.sub_conv_num = 1;
+    args.output_idx = param.output->scaleIndex(true);
+    args.inplace.findmax_restart = true;
+    args.inplace.active_param.type = param.activeParam.type;
+    args.inplace.active_param.leaky_relu_factor =
+        float_to_half(param.activeParam.leaky_relu_factor);
+
     param.splitParams().push_back(dwconv_param);
 
     // static int index = 0;

@@ -315,6 +315,12 @@ struct GRUParam : PEParam {
   bool origin_mode = false;
 };
 
+struct SigmoidParam: PEParam {
+ public:
+  Tensor* input = nullptr;
+  Tensor* output = nullptr;
+};
+
 struct CPUParam : PEParam {
  public:
   std::vector<Tensor*> inputs;

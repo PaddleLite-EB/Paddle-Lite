@@ -389,7 +389,7 @@ struct ReleaseIdxArgs {
   _IOW(IOCTL_FPGA_MAGIC, 154, struct ReleaseActionArgs)
 #define IOCTL_RELEASE_IDX _IOW(IOCTL_FPGA_MAGIC, 155, struct ReleaseIdxArgs)
 
-#define IOCTL_SEPARATOR_3 200
+#define IOCTL_SEPARATOR_2 200
 #define IOCTL_PREPROCESS _IOW(IOCTL_FPGA_MAGIC, 201, struct PreprocessArgs)
 
 //============================== API =============================

@@ -18,6 +18,7 @@
 #include <string>
 #include "lite/backends/fpga/KD/float16.hpp"
 #include "lite/backends/fpga/KD/pes/relu_pe.hpp"
+#include "lite/backends/fpga/KD/pes/sigmoid_pe.hpp"
 #include "lite/core/kernel.h"
 #include "lite/core/op_registry.h"
 
@@ -55,8 +56,12 @@ class SigmoidCompute
   using param_t = operators::ActivationParam;
 
   void Run() override;
+  void PrepareForRun() override;
 
   virtual ~SigmoidCompute() = default;
+
+private:
+  zynqmp::SigmoidPE pe_;
 };
 
 }  // namespace fpga

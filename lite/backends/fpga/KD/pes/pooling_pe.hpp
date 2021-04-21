@@ -52,12 +52,16 @@ class PoolingPE : public PE {
     PoolingArgs args = {0};
     args.mode = param_.type;
     if (param_.globalPooling) {
-      // args.kernel_reciprocal = float_to_half(1.0f);
-      args.kernel_reciprocal = float_to_half(1.0f / (k_width * k_height));
-      // args.kernel_reciprocal = fp32_2_fp16(1.0f);
+      args.kernel_reciprocal = float_to_half(1.0f);
+      args.inplace.active_param.type = zynqmp::TYPE_GLOBAL_POOL;
+      args.inplace.active_param.leaky_relu_factor = float_to_half(1.0f /
+      (k_width * k_height));
+      std::cout << "globalPooling:" << k_width << "," << k_height << "," << param_.activeParam.type << std::endl;
     } else {
       args.kernel_reciprocal = float_to_half(1.0f / (k_width * k_height));
-      // args.kernel_reciprocal = fp32_2_fp16(1.0f / (k_width * k_height));
+      args.inplace.active_param.type = param_.activeParam.type;
+      // args.inplace.active_param.leaky_relu_factor =
+      //     float_to_half(param_.activeParam.leaky_relu_factor);
     }
     args.image.address = input->data<float16>();
     args.image.channels = input->shape().channel();
@@ -77,17 +81,17 @@ class PoolingPE : public PE {
     args.output_idx = output->scaleIndex(true);
 
     args.inplace.findmax_restart = true;
-    if (param_.globalPooling) {
-      args.inplace.active_param.type = param_.activeParam.type;
-      // args.inplace.active_param.type = zynqmp::TYPE_GLOBAL_POOL;
-      // args.inplace.active_param.leaky_relu_factor = float_to_half(1.0f /
-      // (k_width * k_height));
-      std::cout << "globalPooling:" << k_width << "," << k_height << std::endl;
-    } else {
-      args.inplace.active_param.type = param_.activeParam.type;
-      args.inplace.active_param.leaky_relu_factor =
-          float_to_half(param_.activeParam.leaky_relu_factor);
-    }
+    // if (param_.globalPooling) {
+    //   args.inplace.active_param.type = param_.activeParam.type;
+    //   // args.inplace.active_param.type = zynqmp::TYPE_GLOBALs_POOL;
+    //   // args.inplace.active_param.leaky_relu_factor = float_to_half(1.0f /
+    //   // (k_width * k_height));
+    //   std::cout << "globalPooling:" << k_width << "," << k_height << "," << param_.activeParam.type << std::endl;
+    // } else {
+    //   args.inplace.active_param.type = param_.activeParam.type;
+    //   args.inplace.active_param.leaky_relu_factor =
+    //       float_to_half(param_.activeParam.leaky_relu_factor);
+    // }
 
     param_.poolingArgs = args;
 
@@ -167,6 +171,7 @@ class PoolingPE : public PE {
 
   bool dispatch() {
     if (use_cpu_) {
+      std::cout << "Pooling use_cpu_:" << std::endl;
       compute();
     }
     return true;

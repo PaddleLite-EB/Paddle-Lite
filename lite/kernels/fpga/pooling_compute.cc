@@ -91,19 +91,18 @@ void PoolCompute::PrepareForRun() {
 
 void PoolCompute::Run() {
   if (split_num_ == 1) {
-    zynqmp::PoolingParam& pool_param = pe_.param();
     pe_.dispatch();
-  } else {
-    split_pe_.dispatch();
-    zynqmp::PoolingParam& pool_param = split_pe_.param();
-  }
-
-// Debugger::get_instance().registerOutput("pooling", pool_param.output);
-
 #ifdef FPGA_PRINT_TENSOR
-// zynqmp::PoolingParam& pool_param = pe_.param();
-// Debugger::get_instance().registerOutput("pooling", pool_param.output);
+    zynqmp::PoolingParam& pool_param = pe_.param();
+    Debugger::get_instance().registerOutput("pooling", pool_param.output);
 #endif
+  } else {
+    split_pe_.dispatch();   
+#ifdef FPGA_PRINT_TENSOR
+    zynqmp::PoolingParam& pool_param = split_pe_.param();
+    Debugger::get_instance().registerOutput("pooling_split", pool_param.output);
+#endif
+  }
 }
 
 }  // namespace fpga

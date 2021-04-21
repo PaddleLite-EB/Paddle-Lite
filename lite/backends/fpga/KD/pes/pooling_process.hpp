@@ -84,9 +84,16 @@ inline void pooling_split_channel(
 
     PoolingArgs& args = pooling_param->poolingArgs;
     args.mode = param.type;
-    args.kernel_reciprocal = float_to_half(1.0f / (w_kernel * h_kernel));
     if (param.globalPooling) {
       args.kernel_reciprocal = float_to_half(1.0f);
+      args.inplace.active_param.type = zynqmp::TYPE_GLOBAL_POOL;
+      args.inplace.active_param.leaky_relu_factor = float_to_half(1.0f /
+      (w_kernel * h_kernel));
+    } else {
+      args.kernel_reciprocal = float_to_half(1.0f / (w_kernel * h_kernel));
+      args.inplace.active_param.type = param.activeParam.type;
+      // args.inplace.active_param.leaky_relu_factor =
+      //     float_to_half(param_.activeParam.leaky_relu_factor);
     }
 
     args.image.address = input_address;
@@ -104,6 +111,11 @@ inline void pooling_split_channel(
     args.kernel.stride_w = param.strides[1];
     args.out_height = output->shape().height();
     args.out_width = output->shape().width();
+    if (i == 0) {
+      args.output_idx = output->scaleIndex(true);
+      args.inplace.findmax_restart = true;
+    }
+
     splitParams.push_back(pooling_param);
   }
 }

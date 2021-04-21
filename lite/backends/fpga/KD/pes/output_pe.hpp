@@ -105,7 +105,7 @@ class OutputPE : public PE {
       bypass_out_pe_.dispatch();
     }
 
-    lite::Debugger::get_instance().commit();
+    // lite::Debugger::get_instance().commit();
 
     return true;
   }

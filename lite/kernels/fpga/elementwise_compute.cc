@@ -137,7 +137,7 @@ void ElementwiseMulCompute::Run() {
 #ifdef FPGA_PRINT_TENSOR
   zynqmp::ScaleParam& scale_param = pe_.param();
 // Debugger::get_instance().registerOutput("ew_mul_in", scale_param.input);
-// Debugger::get_instance().registerOutput("ew_mul", scale_param.output);
+Debugger::get_instance().registerOutput("ew_mul", scale_param.output);
 #endif
 }
 

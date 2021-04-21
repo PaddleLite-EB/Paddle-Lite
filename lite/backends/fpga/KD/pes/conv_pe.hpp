@@ -147,34 +147,38 @@ class ConvPE : public PE {
   }
 
   void apply() {
-    // Tensor* input = param_.input;
-    // Tensor* out = param_.output;
-    // Tensor* filter = param_.filter;
-    // std::cout << "input:" << input->shape().height() << "," << input->shape().width() << "," << input->shape().channel() << std::endl;
-    // std::cout << "filter:" << filter->shape().height() << "," << filter->shape().width() << "," << filter->shape().channel() << std::endl;
 
     if (param_.deconv == false) {
       split_axis = fill_split_arg(param_);
       pack_channel = split_axis == 2 && param_.splitParams().size() > 1;
       split_cpu_concat = split_axis == 0 && param_.cpu_concat;
-      // std::cout << "split_axis:" << split_axis << ",pack_channel:" << pack_channel << ",split_cpu_concat:" << split_cpu_concat << std::endl;
+      split_channel = split_axis == 1;
+
+      if (pack_channel || split_channel) {
+        SplitParam& split_param = splitPE_.param();
+        split_param.input = param_.input;
+        for (auto conv_param : param_.splitParams()) {
+          split_param.outputs.push_back(&conv_param->input);
+        }
+        splitPE_.init();
+        splitPE_.apply();
+      }
 
       // ======================= dispatch =======================
       transaction_ = TransactionManager::get_instance().getTransaction();
-      if (split_axis == 0) {
-        for (int i = 0; i < param_.splitParams().size(); i++) {
-          auto conv_param = param_.splitParams()[i];
-          conv_param->args.output_idx = param_.output->scaleIndex(true);
-          conv_param->args.inplace.findmax_restart = i == 0;
-          conv_param->args.inplace.active_param.type = param_.activeParam.type;
-          conv_param->args.inplace.active_param.leaky_relu_factor =
-              float_to_half(param_.activeParam.leaky_relu_factor);
-          int action_id = compute_fpga_conv_basic(conv_param->args);
-          Action* action = new Action(action_id);
-          actions_.push_back(action);
-          transaction_->appendAction(action);
-        }
-      }
+     
+      for (int i = 0; i < param_.splitParams().size(); i++) {
+        auto conv_param = param_.splitParams()[i];
+        conv_param->args.output_idx = param_.output->scaleIndex(true);
+        conv_param->args.inplace.findmax_restart = i == 0;
+        conv_param->args.inplace.active_param.type = param_.activeParam.type;
+        conv_param->args.inplace.active_param.leaky_relu_factor =
+            float_to_half(param_.activeParam.leaky_relu_factor);
+        int action_id = compute_fpga_conv_basic(conv_param->args);
+        Action* action = new Action(action_id);
+        actions_.push_back(action);
+        transaction_->appendAction(action);
+      }  
 
       // ======================= concat =======================
       if (pack_channel) {
@@ -185,8 +189,8 @@ class ConvPE : public PE {
         concat_param.output = param_.output;
         concatPE_.init();
         concatPE_.apply();
-        concatPE_.setMergeScale(
-            false);  // currently don't need handle scale, find_max not restart
+        concatPE_.setMergeScale(false);  // currently don't need handle scale, find_max not restart
+ 
       } else if (split_cpu_concat) {
         ConcatParam& concat_param = concatPE_.param();
 
@@ -202,14 +206,13 @@ class ConvPE : public PE {
         concatPE_.setMergeScale(false);  //???
       }
 
-      if (pack_channel) {
-        SplitParam& split_param = splitPE_.param();
-        split_param.input = param_.input;
-        for (auto conv_param : param_.splitParams()) {
-          split_param.outputs.push_back(&conv_param->input);
-        }
-        splitPE_.init();
-        splitPE_.apply();
+      std::vector<BasicConvParam*>& params = param_.splitParams();
+      if (split_channel && params.size() > 1) {
+        ElementwiseAddParam& add_param = addPE_.param();
+        add_param.inputs = {&params[0]->output, &params[1]->output};
+        add_param.output = param_.output;
+        addPE_.init();
+        addPE_.apply();
       }
     }
 
@@ -266,42 +269,22 @@ class ConvPE : public PE {
       return true;
     }
 
-    // std::vector<BasicConvParam*>& params = param_.splitParams();
-    // if (pack_channel && !param_.deconv) {   //pack not support in dispatch
-    //   splitPE_.dispatch();
-    // }
-
-    /* size_t size = params.size();
-    if (split_axis == 0 && size > 1) {
-      // param_.output->readScale();
-      float scale = param_.output->scale()[0];
-      concatPE_.dispatch();
-      // param_.output->writeScale(scale);
-    } */
-    Tensor* input = param_.input;
-    Tensor* out = param_.output;
-    Tensor* filter = param_.filter;
-    // std::cout << "dispatch input:" << input->shape().height() << "," << input->shape().width() << "," << input->shape().channel() << std::endl;
-    // std::cout << "dispatch filter:" << filter->shape().height() << "," << filter->shape().width() << "," << filter->shape().channel() << std::endl;
-
-    if (filter->shape().height() == 3 && filter->shape().channel() == 4) {
-      cpu_pe_->dispatch();
-      std::cout << "conv dispatch cpu_pe_" << std::endl;
+    if ((pack_channel || split_channel) && !param_.deconv) {
+      splitPE_.dispatch();
     }
+
     if ((pack_channel || split_cpu_concat) && !param_.deconv) {
       float scale = param_.output->scale()[0];
-      std::cout << "conv concat dispatch!" << std::endl;
       concatPE_.dispatch();
     }
-    // std::cout << "-------------------------------------------------------------" << std::endl;
-    // if (split_axis == 1 && ret == 0 && size > 1) {
-    //   ElementwiseAddParam& add_param = addPE_.param();
-    //   add_param.inputs = {&params[0]->output, &params[1]->output};
-    //   add_param.output = param_.output;
-    //   addPE_.init();
-    //   addPE_.apply();
-    //   addPE_.dispatch();
-    // }
+    
+    std::vector<BasicConvParam*>& params = param_.splitParams();
+    if (split_channel && params.size() > 1) {
+      ElementwiseAddParam& add_param = addPE_.param();
+      // add_param.inputs = {&params[0]->output, &params[1]->output};
+      // add_param.output = param_.output;
+      addPE_.dispatch();
+    }
 
     return true;
   }
@@ -320,6 +303,7 @@ class ConvPE : public PE {
   bool use_cpu_ = false;
   bool pack_channel = false;
   bool split_cpu_concat = false;
+  bool split_channel = false;
   ConvParam param_;
   ConcatPE concatPE_;
   SplitPE splitPE_;

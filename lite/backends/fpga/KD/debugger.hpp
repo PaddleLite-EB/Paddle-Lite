@@ -43,7 +43,6 @@ class Debugger {
     p.first = op_type;
     p.second = tensor;
     tensors_.push_back(p);
-    // std::cout << "registerOutput : " << op_type << std::endl;
   }
 
   void tick(std::string key) {
@@ -84,6 +83,7 @@ class Debugger {
   Debugger() {
     op_config["concat"] = true;
     op_config["pooling"] = true;
+    op_config["pooling_split"] = true;
     op_config["conv"] = true;
     op_config["dropout"] = true;
     op_config["flatten"] = true;
@@ -107,6 +107,7 @@ class Debugger {
     op_config["reshape"] = true;
     op_config["softmax"] = true;
     op_config["split"] = true;
+    op_config["sigmoid"] = true;
   }
 };
 
