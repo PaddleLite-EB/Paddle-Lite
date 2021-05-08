@@ -27,6 +27,7 @@ limitations under the License. */
 #include "lite/backends/fpga/KD/pes/scale_pe.hpp"
 #include "lite/backends/fpga/KD/pes/split_pe.hpp"
 #include "lite/backends/fpga/KD/pes/transposed_conv_process.hpp"
+#include "lite/backends/fpga/KD/pes/cpu_pe.hpp"
 
 namespace paddle {
 namespace zynqmp {
@@ -46,6 +47,9 @@ class TransposedConvPE : public PE {
   }
 
   void apply() {
+    cpu_pe_padinput_.init();
+    cpu_pe_padinput_.apply();
+
     int kernel_width = param_.filter->shape().width();
     int kernel_height = param_.filter->shape().height();
     int stride_width = param_.strides[0];
@@ -93,6 +97,8 @@ class TransposedConvPE : public PE {
       int pw = param_.filter->shape().width() - param_.paddings[1] - 1;
 
       padded_input_.mutableData<float16>(FP16, padded_shape);
+      padded_input_.setIndex(param_.input->scaleIndex());
+
       conv_param.input = &padded_input_;
       conv_param.output = param_.output;
       conv_param.filter = &filter_;
@@ -103,6 +109,19 @@ class TransposedConvPE : public PE {
       conv_param.dilations = {1, 1};
       conv_param.deconv = false;
       conv_param.activeParam.type = param_.activeParam.type;
+      // float* conv_param_scale = conv_param.scale()->mutableData<float>(FP32, param_.scale()->shape());
+      // float* param_scale = param_.scale()->data<float>();
+      // int scale_num = param_.scale()->shape().numel();
+      // memcpy(conv_param_scale, param_scale, scale_num * sizeof(float));
+
+      // float* conv_param_bias = conv_param.bias()->mutableData<float>(FP32, param_.bias()->shape());
+      // float* param_bias = param_.bias()->data<float>();
+      // int bias_num = param_.scale()->shape().numel();
+      // for (int i = 0; i < bias_num; ++i)
+      // {
+      //   conv_param_bias[i] = 1;
+      // }
+
       conv_param.scale()->mutableData<float>(FP32, param_.scale()->shape());
       conv_param.scale()->copyFrom(param_.scale());
       conv_param.bias()->mutableData<float>(FP32, param_.bias()->shape());
@@ -110,13 +129,15 @@ class TransposedConvPE : public PE {
     }
     pe_.init();
     pe_.apply();
+
   }
 
   template <typename T>
   void pad_input() {
     param_.input->syncToCPU();
     T* input_data = param_.input->data<T>();
-    // param_.input->saveToFile("pad_input", true);
+    param_.input->readScale();
+
     int channel = param_.input->shape().channel();
     int in_wc = param_.input->shape().width() * channel;
 
@@ -138,24 +159,20 @@ class TransposedConvPE : public PE {
     }
 
     padded_input_.flush();
-    // padded_input_.saveToFile("padded_input", true);
-    padded_input_.copyScaleFrom(param_.input);
+    padded_input_.readScale();
+    
   }
 
   bool dispatch() {
-    // int ih = param_.input->shape().height();
-    // int iw = param_.input->shape().width();
-    // if (ih == 8 && iw == 8) {
-    //   param_.input->readFromFile("29_ew_add_relu_1_512_8_8");
-    //   std::cout << "29_ew_add_relu_1_512_8_8" << std::endl;
-    // }
     if (sub_filter_ena_ == false) {
+      cpu_pe_padinput_.dispatch();   
       pad_input<float16>();
     }
-
+    ConvParam& param = pe_.param();
     bool vi = pe_.dispatch();
 
     if (sub_filter_ena_ == true && vi == true) {
+      cpu_pe_padinput_.dispatch();
       float16* out_data = param_.output->data<float16>();
       float16* tmp_out_data = tmp_output_.data<float16>();
       int wc_align = align_to_x(
@@ -189,8 +206,7 @@ class TransposedConvPE : public PE {
   Tensor padded_input_;
   Tensor filter_;
   Tensor tmp_output_;
-  InplaceArgs inplace_ = {0};
-  ActiveParamterArgs activeParamterArgs;
+  CPUPE cpu_pe_padinput_;
 };
 
 }  // namespace zynqmp

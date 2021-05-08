@@ -160,12 +160,10 @@ class YoloBoxPE : public PE {
       float* imgsize_data = imgsize->mutableData<float>();
       img_height = imgsize_data[0];
       img_width = imgsize_data[1];
-      std::cout << "img_height_:" << img_height << ", img_width:" << img_width << std::endl;
     } else {
       int32_t* imgsize_data = imgsize->data<int32_t>();
       img_height = imgsize_data[0];
       img_width = imgsize_data[1];
-      std::cout << "img_height:" << img_height << ", img_width:" << img_width << std::endl;
     }
    
 

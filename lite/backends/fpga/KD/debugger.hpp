@@ -108,6 +108,7 @@ class Debugger {
     op_config["softmax"] = true;
     op_config["split"] = true;
     op_config["sigmoid"] = true;
+    op_config["conv2d_transpose"] = true;
   }
 };
 

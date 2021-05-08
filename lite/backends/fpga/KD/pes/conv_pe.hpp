@@ -147,6 +147,7 @@ class ConvPE : public PE {
   }
 
   void apply() {
+    // cpu_pe_->apply();
 
     if (param_.deconv == false) {
       split_axis = fill_split_arg(param_);
@@ -174,6 +175,7 @@ class ConvPE : public PE {
         conv_param->args.inplace.active_param.type = param_.activeParam.type;
         conv_param->args.inplace.active_param.leaky_relu_factor =
             float_to_half(param_.activeParam.leaky_relu_factor);
+
         int action_id = compute_fpga_conv_basic(conv_param->args);
         Action* action = new Action(action_id);
         actions_.push_back(action);
@@ -190,7 +192,6 @@ class ConvPE : public PE {
         concatPE_.init();
         concatPE_.apply();
         concatPE_.setMergeScale(false);  // currently don't need handle scale, find_max not restart
- 
       } else if (split_cpu_concat) {
         ConcatParam& concat_param = concatPE_.param();
 
@@ -219,7 +220,6 @@ class ConvPE : public PE {
     if (!use_cpu_) {
       param_.filter->releaseData();
     }
-    // cpu_pe_->apply();
   }
 
   void cpu_compute() {
@@ -264,7 +264,7 @@ class ConvPE : public PE {
 
   bool dispatch() {
     if (use_cpu_) {
-      cpu_pe_->dispatch();
+      // cpu_pe_->dispatch();
       cpu_compute();
       return true;
     }

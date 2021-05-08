@@ -173,6 +173,10 @@ class Tensor {
     write_scale(writeScaleArgs);
   }
 
+  void setIndex(int scale_index) {
+    scale_index_ = scale_index;
+  }
+
   int scaleIndex(bool auto_alloc = false) {
     if (scale_index_ <= 0 && auto_alloc) {
       scale_index_ = alloc_scale_reg();
