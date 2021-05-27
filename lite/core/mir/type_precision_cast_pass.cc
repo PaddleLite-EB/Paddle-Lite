@@ -171,13 +171,13 @@ void PrecisionCastPass::ComplementInputs(
             << " for kernel " << inst.op()->DebugString() << " "
             << *in->AsArg().type << " -> " << *decl_arg_type;
     // Add an Cast instruction to make the input compatible with other dist.
-    AddCastInst(*in->AsArg().type,
-                *decl_arg_type,
-                in,
-                graph,
-                inst_node,
-                cast_nodes,
-                graph->valid_places());
+    // AddCastInst(*in->AsArg().type,
+    //             *decl_arg_type,
+    //             in,
+    //             graph,
+    //             inst_node,
+    //             cast_nodes,
+    //             graph->valid_places());
   }
 }
 

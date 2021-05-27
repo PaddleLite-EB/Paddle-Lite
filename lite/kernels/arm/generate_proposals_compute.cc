@@ -396,42 +396,55 @@ void GenerateProposalsCompute::Run() {
   float nms_thresh = param.nms_thresh;
   float min_size = param.min_size;
   float eta = param.eta;
+  
+  VLOG(4) << "gen proposals";
 
   auto &scores_dim = scores->dims();
   int64_t num = scores_dim[0];
   int64_t c_score = scores_dim[1];
   int64_t h_score = scores_dim[2];
   int64_t w_score = scores_dim[3];
+  VLOG(4) << "gen proposals";
   auto &bbox_dim = bbox_deltas->dims();
   int64_t c_bbox = bbox_dim[1];
   int64_t h_bbox = bbox_dim[2];
   int64_t w_bbox = bbox_dim[3];
+  VLOG(4) << "gen proposals";
 
   rpn_rois->Resize({bbox_deltas->numel(), 4});
   rpn_roi_probs->Resize(std::vector<int64_t>({scores->numel(), 1}));
-
+  VLOG(4) << "gen proposals";
   Tensor bbox_deltas_swap, scores_swap;
   scores_swap.Resize(std::vector<int64_t>({num, h_score, w_score, c_score}));
   bbox_deltas_swap.Resize(std::vector<int64_t>({num, h_bbox, w_bbox, c_bbox}));
   std::vector<int> orders({0, 2, 3, 1});
+  VLOG(4) << "gen proposals";
   permute(*scores, &scores_swap, orders);
   permute(*bbox_deltas, &bbox_deltas_swap, orders);
+  VLOG(4) << "gen proposals";
 
   LoD lod;
   lod.resize(1);
   auto &lod0 = lod[0];
   lod0.push_back(0);
+  VLOG(4) << "gen proposals";
+
   anchors->Resize(std::vector<int64_t>({anchors->numel() / 4, 4}));
   variances->Resize(std::vector<int64_t>({variances->numel() / 4, 4}));
   std::vector<int64_t> tmp_lod;
   std::vector<int64_t> tmp_num;
 
+  VLOG(4) << "gen proposals";
+
   int64_t num_proposals = 0;
   for (int64_t i = 0; i < num; ++i) {
-    Tensor im_info_slice = im_info->Slice<float>(i, i + 1);
-    Tensor bbox_deltas_slice = bbox_deltas_swap.Slice<float>(i, i + 1);
-    Tensor scores_slice = scores_swap.Slice<float>(i, i + 1);
-
+    Tensor im_info_slice;
+    im_info->Slice<float>(im_info_slice, i, i + 1);
+    Tensor bbox_deltas_slice;
+    bbox_deltas_swap.Slice<float>(bbox_deltas_slice, i, i + 1);
+    Tensor scores_slice;
+    scores_swap.Slice<float>(scores_slice, i, i + 1);
+    VLOG(4) << "gen proposals";
     bbox_deltas_slice.Resize(
         std::vector<int64_t>({c_bbox * h_bbox * w_bbox / 4, 4}));
     scores_slice.Resize(std::vector<int64_t>({c_score * h_score * w_score, 1}));
@@ -447,11 +460,16 @@ void GenerateProposalsCompute::Run() {
                             nms_thresh,
                             min_size,
                             eta);
+
+                            VLOG(4) << "gen proposals";
     Tensor &proposals = tensor_pair.first;
     Tensor &scores = tensor_pair.second;
+    VLOG(4) << "gen proposals";
 
     AppendTensor(rpn_rois, 4 * num_proposals, proposals);
     AppendTensor(rpn_roi_probs, num_proposals, scores);
+
+    VLOG(4) << "gen proposals";
 
     num_proposals += proposals.dims()[0];
     lod0.push_back(num_proposals);

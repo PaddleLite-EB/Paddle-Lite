@@ -80,8 +80,8 @@ void DistributeFpnProposalsCompute::Run() {
   std::vector<int> num_rois_level(num_level, 0);
   std::vector<int> num_rois_level_integral(num_level + 1, 0);
   for (size_t i = 0; i < fpn_rois_lod.size() - 1; ++i) {
-    auto fpn_rois_slice =
-        fpn_rois->Slice<float>(static_cast<int64_t>(fpn_rois_lod[i]),
+    Tensor fpn_rois_slice;
+        fpn_rois->Slice<float>(fpn_rois_slice, static_cast<int64_t>(fpn_rois_lod[i]),
                                static_cast<int64_t>(fpn_rois_lod[i + 1]));
     const float* rois_data = fpn_rois_slice.data<float>();
     for (int j = 0; j < fpn_rois_slice.dims()[0]; ++j) {
@@ -116,8 +116,8 @@ void DistributeFpnProposalsCompute::Run() {
   std::vector<int> restore_index_inter(fpn_rois_num, -1);
   // distribute the rois into different fpn level by target level
   for (size_t i = 0; i < fpn_rois_lod.size() - 1; ++i) {
-    Tensor fpn_rois_slice =
-        fpn_rois->Slice<float>(static_cast<int64_t>(fpn_rois_lod[i]),
+    Tensor fpn_rois_slice;
+        fpn_rois->Slice<float>(fpn_rois_slice, static_cast<int64_t>(fpn_rois_lod[i]),
                                static_cast<int64_t>(fpn_rois_lod[i + 1]));
     const float* rois_data = fpn_rois_slice.data<float>();
     size_t cur_offset = fpn_rois_lod[i];

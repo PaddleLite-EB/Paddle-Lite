@@ -85,7 +85,7 @@ class ConvPE : public PE {
     }
 
     if (!use_cpu_) {
-      param_.filter->releaseData();
+      // param_.filter->releaseData();
     }
   }
   void cpu_compute() {

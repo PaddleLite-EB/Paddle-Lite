@@ -61,10 +61,13 @@ void BoxClipCompute::Run() {
   auto box_lod = input->lod().back();
   int64_t n = static_cast<int64_t>(box_lod.size() - 1);
   for (int i = 0; i < n; ++i) {
-    Tensor im_info_slice = im_info->Slice<float>(i, i + 1);
+    Tensor im_info_slice;
+    im_info->Slice<float>(im_info_slice, i, i + 1);
     auto* im_info_slice_data = im_info_slice.data<float>();
-    Tensor box_slice = input->Slice<float>(box_lod[i], box_lod[i + 1]);
-    Tensor output_slice = output->Slice<float>(box_lod[i], box_lod[i + 1]);
+    Tensor box_slice;
+    input->Slice<float>(box_slice, box_lod[i], box_lod[i + 1]);
+    Tensor output_slice;
+    output->Slice<float>(output_slice, box_lod[i], box_lod[i + 1]);
     ClipTiledBoxes<float>(im_info_slice, box_slice, &output_slice);
   }
   return;

@@ -41,10 +41,40 @@ class Monitor {
     auto op_info = op->op_info();
     auto op_type = op->Type();
 
+    static std::vector<std::string> tensor_names = {};
+
+    auto should_print = [tensor_names](std::string& name) -> bool {
+      if (std::find(tensor_names.begin(), tensor_names.end(), name) !=
+          tensor_names.end()) {
+        return true;
+      }
+      return false;
+    };
+
     VLOG(4) << "Running op:" << op_type << " on " << inst.kernel()->name();
     auto in_args = op_info->input_names();
     for (auto name : in_args) {
       VLOG(4) << "\n in_tensor:" << name;
+
+    
+      auto* var = op->scope()->FindVar(name);
+      if (var->IsType<lite::Tensor>()) {
+        lite::Tensor* tensor =
+            const_cast<lite::Tensor*>(&var->Get<lite::Tensor>());
+        if (tensor->ZynqTensor() != nullptr) {
+          std::string substr = "/";
+          std::size_t found = name.rfind(substr);
+          VLOG(4) << "\n in_tensor:::" << name << "," << found;
+          if (found != std::string::npos) {
+            name.replace(found, substr.length(), "_");
+          }
+          VLOG(4) << "\n in_tensor:::" << name;
+          if (tensor->ZynqTensor() != nullptr && should_print(name)) {
+            tensor->ZynqTensor()->saveToFile(name, true);
+          }
+        }
+      }
+
     }
   }
 
@@ -60,7 +90,7 @@ class Monitor {
           tensor_names.end()) {
         return true;
       }
-      return false;
+      return true;
     };
 
     auto out_args = op_info->output_names();

@@ -26,6 +26,10 @@
 #include "lite/core/profile/precision_profiler.h"
 #endif
 
+#ifdef LITE_WITH_FPGA
+#include "lite/backends/fpga/monitor.hpp"
+#endif
+
 namespace paddle {
 namespace lite {
 
@@ -318,6 +322,11 @@ void RuntimeProgram::Run() {
       inst_precision_profiler.GetSummaryHeader();
 #endif
 
+#ifdef LITE_WITH_FPGA
+  Monitor& monitor = Monitor::get_instance();
+  monitor.inferStart();
+#endif
+
 #ifdef LITE_WITH_NVTX
   const NVTXAnnotator& annotator = NVTXAnnotator::Global();
   NVTXRangeAnnotation annotation_one_loop = annotator.AnnotateBlock();
@@ -352,7 +361,15 @@ void RuntimeProgram::Run() {
     }
 #endif
 
+#ifdef LITE_WITH_FPGA
+    monitor.preRun(inst);
+#endif
+
     inst.Run();
+
+#ifdef LITE_WITH_FPGA
+    monitor.postRun(inst);
+#endif
 
 #ifdef LITE_WITH_PRECISION_PROFILE
 #ifndef LITE_WITH_FPGA

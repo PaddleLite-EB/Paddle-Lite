@@ -5,6 +5,7 @@ endif()
 set(fpga_deps fpga_target_wrapper kernel_fpga)
 
 add_kernel(activation_compute_fpga FPGA basic SRCS activation_compute.cc DEPS ${fpga_deps})
+add_kernel(affine_channel_compute_fpga FPGA basic SRCS affine_channel_compute.cc DEPS ${fpga_deps})
 add_kernel(cast_compute_fpga FPGA basic SRCS cast_compute.cc DEPS ${fpga_deps})
 add_kernel(concat_compute_fpga FPGA basic SRCS concat_compute.cc DEPS ${fpga_deps})
 

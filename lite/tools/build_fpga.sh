@@ -24,9 +24,9 @@ cmake .. \
         -DLITE_BUILD_EXTRA=ON \
         -DLITE_WITH_PYTHON=OFF \
         -DLITE_WITH_PROFILE=OFF \
-        -DLITE_WITH_LOG=OFF \
+        -DLITE_WITH_LOG=ON \
         -DLITE_WITH_CV=ON
 
-make -j8
+make -j42
 
 cd -

@@ -123,6 +123,8 @@ void RoiAlignCompute::Run() {
     return;
   }
 
+  rois->ZynqTensor()->saveToFile("rois", true);
+
   DDim in_stride({static_cast<int>(in_dims[1] * in_dims[2] * in_dims[3]),
                   static_cast<int>(in_dims[2] * in_dims[3]),
                   static_cast<int>(in_dims[3]),

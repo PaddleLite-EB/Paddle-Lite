@@ -231,6 +231,22 @@ REGISTER_LITE_KERNEL(io_copy,
                                        DATALAYOUT(kNHWC))})
     .Finalize();
 
+REGISTER_LITE_KERNEL(io_copy,
+                     kFPGA,
+                     kAny,
+                     kAny,
+                     paddle::lite::kernels::fpga::IoCopyHostCHWToFpgaHWCCompute,
+                     host_fp16_chw_to_device_fp16_hwc)
+    .BindInput("Input",
+               {LiteType::GetTensorTy(TARGET(kHost),
+                                      PRECISION(kFP16),
+                                      DATALAYOUT(kNCHW))})
+    .BindOutput("Out",
+                {LiteType::GetTensorTy(TARGET(kFPGA),
+                                       PRECISION(kFP16),
+                                       DATALAYOUT(kNHWC))})
+    .Finalize();
+
 REGISTER_LITE_KERNEL(io_copy_once,
                      kFPGA,
                      kAny,
