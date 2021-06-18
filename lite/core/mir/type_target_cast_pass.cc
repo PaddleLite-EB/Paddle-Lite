@@ -77,6 +77,8 @@ void TypeTargetTransformPass::ComplementInputs(
             << " for kernel " << inst.op()->DebugString() << " "
             << *in->AsArg().type << " -> " << *decl_arg_type;
     // Add an IoCopy instruction to make the input compatible with other dist.
+    // std::cout << "input var is " << in_arg_name << std::endl;
+    // std::cout << "op is " << inst.op_type() << std::endl;
     AddIoCopyInst(*in->AsArg().type,
                   *decl_arg_type,
                   in,
