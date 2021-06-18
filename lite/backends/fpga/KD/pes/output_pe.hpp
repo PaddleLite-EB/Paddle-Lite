@@ -43,7 +43,7 @@ class OutputPE : public PE {
       output->copyFrom(input);
     }
     output->syncToCPU();
-    output->saveToFile("out", true);
+    // output->saveToFile("out", true);
     return true;
   }
 

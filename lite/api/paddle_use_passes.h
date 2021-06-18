@@ -31,6 +31,7 @@ USE_MIR_PASS(adaptive_1x1_pool2d_convert_global_pass);
 USE_MIR_PASS(remove_scale1_pass);
 USE_MIR_PASS(remove_tf_redundant_ops_pass);
 USE_MIR_PASS(lite_conv_bn_fuse_pass);
+USE_MIR_PASS(lite_conv_affine_channel_fuse_pass);
 USE_MIR_PASS(lite_conv_conv_fuse_pass);
 USE_MIR_PASS(lite_squeeze2_matmul_fuse_pass);
 USE_MIR_PASS(lite_reshape2_matmul_fuse_pass);

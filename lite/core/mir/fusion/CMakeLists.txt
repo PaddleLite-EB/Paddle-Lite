@@ -28,6 +28,9 @@ lite_cc_library(fuse_var_conv_activation
 lite_cc_library(fuse_conv_bn
         SRCS conv_bn_fuser.cc
         DEPS pattern_matcher_high_api)
+lite_cc_library(fuse_conv_affine_channel
+        SRCS conv_affine_channel_fuser.cc
+        DEPS pattern_matcher_high_api)   
 lite_cc_library(fuse_conv_conv
         SRCS conv_conv_fuser.cc
         DEPS pattern_matcher_high_api)     
@@ -85,6 +88,7 @@ set(mir_fusers
     fuse_conv_activation
     fuse_var_conv_activation
     fuse_conv_bn
+    fuse_conv_affine_channel
     fuse_conv_conv
     fuse_quant_dequant
     fuse_elementwise_add_activation
