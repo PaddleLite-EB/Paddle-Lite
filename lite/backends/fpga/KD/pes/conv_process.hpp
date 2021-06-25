@@ -615,8 +615,8 @@ inline DCpuConcatType split_filter_num(const ConvParam& c_param,
 
     param.splitParams().push_back(conv_param);
   }
-  if (deconv && param.cpu_concat) deconv_concat_type = DCpuConcatType::ALIGNED;
-  if (deconv_out_reshape) deconv_concat_type = DCpuConcatType::UNALIGNED;
+  if (deconv && param.cpu_concat) deconv_concat_type = DCpuConcatType::UNALIGNED;
+  if (deconv_out_reshape) deconv_concat_type = DCpuConcatType::ALIGNED;
   return deconv_concat_type;
 }
 
