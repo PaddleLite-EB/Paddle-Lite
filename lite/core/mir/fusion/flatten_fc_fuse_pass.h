@@ -1,4 +1,4 @@
-// Copyright (c) 2019 PaddlePaddle Authors. All Rights Reserved.
+// Copyright (c) 2021 PaddlePaddle Authors. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -13,36 +13,20 @@
 // limitations under the License.
 
 #pragma once
-#include <vector>
-#include "lite/core/kernel.h"
-#include "lite/core/op_registry.h"
-#include "lite/core/types.h"
+
+#include <memory>
+#include <string>
+#include "lite/core/mir/pass.h"
 
 namespace paddle {
 namespace lite {
-namespace kernels {
-namespace arm {
+namespace mir {
 
-template <PrecisionType PType, PrecisionType OutType>
-class MatMulCompute : public KernelLite<TARGET(kARM), PType> {
+class FlattenFcFusePass : public ProgramPass {
  public:
-  using param_t = operators::MatMulParam;
-
-  void PrepareForRun() override;
-
-  void ReInitWhenNeeded() override;
-
-  void Run() override;
-
-  virtual ~MatMulCompute() = default;
-
- private:
-  int m_, n_, k_;
-  std::vector<float> scale_;
-  std::vector<float> scale_one;
+  void Apply(const std::unique_ptr<SSAGraph>& graph) override;
 };
 
-}  // namespace arm
-}  // namespace kernels
+}  // namespace mir
 }  // namespace lite
 }  // namespace paddle

@@ -1,4 +1,4 @@
-// Copyright (c) 2019 PaddlePaddle Authors. All Rights Reserved.
+// Copyright (c) 2021 PaddlePaddle Authors. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,37 +12,26 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#pragma once
+#include "lite/core/mir/fusion/flatten_fc_fuse_pass.h"
+#include <memory>
 #include <vector>
-#include "lite/core/kernel.h"
-#include "lite/core/op_registry.h"
-#include "lite/core/types.h"
+#include "lite/core/mir/fusion/flatten_fc_fuser.h"
+#include "lite/core/mir/pass_registry.h"
 
 namespace paddle {
 namespace lite {
-namespace kernels {
-namespace arm {
+namespace mir {
 
-template <PrecisionType PType, PrecisionType OutType>
-class MatMulCompute : public KernelLite<TARGET(kARM), PType> {
- public:
-  using param_t = operators::MatMulParam;
+void FlattenFcFusePass::Apply(const std::unique_ptr<SSAGraph>& graph) {
+  fusion::FlattenFcFuser flatten_fuser(" ");
+  flatten_fuser(graph.get());
+}
 
-  void PrepareForRun() override;
-
-  void ReInitWhenNeeded() override;
-
-  void Run() override;
-
-  virtual ~MatMulCompute() = default;
-
- private:
-  int m_, n_, k_;
-  std::vector<float> scale_;
-  std::vector<float> scale_one;
-};
-
-}  // namespace arm
-}  // namespace kernels
+}  // namespace mir
 }  // namespace lite
 }  // namespace paddle
+
+REGISTER_MIR_PASS(lite_flatten_fc_fuse_pass,
+                  paddle::lite::mir::FlattenFcFusePass)
+    .BindTargets({TARGET(kOpenCL)})
+    .BindKernel("fc");

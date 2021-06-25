@@ -1,4 +1,4 @@
-// Copyright (c) 2019 PaddlePaddle Authors. All Rights Reserved.
+// Copyright (c) 2021 PaddlePaddle Authors. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -13,36 +13,27 @@
 // limitations under the License.
 
 #pragma once
-#include <vector>
-#include "lite/core/kernel.h"
-#include "lite/core/op_registry.h"
-#include "lite/core/types.h"
+
+#include <memory>
+#include <string>
+#include "lite/core/mir/pattern_matcher_high_api.h"
 
 namespace paddle {
 namespace lite {
-namespace kernels {
-namespace arm {
+namespace mir {
+namespace fusion {
 
-template <PrecisionType PType, PrecisionType OutType>
-class MatMulCompute : public KernelLite<TARGET(kARM), PType> {
+class FlattenFcFuser : public FuseBase {
  public:
-  using param_t = operators::MatMulParam;
-
-  void PrepareForRun() override;
-
-  void ReInitWhenNeeded() override;
-
-  void Run() override;
-
-  virtual ~MatMulCompute() = default;
+  explicit FlattenFcFuser(const std::string& type) {}
+  void BuildPattern() override;
+  void InsertNewNode(SSAGraph* graph, const key2nodes_t& matched) override;
 
  private:
-  int m_, n_, k_;
-  std::vector<float> scale_;
-  std::vector<float> scale_one;
+  cpp::OpDesc GenOpDesc(const key2nodes_t& matched) override;
 };
 
-}  // namespace arm
-}  // namespace kernels
+}  // namespace fusion
+}  // namespace mir
 }  // namespace lite
 }  // namespace paddle
