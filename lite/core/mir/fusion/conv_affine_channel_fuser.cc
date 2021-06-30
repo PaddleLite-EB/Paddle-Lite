@@ -37,7 +37,7 @@ auto* conv_input =
 
   auto* ac_scale = VarNode("ac_scale")
                        ->assert_is_op_input(bn_type_, "Scale")
-                       ->AsInput();
+                       ->AsIntermediate();
   auto* ac_bias =
       VarNode("ac_bias")->assert_is_op_input(bn_type_, "Bias")->AsInput();
   
@@ -92,9 +92,9 @@ void ConvAffineChannelFuser::InsertNewNode(SSAGraph* graph,
   IR_NODE_LINK_TO(matched.at("ac_bias"), matched.at("conv2d"));
   
 #ifdef LITE_WITH_FPGA
-  // conv_op_desc->SetInput("Scale",
-  //                        {matched.at("ac_scale")->arg()->name});  // conv_sias
-  // IR_NODE_LINK_TO(matched.at("ac_scale"), matched.at("conv2d"));
+  conv_op_desc->SetInput("Scale",
+                         {matched.at("ac_scale")->arg()->name});  // conv_sias
+  IR_NODE_LINK_TO(matched.at("ac_scale"), matched.at("conv2d"));
 #endif
 
   auto update_conv_desc = *conv_instruct->mutable_op_info();
