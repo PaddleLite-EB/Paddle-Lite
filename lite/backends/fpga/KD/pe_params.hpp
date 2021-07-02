@@ -75,6 +75,7 @@ struct BasicConvParam {
   Tensor filter;
   Tensor scaleBias;
   ConvArgs args;
+  float16 output_scale = 0;
   float16 output_max = 0;
 };
 
@@ -339,6 +340,19 @@ struct GRUParam : PEParam {
   bool is_reverse = false;
   bool origin_mode = false;
 };
+
+struct SigmoidParam: PEParam {
+ public:
+  Tensor* input = nullptr;
+  Tensor* output = nullptr;
+};
+
+struct CPUParam : PEParam {
+ public:
+  std::vector<Tensor*> inputs;
+  std::vector<Tensor*> outputs;
+};
+
 
 }  // namespace zynqmp
 }  // namespace paddle

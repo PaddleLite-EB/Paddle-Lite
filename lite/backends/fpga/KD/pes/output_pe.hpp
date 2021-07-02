@@ -17,6 +17,9 @@ limitations under the License. */
 #include "lite/backends/fpga/KD/llapi/zynqmp_api.h"
 #include "lite/backends/fpga/KD/pe.hpp"
 #include "lite/backends/fpga/KD/pe_params.hpp"
+#include "lite/backends/fpga/KD/pes/bypass_pe.hpp"
+#include "lite/backends/fpga/KD/tensor_util.hpp"
+#include "lite/backends/fpga/KD/debugger.hpp"
 
 namespace paddle {
 namespace zynqmp {
@@ -29,27 +32,94 @@ class OutputPE : public PE {
     return true;
   }
 
-  bool dispatch() {
+    int config_bypass() {
+    BypassArgs args;
+    args.input_data_type =
+        param_.input->dataType() == FP32 ? DATA_TYPE_FP32 : DATA_TYPE_FP16;
+    args.output_data_type =
+        param_.output->dataType() == FP32 ? DATA_TYPE_FP32 : DATA_TYPE_FP16;
+    args.input_layout_type = LAYOUT_HWC;
+    args.output_layout_type = LAYOUT_HWC;
+    args.image.address = param_.input->data<void>();
+    args.image.scale_address = param_.input->max();
+    args.image.channels = param_.input->shape().alignedElementCount();
+    args.image.height = 1;
+    args.image.width = 1;
+    args.image.pad_height = 0;
+    args.image.pad_width = 0;
+    args.output.address = param_.output->data<void>();
+    args.output.scale_address = param_.output->max();
+    args.output_idx =
+        param_.output->maxIndex(true);  // TODO(chonwhite) use default index;
+
+    args.inplace.findmax_restart = true;
+    args.inplace.active_param.type = TYPE_NONE;
+    return perform_bypass(args);
+  }
+
+  void apply() {
+
     Tensor* input = param_.input;
     Tensor* output = param_.output;
-    if (input->aligned()) {
-      Tensor tmp;
-      tmp.setAligned(true);
-      tmp.mutableData<float16>(FP16, input->shape());
-      tmp.copyFrom(input);
-      tmp.unalignImage();
-      output->copyFrom(&tmp);
-    } else {
-      output->copyFrom(input);
+
+    if (param_.input->dataType() == FP16) {
+      BypassParam& bypass_param = bypass_out_pe_.param();
+      if (input->aligned()) {
+        temp_tensor.setAligned(true);
+        temp_tensor.mutableData<void>(input->dataType(), input->shape());
+
+        bypass_param.input = &temp_tensor;
+        bypass_param.output = output;
+        bypass_out_pe_.init();
+        bypass_out_pe_.apply();
+      } else {
+        bypass_param.input = input;
+        bypass_param.output = output;
+      }
     }
-    output->syncToCPU();
+
+    transaction_ = TransactionManager::get_instance().getTransaction();
+    if (param_.input->dataType() == FP16) {
+      Action* action = new Action(config_bypass());
+      action_.reset(action);
+      transaction_->appendAction(action);
+    }
+    TransactionManager::get_instance().endTransaction();
+
+  }
+
+  bool dispatch() {
+
+    Tensor* input = param_.input;
+    Tensor* output = param_.output;
+    transaction_->startTraction();
+    if (input->dataType() == FP32) {
+      memcpy(output->mutableData<void>(),
+             input->data<void>(),
+             input->memorySize());
+      output->flush();
+    } else {
+      if (input->aligned()) {
+        temp_tensor.copyFrom(input);
+        temp_tensor.unalignImage();
+      }
+      bypass_out_pe_.dispatch();
+    }
+
+    lite::Debugger::get_instance().commit();
+
     return true;
   }
 
   OutputParam& param() { return param_; }
 
  private:
+  Tensor temp_tensor;
   OutputParam param_;
+  std::shared_ptr<Transaction> transaction_;
+  std::shared_ptr<Action> action_;
+
+  BypassPE bypass_out_pe_;
 };
 }  // namespace zynqmp
 }  // namespace paddle

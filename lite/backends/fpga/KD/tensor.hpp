@@ -58,7 +58,7 @@ class PlaceHolder {
   ~PlaceHolder() { fpga_free(data_); }
 
   float scale_[2];
-  float16 max_[1];
+  float16 max_[2];
 
  private:
   void* data_ = nullptr;
@@ -130,6 +130,62 @@ class Tensor {
 
   float16* max() { return placeHolder_->max_; }
 
+  void readMax() {
+
+    zynqmp::ReadMaxArgs args;
+    args.idx = maxIndex(false);
+    args.address = reinterpret_cast<uint32_t*>(placeHolder_->max_);
+    read_max(args);
+    // std::cout << "readMax args.idx:" << args.idx << ", max:" << half_to_float(max()[0]) << std::endl;
+  }
+
+  void writeMax(float16 max) {
+    (placeHolder_->max_)[0] = max;
+    // max_origin[0] = max;
+    WriteMaxArgs writeMaxArgs;
+    writeMaxArgs.idx = maxIndex();
+    writeMaxArgs.address = (uint64_t)(placeHolder_->max_);
+    write_max(writeMaxArgs);
+  }
+
+  int maxIndex(bool auto_alloc = false) {
+    if (max_index_ <= 0 && auto_alloc) {
+      max_index_ = alloc_max_reg();
+    }
+    return max_index_;
+  }
+
+  void allocMaxIndex() { maxIndex(true); }
+
+  // void readScale() {
+  //   zynqmp::ReadScaleArgs args;
+  //   args.idx = scaleIndex(false);
+  //   args.address = reinterpret_cast<uint32_t*>(placeHolder_->scale_);
+  //   read_scale(args);
+  // }
+
+  // void writeScale(float scale_value) {
+  //   scale()[0] = scale_value;
+  //   scale()[1] = 1.0 / scale_value;
+  //   WriteScaleArgs writeScaleArgs;
+  //   writeScaleArgs.idx = scaleIndex();
+  //   writeScaleArgs.address = (uint64_t)scale();
+  //   write_scale(writeScaleArgs);
+  // }
+
+  // void setIndex(int scale_index) {
+  //   scale_index_ = scale_index;
+  // }
+
+  // int scaleIndex(bool auto_alloc = false) {
+  //   if (scale_index_ <= 0 && auto_alloc) {
+  //     scale_index_ = alloc_scale_reg();
+  //   }
+  //   return scale_index_;
+  // }
+
+  // void allocScaleIndex() { scaleIndex(true); }
+
   void alignImage(Tensor* dst = nullptr, bool copy = false) {
     if (shape_->shouldAlign()) {
       int cell_size = CellSize(this->dataType_);
@@ -170,7 +226,8 @@ class Tensor {
     }
     if (dst != nullptr) {
       dst->copyScaleFrom(this);
-      dst->copyMaxFrom(this);
+      this->readMax();
+      dst->copyMaxFrom(this, true);
     }
   }
 
@@ -179,8 +236,11 @@ class Tensor {
     placeHolder_->scale_[1] = src->placeHolder_->scale_[1];
   }
 
-  inline void copyMaxFrom(Tensor* src) {
+  inline void copyMaxFrom(Tensor* src, bool copy_max_index = false) {
     placeHolder_->max_[0] = src->placeHolder_->max_[0];
+    if (copy_max_index) {
+      this->max_index_ = src->max_index_;
+    }
   }
 
   void unalignImage(Tensor* dst = nullptr, bool copy = false) {
@@ -252,6 +312,9 @@ class Tensor {
       flush();
       return;
     }
+
+    std::cout << "copyFrom error: source data_type:" << src->dataType_ << ",dest data_type: " << std::endl;
+    exit(-1);
 
     int count = src->aligned_ ? src->shape().alignedElementCount()
                               : src->shape().numel();
@@ -354,23 +417,29 @@ class Tensor {
     } else {
       path = path + ".txt";
     }
+
     saveToFile(path);
   }
 
   void saveToFile(std::string path) {
+
     syncToCPU();
-    std::ofstream ofs;
+    // std::ofstream ofs;
     static int counter = 0;
     std::string npath = std::to_string(counter) + "_" + path;
     counter++;
-    save_file_with_name(npath);
+    // if (counter >= 25) {
+      save_file_with_name(npath);
+    // }
   }
 
   void save_file_with_name(std::string path) {
+
     invalidate();
 
     Tensor* t = this;
     Tensor unaligned;
+    std::cout << path << " aligned_:" << this->aligned_ << ",dataType_:" << this->dataType_ << std::endl;
     if (this->aligned_) {
       unaligned.dataType_ = this->dataType_;
       unaligned.aligned_ = this->aligned_;
@@ -383,8 +452,12 @@ class Tensor {
 
     std::ofstream ofs;
     ofs.open(path);
+    // if (max_index_ > 0) {
+    readMax();
+    // }
+    // std::cout << "save_file_with_name max_index_:" << max_index_ << " max: " << half_to_float(max()[0]) << std::endl;
     ofs << "type:" << dataType_ << " max: " << half_to_float(max()[0])
-        << "scale: " << scale()[0] << " id:" << id_ << std::endl;
+        << " id:" << id_  << " max_index_:" << max_index_ << std::endl;
     for (int i = 0; i < shape_->numel(); i++) {
       float value = 0;
       switch (dataType_) {
@@ -503,6 +576,8 @@ class Tensor {
   bool cacheable_ = false;
   bool cached_ = false;
   int offset_ = 0;
+  int scale_index_ = 0;
+  int max_index_ = 0;
   float mem_factor_ = 1.0f;
   std::shared_ptr<PlaceHolder> placeHolder_;
   Shape* shape_ = nullptr;

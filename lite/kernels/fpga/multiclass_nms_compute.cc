@@ -434,6 +434,12 @@ void MulticlassNmsCompute::Run() {
     index->set_lod(lod);
   }
   outs->set_lod(lod);
+  // param.bboxes->ZynqTensor()->saveToFile("multiclass_nms_bboxes_", true);
+  // param.scores->ZynqTensor()->saveToFile("multiclass_nms_scores_", true);
+  // param.out->ZynqTensor()->saveToFile("multiclass_nms_out", true);
+#ifdef FPGA_PRINT_TENSOR
+  Debugger::get_instance().registerOutput("multiclass_nms", param.out->ZynqTensor());
+#endif
 }
 }  // namespace fpga
 }  // namespace kernels

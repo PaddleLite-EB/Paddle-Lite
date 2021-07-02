@@ -20,6 +20,7 @@ limitations under the License. */
 #include "lite/backends/fpga/KD/pe.hpp"
 #include "lite/backends/fpga/KD/pe_params.hpp"
 #include "lite/backends/fpga/KD/pes/conv_process.hpp"
+#include "lite/backends/fpga/KD/pes/cpu_pe.hpp"
 
 namespace paddle {
 namespace zynqmp {
@@ -41,6 +42,7 @@ class DepthwiseConvPE : public PE {
     Tensor* output = param_.output;
     output->setAligned(true);
     output->setDataLocation(Device);
+  
     return true;
   }
 
@@ -155,10 +157,12 @@ class DepthwiseConvPE : public PE {
     args.image.width = input->shape().width();
     args.image.pad_width = param.paddings[0];
     args.image.pad_height = param.paddings[1];
-    args.image.scale_address = input->max();
+    args.input_idx = input->maxIndex();
+    args.output_idx = param.output->maxIndex(true);
+    args.inplace.findmax_restart = 1;
     args.dilation = param_.dilations[0];
     args.output.address = output->data<void>();
-    args.output.scale_address = output->max();
+    // args.output.scale_address = output->max();
     args.out_width = param.output->shape().width();
     args.out_height = param.output->shape().height();
     args.sub_conv_num = 1;
@@ -172,6 +176,10 @@ class DepthwiseConvPE : public PE {
         *(reinterpret_cast<uint32_t*>(&inv_dynamic_range));
 
     if (image_reorder_) {
+      cpu_pe_.reset(new CPUPE());
+      cpu_pe_->init();
+      cpu_pe_->apply();
+
       int reorder_img_height =
           param_.output->shape().height() * param_.filter->shape().height();
       int reorder_img_width =
@@ -195,14 +203,26 @@ class DepthwiseConvPE : public PE {
     }
 
     param_.args = args;
+
+    if (param_.re_assign) {
+       cpu_pe_.reset(new CPUPE());
+       cpu_pe_->init();
+       cpu_pe_->apply();
+    }
+
+    transaction_ = TransactionManager::get_instance().getTransaction();
+    Action* action = new Action(compute_fpga_dwconv(args));
+    action_.reset(action);
+    transaction_->appendAction(action);
   }
 
   bool dispatch() {
     param_.input->syncToDevice();
 
     DWconvArgs& args = param_.args;
-
     if (image_reorder_) {
+      cpu_pe_->dispatch();
+
       int in_w = param_.input->shape().width();
       int in_h = param_.input->shape().height();
       int out_w = param_.output->shape().width();
@@ -240,8 +260,11 @@ class DepthwiseConvPE : public PE {
       }
       reoder_input_.flush();
     }
-
+    
+    // elementwise_mul 重新调整feature，变成scale计算
     if (param_.re_assign) {
+      cpu_pe_->dispatch();
+
       float16* scale_data = scale_bias_.data<float16>();
       int channel = param_.output->shape().channel();
       for (int i = 0; i < align_repeat_; i++) {
@@ -252,7 +275,8 @@ class DepthwiseConvPE : public PE {
       }
       scale_bias_.flush();
     }
-    return compute_fpga_dwconv(param_.args) == 0;
+    // return compute_fpga_dwconv(param_.args) == 0;
+    return true;
   }
 
   DepthwiseConvParam& param() { return param_; }
@@ -263,6 +287,10 @@ class DepthwiseConvPE : public PE {
   int align_repeat_ = 1;
   bool image_reorder_ = false;
   Tensor reoder_input_;
+
+  std::shared_ptr<Transaction> transaction_;
+  std::unique_ptr<Action> action_;
+  std::unique_ptr<CPUPE> cpu_pe_;
 };
 
 }  // namespace zynqmp

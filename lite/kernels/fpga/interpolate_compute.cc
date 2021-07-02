@@ -104,8 +104,8 @@ void BilinearInterpCompute::Run() {
   param.Out->ZynqTensor()->copyFrom(&out_float);
   param.Out->ZynqTensor()->flush();
 
-  Debugger::get_instance().registerOutput("bilinear_interp",
-                                          param.Out->ZynqTensor());
+  // Debugger::get_instance().registerOutput("bilinear_interp",
+  //                                         param.Out->ZynqTensor());
 }
 
 void nearest_interp(const float16* src,
@@ -156,13 +156,18 @@ void NearestInterpCompute::PrepareForRun() {
   lite::Tensor* OutSize = param.OutSize;
   lite::Tensor* Out = param.Out;
   Out->mutable_data<float16>();
+  Out->ZynqTensor()->maxIndex(true);
 
-  zynqmp::ResizeParam& norm_param = pe_.param();
-  norm_param.input = X->ZynqTensor();
-  norm_param.output = Out->ZynqTensor();
+  cpu_pe_.reset(new zynqmp::CPUPE());
+  cpu_pe_->init();
+  cpu_pe_->apply();
 
-  pe_.init();
-  pe_.apply();
+  // zynqmp::ResizeParam& norm_param = pe_.param();
+  // norm_param.input = X->ZynqTensor();
+  // norm_param.output = Out->ZynqTensor();
+
+  // pe_.init();
+  // pe_.apply();
 }
 
 inline std::vector<int> get_new_shape(
@@ -254,6 +259,8 @@ void interpolate(lite::Tensor* X,
 }
 
 void NearestInterpCompute::Run() {
+  cpu_pe_->dispatch();
+
   auto& param = Param<operators::InterpolateParam>();
   lite::Tensor* X = param.X;
   lite::Tensor* OutSize = param.OutSize;
@@ -280,7 +287,11 @@ void NearestInterpCompute::Run() {
               interp_method);
 
   Out->ZynqTensor()->flush();
-  Out->ZynqTensor()->copyScaleFrom(X->ZynqTensor());
+  // Out->ZynqTensor()->copyScaleFrom(X->ZynqTensor());
+  // std::cout << "NearestInterpCompute X max" << std::endl;
+  X->ZynqTensor()->readMax();
+  Out->ZynqTensor()->copyMaxFrom(X->ZynqTensor());
+  Out->ZynqTensor()->writeMax(X->ZynqTensor()->max()[0]);
 }
 
 } /* namespace fpga */

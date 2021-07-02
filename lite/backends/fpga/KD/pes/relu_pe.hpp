@@ -16,6 +16,7 @@ limitations under the License. */
 
 #include "lite/backends/fpga/KD/pe.hpp"
 #include "lite/backends/fpga/KD/pe_params.hpp"
+#include "lite/backends/fpga/KD/pes/bypass_pe.hpp"
 namespace paddle {
 namespace zynqmp {
 
@@ -31,27 +32,34 @@ class ReluPE : public PE {
   void apply() {
     Shape& input_shape = param_.input->shape();
 
-    bypass_args_.input_data_type = DATA_TYPE_FP16;
-    bypass_args_.output_data_type = DATA_TYPE_FP16;
-    bypass_args_.input_layout_type = LAYOUT_HWC;
-    bypass_args_.output_layout_type = LAYOUT_HWC;
-    bypass_args_.image.address = param_.input->data<void>();
-    bypass_args_.image.scale_address = param_.input->max();
-    bypass_args_.image.channels = input_shape.channel();
-    bypass_args_.image.height = input_shape.height();
-    bypass_args_.image.width = input_shape.width();
-    bypass_args_.output.address = param_.output->data<void>();
-    bypass_args_.output.scale_address = param_.output->max();
+    BypassArgs bypass_args;
+    bypass_args.input_data_type = DATA_TYPE_FP16;
+    bypass_args.output_data_type = DATA_TYPE_FP16;
+    bypass_args.input_layout_type = LAYOUT_HWC;
+    bypass_args.output_layout_type = LAYOUT_HWC;
+    bypass_args.image.address = param_.input->data<void>();
+    bypass_args.image.scale_address = param_.input->max();
+    bypass_args.image.channels = input_shape.channel();
+    bypass_args.image.height = input_shape.height();
+    bypass_args.image.width = input_shape.width();
+    bypass_args.output.address = param_.output->data<void>();
+    bypass_args.output.scale_address = param_.output->max();
 
-    bypass_args_.inplace.active_param.type = TYPE_RELU;
-    bypass_args_.inplace.active_param.leaky_relu_factor =
+    bypass_args.inplace.active_param.type = TYPE_RELU;
+    bypass_args.inplace.active_param.leaky_relu_factor =
         float_to_half(param_.activeParam.leaky_relu_factor);
+
+    transaction_ = TransactionManager::get_instance().getTransaction();
+    Action* action = new Action(perform_bypass(bypass_args));
+    std::unique_ptr<Action> action_pointer(action);
+    actions_.push_back(std::move(action_pointer));
+    transaction_->appendAction(action);
   }
 
   bool dispatch() {
     // fpga compute through bypass
-    param_.input->syncToDevice();
-    perform_bypass(bypass_args_);
+    // param_.input->syncToDevice();
+    // perform_bypass(bypass_args_);
     return true;
   }
 
@@ -59,8 +67,10 @@ class ReluPE : public PE {
 
  private:
   InputParam param_;
-  BypassArgs bypass_args_;
+  // BypassArgs bypass_args_;
   float16 zero = float_to_half(0.0f);
+  std::shared_ptr<Transaction> transaction_;
+  std::vector<std::unique_ptr<Action>> actions_;
 };
 
 }  // namespace zynqmp

@@ -197,6 +197,7 @@ int ioctl_conv(const struct ConvArgs &args) {
 }
 
 int compute_fpga_conv_basic(const struct ConvArgs &args) {
+  // std::cout << args; 
   return do_ioctl(IOCTL_CONFIG_CONV, &args);
 }
 
@@ -287,6 +288,63 @@ int compute_fpga_resize(const struct ResizeArgs &args) {
   return do_ioctl(IOCTL_CONFIG_RESIZE, &args);
 }
 
+int link_actions(int action0, int action1) {
+  LinkActionArgs args;
+  args.action_id_1 = action0;
+  args.action_id_2 = action1;
+  return do_ioctl(IOCTL_LINK_ACTION, &args);
+}
+
+void release_action(int action_id) {
+  ReleaseActionArgs args;
+  args.action_id = action_id;
+  do_ioctl(IOCTL_RELEASE_ACTION, &args);
+}
+
+int alloc_max_reg() {
+  GenerateIdxArgs args;
+  return do_ioctl(IOCTL_GENERATE_IDX, &args);
+}
+
+void release_max_reg(int max_index) {
+  ReleaseIdxArgs args;
+  args.idx_id = max_index;
+  do_ioctl(IOCTL_RELEASE_IDX, &args);
+}
+
+int write_max(struct WriteMaxArgs &args) {  // NOLINT
+  return do_ioctl(IOCTL_WRITE_MAX_IDX, &args);
+}
+
+int read_max(struct ReadMaxArgs &args) {  // NOLINT
+  return do_ioctl(IOCTL_READ_MAX_IDX, &args);
+}
+
+
+// int alloc_scale_reg() {
+//   GenerateIdxArgs args;
+//   return do_ioctl(IOCTL_GENERATE_IDX, &args);
+// }
+
+// void release_scale_reg(int scale_index) {
+//   ReleaseIdxArgs args;
+//   args.idx_id = scale_index = scale_index;
+//   do_ioctl(IOCTL_RELEASE_IDX, &args);
+// }
+
+// int write_scale(struct WriteScaleArgs &args) {  // NOLINT
+//   return do_ioctl(IOCTL_WRITE_SCALE_IDX, &args);
+// }
+
+// int read_scale(struct ReadScaleArgs &args) {  // NOLINT
+//   return do_ioctl(IOCTL_READ_SCALE_IDX, &args);
+// }
+
+int start_transaction(const struct CnnCmdArgs &args) {  // NOLINT
+  return do_ioctl(IOCTL_CNN_CMD, &args);
+}
+
+
 int compute_preprocess(const struct PreprocessArgs &args) {
   return do_ioctl(IOCTL_PREPROCESS, &args);
 }
@@ -321,12 +379,20 @@ std::ostream &operator<<(std::ostream &os, const ConvArgs &args) {
   os << "  sb_address : " << args.sb_address << std::endl;
   os << "  dilation : " << args.dilation << std::endl;
   os << "  filter_num : " << args.filter_num << std::endl;
+  os << "  group_num : " << args.group_num << std::endl;
+  os << "  dilation : " << args.dilation << std::endl;
+  os << "  input_idx : " << args.input_idx << std::endl;
+  os << "  output_idx : " << args.output_idx << std::endl;
   os << "  filter_address : " << args.filter_address << std::endl;
   os << "  filterr_scale : "
      << (reinterpret_cast<float *>(args.filter_scale_address))[0] << std::endl;
   os << "  kernel.stride_h : " << args.kernel.stride_h << std::endl;
   os << "  kernel.height : " << args.kernel.height << std::endl;
   os << "  kernel.width : " << args.kernel.width << std::endl;
+
+  os << "  deconv.enabled : " << args.deconv.enabled << std::endl;
+  os << "  deconv.sub_kernel_num : " << args.deconv.sub_kernel_num << std::endl;
+  os << "  deconv.invalid_col_num : " << args.deconv.invalid_col_num << std::endl;
 
   os << "  image.address : " << args.image.address << std::endl;
   os << "  image.scale_address : " << args.image.scale_address << std::endl;
@@ -384,6 +450,47 @@ std::ostream &operator<<(std::ostream &os, const DWconvArgs &args) {
      << std::endl;
   os << "  quant.inv_dynamic_range : " << args.quant.inv_dynamic_range
      << std::endl;
+  return os;
+}
+
+std::ostream &operator<<(std::ostream &os, const PoolingArgs &args) {
+  os << "PoolingArgs {\n";
+  // os << "  mode : " << args.mode << std::endl;
+  // os << "  kernel_reciprocal : " << kernel_reciprocal << std::endl;
+  // os << "  kernel.stride_h : " << args.kernel.stride_h << std::endl;
+  // os << "  kernel.height : " << args.kernel.height << std::endl;
+  // os << "  kernel.width : " << args.kernel.width << std::endl;
+
+  // os << "  image.address : " << args.image.address << std::endl;
+  // os << "  image.scale_address : " << args.image.scale_address << std::endl;
+  // os << "  image.scale : " << half_to_float((reinterpret_cast<float16 *>(
+  //                                 args.image.scale_address))[0])
+  //    << std::endl;
+  // os << "  image.channels : " << args.image.channels << std::endl;
+  // os << "  image.width : " << args.image.width << std::endl;
+  // os << "  image.height : " << args.image.height << std::endl;
+  // os << "  image.pad_width : " << args.image.pad_width << std::endl;
+  // os << "  image.pad_height : " << args.image.pad_height << std::endl;
+  // os << "  output.address : " << args.output.address << std::endl;
+  // os << "  out_width : " << args.out_width << std::endl;
+  // os << "  out_height : " << args.out_height << std::endl;
+  // os << "  output_idx : " << args.output_idx << std::endl;
+  // os << "  input_idx : " << args.input_idx << std::endl;
+  // os << "  InplaceArgs{" << std::endl;
+  // os << "    activationType:" << args.inplace.active_param.type << std::endl;
+  // os << "    leaky_relu_factor:" << args.inplace.active_param.leaky_relu_factor
+  //    << std::endl;
+  // os << "    norm.channel : " << args.inplace.normalize_param.channel
+  //    << std::endl;
+  // os << "    norm.height_width : " << args.inplace.normalize_param.hight_width
+  //    << std::endl;
+  // os << "    norm.enabled : " << args.inplace.normalize_param.enabled
+  //    << std::endl;
+  // os << "  }" << std::endl;
+  // os << "  quant.dynamic_range : " << half_to_float(args.quant.dynamic_range)
+  //    << std::endl;
+  // os << "  quant.inv_dynamic_range : " << args.quant.inv_dynamic_range
+  os << std::endl;
   return os;
 }
 

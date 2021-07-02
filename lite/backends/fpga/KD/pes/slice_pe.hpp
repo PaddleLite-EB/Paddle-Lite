@@ -18,6 +18,7 @@ limitations under the License. */
 
 #include "lite/backends/fpga/KD/pe.hpp"
 #include "lite/backends/fpga/KD/pe_params.hpp"
+#include "lite/backends/fpga/KD/pes/cpu_pe.hpp"
 namespace paddle {
 namespace zynqmp {
 
@@ -25,7 +26,15 @@ class SlicePE : public PE {
  public:
   bool init() { return true; }
 
+  void apply() {
+    cpu_pe_.reset(new CPUPE());
+    cpu_pe_->init();
+    cpu_pe_->apply();
+  }
+
   bool dispatch() {
+    cpu_pe_->dispatch();
+
     Tensor* input = param_.input;
     Tensor* output = param_.output;
     input->syncToCPU();
@@ -63,6 +72,8 @@ class SlicePE : public PE {
         output_data[i] = input_data[i + start];
       }
     }
+    input->readMax();
+    output->copyMaxFrom(input, true);
 
     return true;
   }
@@ -71,6 +82,7 @@ class SlicePE : public PE {
 
  private:
   SliceParam param_;
+  std::unique_ptr<CPUPE> cpu_pe_;
 };
 
 }  // namespace zynqmp

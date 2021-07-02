@@ -14,28 +14,25 @@ limitations under the License. */
 
 #pragma once
 
-#include <stdio.h>
-#include <iostream>
-
-#include "lite/backends/fpga/KD/dispatch/transaction_manager.hpp"
-#include "lite/backends/fpga/KD/pe_params.hpp"
-#include "lite/backends/fpga/KD/tensor_util.hpp"
+#include "lite/backends/fpga/KD/llapi/zynqmp_api.h"
 
 namespace paddle {
 namespace zynqmp {
 
-class PE {
+class Action {
  public:
-  virtual bool init() { return false; }
+  explicit Action(int id) { id_ = id; }
 
-  virtual void apply() {}
+  int id() { return id_; }
 
-  virtual bool dispatch() { 
-  	std::cout << "dispatch" << std::endl;
-  	return false; 
+  ~Action() {
+    if (id_ > 0) {
+      release_action(id_);
+    }
   }
 
-  virtual ~PE() {}
+ private:
+  int id_ = -1;
 };
 }  // namespace zynqmp
 }  // namespace paddle

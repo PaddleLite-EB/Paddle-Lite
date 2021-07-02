@@ -344,7 +344,8 @@ inline void config_basic_conv_input_args(BasicConvParam* conv_param,
                                          int width,
                                          int height,
                                          int pad_h,
-                                         int pad_w) {
+                                         int pad_w,
+                                         int max_index) {
   ConvArgs& args = conv_param->args;
   args.image.address = input_address;
   args.image.scale_address = scale_address;
@@ -353,6 +354,7 @@ inline void config_basic_conv_input_args(BasicConvParam* conv_param,
   args.image.height = height;
   args.image.pad_width = pad_w;
   args.image.pad_height = pad_h;
+  args.input_idx = max_index;
 }
 
 inline void config_basic_conv_filter(BasicConvParam* conv_param,
@@ -549,6 +551,17 @@ inline DCpuConcatType split_filter_num(const ConvParam& c_param,
     conv_param->filter.flush();
     conv_param->filter.setDataType(INT8);
 
+    // Shape input_shape = input->shape();
+    // Shape filter_shape = conv_param->filter.shape();
+    // std::cout << "input_filter:";
+    // std::cout << std::to_string(input_shape.channel()) << ",";
+    // std::cout << std::to_string(input_shape.height()) << ",";
+    // std::cout << std::to_string(filter_shape.channel()) << ",";
+    // std::cout << std::to_string(filter_shape.height()) << ",";
+    // std::cout << std::to_string(max) << ",";
+    // std::cout << std::endl;
+
+
     int sb_channnel_start = i * filter_num_per_div;
     Shape s_shape(NC, {1, filter_num});
     Tensor scale;
@@ -594,7 +607,8 @@ inline DCpuConcatType split_filter_num(const ConvParam& c_param,
                                  input->shape().width(),
                                  input->shape().height(),
                                  param.paddings[0],
-                                 param.paddings[1]);
+                                 param.paddings[1],
+                                 input->maxIndex());
 
     config_basic_conv_deconv_info(conv_param, false);
     // support jump write
@@ -620,8 +634,6 @@ inline DCpuConcatType split_filter_num(const ConvParam& c_param,
       config_basic_conv_deconv_info(
           conv_param, true, sub_conv_number, omit_size);
     }
-
-
 
     param.splitParams().push_back(conv_param);
   }
@@ -747,7 +759,9 @@ inline void pack_channel_filter(const ConvParam& c_param) {
     args.filter_num = filter_current_pack;
     args.filter_scale_address = conv_param->filter.scale();
     args.image.address = input_address;
-    args.image.scale_address = input->max();
+    args.image.scale_address = input->scale();
+    args.input_idx = input->maxIndex();
+    // args.input_idx = input->scaleIndex();
     args.image.channels = channel_current_pack;
     args.image.width = input->shape().width();
     args.image.height = input->shape().height();
@@ -851,6 +865,10 @@ inline void split_channel(const ConvParam& c_param) {
     args.filter_scale_address = conv_param->filter.scale();
     args.image.address = conv_param->input.mutableData<void>();
     args.image.scale_address = conv_param->input.max();
+    args.input_idx = input->maxIndex();
+    // std::cout << "conv_process conv input idx:" << args.input_idx << std::endl;
+    // std::cout << "conv_process input Tensor:" << input << ",input_idx:" <<  args.output_idx << std::endl;
+    // args.input_idx = input->scaleIndex();
     args.image.channels = conv_param->input.shape().channel();
     args.image.width = conv_param->input.shape().width();
     args.image.height = conv_param->input.shape().height();
@@ -882,6 +900,7 @@ inline int fill_split_arg(const ConvParam& c_param) {
     split_channel(c_param);
     return 1;
   } else if (param.groups == 1) {
+    // std::cout << "conv_process split_filter_num" << std::endl;
     split_filter_num(c_param);
     return 0;
   } else {

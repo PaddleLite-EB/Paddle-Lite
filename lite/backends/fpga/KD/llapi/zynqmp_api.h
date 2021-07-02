@@ -102,9 +102,15 @@ struct NormalizeParameterArgs {
 };
 
 struct InplaceArgs {
-  // bool                          findmax_restart;
+  bool   findmax_restart = true;
   struct ActivationArgs active_param;
   struct NormalizeParameterArgs normalize_param;
+};
+
+struct BNArgs {
+    bool  enabled;
+    void* bias_address;
+    void* scale_address;
 };
 
 /**
@@ -159,6 +165,8 @@ struct ConvArgs {
   uint32_t filter_num;
   uint32_t group_num;
   uint32_t dilation;
+  uint32_t output_idx;  // output max index
+  uint32_t input_idx;   // input max index
 
   struct DeconvArgs deconv;
   struct KernelArgs kernel;
@@ -180,6 +188,8 @@ struct DWconvArgs {
   uint16_t out_height;
   uint16_t sub_conv_num;
   uint32_t dilation;
+  uint32_t output_idx; //output max index
+  uint32_t input_idx; //input max index
   struct InplaceArgs inplace;
   struct QuantArgs quant;
 };
@@ -192,6 +202,8 @@ struct PoolingArgs {
   struct ImageOutputArgs output;
   uint16_t out_width;
   uint16_t out_height;
+  uint32_t output_idx; //output max index
+  uint32_t input_idx; //input max index
   struct InplaceArgs inplace;
   struct QuantArgs quant;
 };
@@ -203,6 +215,9 @@ struct EWAddArgs {
   struct ImageInputArgs image0;
   struct ImageInputArgs image1;
   struct ImageOutputArgs output;
+  uint32_t output_idx; //output max index
+  uint32_t input_idx; //input max index
+  uint32_t input_idx_ew1; //input scale index for ew fm1
   struct InplaceArgs inplace;
   struct QuantArgs quant;
 };
@@ -214,6 +229,7 @@ struct BypassArgs {
   enum DLayoutType output_layout_type;
   struct ImageInputArgs image;
   struct ImageOutputArgs output;
+  uint32_t output_idx;  // output max index
   struct InplaceArgs inplace;
 };
 
@@ -226,6 +242,8 @@ struct ScaleArgs {
   struct ImageInputArgs image;
   struct ImageOutputArgs output;
   struct InplaceArgs inplace;
+  uint32_t input_idx;
+  uint32_t output_idx; // output max index 
 };
 
 struct NormalizeArgs {
@@ -234,7 +252,8 @@ struct NormalizeArgs {
   uint32_t image_width;
   uint32_t image_height;
   uint32_t image_channel;
-  uint32_t* output_scale_address;
+  void* output_scale_address;
+  uint32_t  output_idx; // output max index 
   struct InplaceArgs inplace;
 };
 
@@ -294,6 +313,47 @@ struct FpgaResetArgs {
   uint32_t dummy;
 };
 
+struct CnnCmdArgs {
+  uint32_t action_id;
+};
+
+struct LinkActionArgs {
+  uint32_t action_id_1;
+  uint32_t action_id_2;
+};
+
+struct GenerateIdxArgs {
+  uint32_t idx;
+};
+
+// struct WriteScaleArgs {
+//   uint32_t idx;
+//   uint64_t address;
+// };
+
+// struct ReadScaleArgs {
+//   uint32_t idx;
+//   uint32_t* address;
+// };
+
+struct WriteMaxArgs {
+  uint32_t idx;
+  uint64_t address;
+};
+
+struct ReadMaxArgs {
+  uint32_t idx;
+  uint32_t* address;
+};
+
+struct ReleaseActionArgs {
+  uint32_t action_id;
+};
+
+struct ReleaseIdxArgs {
+  uint32_t idx_id;
+};
+
 #define IOCTL_FPGA_MAGIC (('F' + 'P' + 'G' + 'A') / 4)
 // #define IOCTL_MEMORY_MAGIC                  (('M' + 'E' + 'M' + 'Y') / 4)
 
@@ -319,16 +379,27 @@ struct FpgaResetArgs {
 #define IOCTL_CONFIG_DWCONV _IOW(IOCTL_FPGA_MAGIC, 31, struct DWconvArgs)
 
 #define IOCTL_CONFIG_INPLACE _IOW(IOCTL_FPGA_MAGIC, 40, struct InplaceArgs)
+#define IOCTL_CONFIG_POWER_PARAMETER        _IOW(IOCTL_FPGA_MAGIC, 41, struct PowerParameterArgs)
+#define IOCTL_CONFIG_NORMALIZE_PARAMETER    _IOW(IOCTL_FPGA_MAGIC, 42, struct NormalizeParameterArgs)
+#define IOCTL_CONFIG_ACTIVATION_PARAMETER   _IOW(IOCTL_FPGA_MAGIC, 43, struct ActiveParamterArgs)
 
 #define IOCTL_FPGA_REG_READ _IOW(IOCTL_FPGA_MAGIC, 50, struct FpgaRegReadArgs)
 #define IOCTL_FPGA_REG_WRITE _IOW(IOCTL_FPGA_MAGIC, 51, struct FpgaRegWriteArgs)
 #define IOCTL_FPGA_RESET _IOW(IOCTL_FPGA_MAGIC, 52, struct FpgaResetArgs)
 
+#define IOCTL_CNN_CMD _IOW(IOCTL_FPGA_MAGIC, 90, struct CnnCmdArgs)
 #define IOCTL_DEVICE_INFO _IOW(IOCTL_FPGA_MAGIC, 100, struct DeviceInfoArgs)
+#define IOCTL_LINK_ACTION _IOW(IOCTL_FPGA_MAGIC, 150, struct LinkActionArgs)
+#define IOCTL_GENERATE_IDX _IOW(IOCTL_FPGA_MAGIC, 151, struct GenerateIdxArgs)
+// #define IOCTL_WRITE_SCALE_IDX _IOW(IOCTL_FPGA_MAGIC, 152, struct WriteScaleArgs)
+// #define IOCTL_READ_SCALE_IDX _IOW(IOCTL_FPGA_MAGIC, 153, struct ReadScaleArgs)
+#define IOCTL_WRITE_MAX_IDX _IOW(IOCTL_FPGA_MAGIC, 152, struct WriteMaxArgs)
+#define IOCTL_READ_MAX_IDX _IOW(IOCTL_FPGA_MAGIC, 153, struct ReadMaxArgs)
+#define IOCTL_RELEASE_ACTION \
+  _IOW(IOCTL_FPGA_MAGIC, 154, struct ReleaseActionArgs)
+#define IOCTL_RELEASE_IDX _IOW(IOCTL_FPGA_MAGIC, 155, struct ReleaseIdxArgs)
 
-#define IOCTL_SEPARATOR_2 110
-
-#define IOCTL_SEPARATOR_3 200
+#define IOCTL_SEPARATOR_2 200
 #define IOCTL_PREPROCESS _IOW(IOCTL_FPGA_MAGIC, 201, struct PreprocessArgs)
 
 //============================== API =============================
@@ -374,11 +445,31 @@ int compute_norm(const struct NormalizeArgs& args);
 int flush_cache(void* addr, int size);
 int invalidate_cache(void* addr, int size);
 
+int link_actions(int action0, int action1);
+void release_action(int action_id);
+
+int flush_cache(void* addr, int size);
+int invalidate_cache(void* addr, int size);
+
+int write_max(struct WriteMaxArgs& args);  // NOLINT
+int read_max(struct ReadMaxArgs& args);  // NOLINT
+int alloc_max_reg();
+void release_max_reg(int max_index);
+
+// int alloc_scale_reg();
+// void release_scale_reg(int scale_index);
+
+int start_transaction(const struct CnnCmdArgs& args);  // NOLINT
+
 int fpga_reset();
 int compute_preprocess(const struct PreprocessArgs& args);
 
 int16_t fp32_2_fp16(float fp32_num);
 float fp16_2_fp32(int16_t fp16_num);
+
+// int write_scale(struct WriteScaleArgs& args);  // NOLINT
+
+// int read_scale(struct ReadScaleArgs& args);  // NOLINT
 
 }  // namespace zynqmp
 }  // namespace paddle

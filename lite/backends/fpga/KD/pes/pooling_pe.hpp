@@ -18,6 +18,7 @@ limitations under the License. */
 
 #include "lite/backends/fpga/KD/pe.hpp"
 #include "lite/backends/fpga/KD/pe_params.hpp"
+#include "lite/backends/fpga/KD/pes/cpu_pe.hpp"
 
 namespace paddle {
 namespace zynqmp {
@@ -79,8 +80,30 @@ class PoolingPE : public PE {
     args.inplace.active_param.leaky_relu_factor =
         float_to_half(param_.activeParam.leaky_relu_factor);
 
+    if (align_channel_) {
+        cpu_pe_align_.reset(new CPUPE());
+        cpu_pe_align_->init();
+        cpu_pe_align_->apply();
+
+        int align_c = align_to_x(input_c, IMAGE_ALIGNMENT);
+
+        Shape in_shape(
+            NHWC,
+            {1, input->shape().height(), input->shape().width(), align_c});
+        Shape out_shape(
+            NHWC,
+            {1, output->shape().height(), output->shape().width(), align_c});
+        float16* tmp_in = input_tmp_.mutableData<float16>(FP16, in_shape);
+        float16* tmp_out = output_tmp_.mutableData<float16>(FP16, out_shape);
+
+        args.image.channels = align_c;
+        args.image.address = tmp_in;
+        args.output.address = tmp_out;
+    }
+
     // global pool cases: BRAM can't contain one kernel
     if (divide_pool_) {
+
       float kw_reciprocal = 1.0 / k_width;
       float kh_reciprocal = 1.0 / k_height;
 
@@ -96,7 +119,16 @@ class PoolingPE : public PE {
       args.image.address = input->data<float16>();
       args.output.address = mid_out_.data<void>();
       args.output.scale_address = mid_out_.max();
+      args.output_idx = mid_out_.maxIndex(true);
+      args.input_idx = input->maxIndex();
+      args.inplace.findmax_restart = 1;
       param_.poolingArgs = args;
+
+      transaction_ = TransactionManager::get_instance().getTransaction();
+      Action* action = new Action(compute_fpga_pool(param_.poolingArgs));
+      std::unique_ptr<Action> action_pointer(action);
+      actions_.push_back(std::move(action_pointer));
+      transaction_->appendAction(action);
 
       args.kernel_reciprocal = *(reinterpret_cast<uint32_t*>(&kh_reciprocal));
       args.image.width = 1;
@@ -109,7 +141,17 @@ class PoolingPE : public PE {
       args.output.address = output->mutableData<float16>();
       args.image.scale_address = mid_out_.max();
       args.output.scale_address = output->max();
+      args.output_idx = output->maxIndex(true);
+      args.input_idx = mid_out_.maxIndex();
+      args.inplace.findmax_restart = 1;
       param_divide_.poolingArgs = args;
+
+      transaction_ = TransactionManager::get_instance().getTransaction();
+      Action* action1 = new Action(compute_fpga_pool(param_divide_.poolingArgs));
+      std::unique_ptr<Action> action_pointer1(action1);
+      actions_.push_back(std::move(action_pointer1));
+      transaction_->appendAction(action1);
+
     } else {
       args.kernel_reciprocal =
           *(reinterpret_cast<uint32_t*>(&kernel_reciprocal));
@@ -121,26 +163,28 @@ class PoolingPE : public PE {
       args.output.address = output->mutableData<float16>();
       args.out_height = output->shape().height();
       args.out_width = output->shape().width();
-
-      if (align_channel_) {
-        int align_c = align_to_x(input_c, IMAGE_ALIGNMENT);
-
-        Shape in_shape(
-            NHWC,
-            {1, input->shape().height(), input->shape().width(), align_c});
-        Shape out_shape(
-            NHWC,
-            {1, output->shape().height(), output->shape().width(), align_c});
-        float16* tmp_in = input_tmp_.mutableData<float16>(FP16, in_shape);
-        float16* tmp_out = output_tmp_.mutableData<float16>(FP16, out_shape);
-
-        args.image.channels = align_c;
-        args.image.address = tmp_in;
-        args.output.address = tmp_out;
-      }
+      args.output_idx = output->maxIndex(true);
+      args.input_idx = input->maxIndex();
+      args.inplace.findmax_restart = true;
 
       param_.poolingArgs = args;
+
+      transaction_ = TransactionManager::get_instance().getTransaction();
+      Action* action = new Action(compute_fpga_pool(param_.poolingArgs));
+      std::unique_ptr<Action> action_pointer(action);
+      actions_.push_back(std::move(action_pointer));
+      transaction_->appendAction(action);
     }
+
+    if (align_channel_) {
+      cpu_pe_unalign_.reset(new CPUPE());
+      cpu_pe_unalign_->init();
+      cpu_pe_unalign_->apply();
+    }
+
+    // cpu_pe_.reset(new CPUPE());
+    // cpu_pe_->init();
+    // cpu_pe_->apply();
   }
 
   void compute() {
@@ -220,6 +264,7 @@ class PoolingPE : public PE {
     int align_c = align_to_x(channel, IMAGE_ALIGNMENT);
 
     if (align_channel_) {
+      cpu_pe_align_->dispatch();
       float16* tmp_in = input_tmp_.data<float16>();
       float16* in_data = param_.input->data<float16>();
       for (int hw = 0; hw < in_h * in_w; hw++) {
@@ -230,9 +275,14 @@ class PoolingPE : public PE {
       input_tmp_.flush();
     }
 
-    ret = compute_fpga_pool(param_.poolingArgs);
 
+    // ret = compute_fpga_pool(param_.poolingArgs);
+    // if (ret == 0 && divide_pool_) {
+    //   ret = compute_fpga_pool(param_divide_.poolingArgs);
+    // }
+    // unalign
     if (align_channel_) {
+      cpu_pe_unalign_->dispatch();
       float16* tmp_out = output_tmp_.data<float16>();
       float16* out_data = param_.output->data<float16>();
       output_tmp_.invalidate();
@@ -243,9 +293,12 @@ class PoolingPE : public PE {
       }
     }
 
-    if (ret == 0 && divide_pool_) {
-      ret = compute_fpga_pool(param_divide_.poolingArgs);
-    }
+    // cpu_pe_->dispatch();
+    // param_.input->readMax();
+    // param_.input->saveToFile("pool_input_", true);
+    // param_.output->readMax();
+    // param_.output->saveToFile("pool_output_", true);
+   
     return ret == 0;
   }
 
@@ -260,6 +313,12 @@ class PoolingPE : public PE {
   bool use_cpu_ = false;
   bool divide_pool_ = false;
   bool align_channel_ = false;
+
+  std::shared_ptr<Transaction> transaction_;
+  std::vector<std::unique_ptr<Action>> actions_;
+  std::unique_ptr<CPUPE> cpu_pe_align_;
+  std::unique_ptr<CPUPE> cpu_pe_unalign_;
+  std::unique_ptr<CPUPE> cpu_pe_;
 };
 
 }  // namespace zynqmp

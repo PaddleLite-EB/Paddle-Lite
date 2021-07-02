@@ -18,8 +18,10 @@
 #include <iostream>
 #include <string>
 #include <unordered_map>
-
+#include <utility>
+#include <vector>
 #include "lite/core/program.h"
+#include "lite/backends/fpga/KD/llapi/zynqmp_api.h"
 #include "lite/core/tensor.h"
 
 namespace paddle {
@@ -36,23 +38,59 @@ class Debugger {
   }
 
   void registerOutput(std::string op_type, zynqmp::Tensor* tensor) {
-    if (op_config[op_type]) {
-      tensor->saveToFile(op_type, true);
+    // if (op_config[op_type]) {
+    //   tensor->saveToFile(op_type, true);
+    // }
+    std::cout << "registerOutput: " << op_type << std::endl;
+    std::pair<std::string, zynqmp::Tensor*> p;
+    p.first = op_type;
+    p.second = tensor;
+    tensors_.push_back(p);
+  }
+
+ void tick(std::string key) {
+    float value = 0;
+    if (tick_tock_map.count(key) > 0) {
+      value += tick_tock_map[key] = value;
     }
   }
 
+  void tock(std::string key) {}
+
   void setEnable(bool en) { enabled_ = en; }
+
+  void clear() { tensors_.clear(); }
+
+  void commit() {
+    // float out_scale[2] = {0, 0};
+    for (int i = 0; i < tensors_.size(); i++) {
+      std::pair<std::string, zynqmp::Tensor*> p = tensors_[i];
+      // zynqmp::ReadScaleArgs args;
+      // args.idx = p.second->scaleIndex(false);
+      // args.address = reinterpret_cast<uint32_t*>(out_scale);
+      // read_scale(args);
+      // p.second->scale()[0] = out_scale[0];
+      // p.second->scale()[1] = out_scale[1];
+      // std::cout << "save_tensor: " << p.first << std::endl;
+      p.second->readMax();
+      p.second->saveToFile(p.first, true);
+    }
+  }
 
  private:
   bool enabled_ = false;
+
+  std::vector<std::pair<std::string, zynqmp::Tensor*>> tensors_;
 
   std::unordered_map<std::string, bool> op_config;
   std::unordered_map<std::string, float> tick_tock_map;
   Debugger() {
     op_config["concat"] = true;
     op_config["pooling"] = true;
+    op_config["pooling_split"] = true;
     op_config["conv"] = true;
     op_config["dropout"] = true;
+    op_config["flatten"] = true;
     op_config["dwconv"] = true;
     op_config["ew_add"] = true;
     op_config["ew_mul"] = true;
@@ -66,9 +104,15 @@ class Debugger {
     op_config["nms"] = true;
     op_config["pb_boxes"] = true;
     op_config["pb_variances"] = true;
+    op_config["yolo_boxes"] = true;
+    op_config["yolo_scores"] = true;
+    op_config["transpose"] = true;
+    op_config["transpose2"] = true;
     op_config["reshape"] = true;
     op_config["softmax"] = true;
     op_config["split"] = true;
+    op_config["sigmoid"] = true;
+    op_config["conv2d_transpose"] = true;
   }
 };
 

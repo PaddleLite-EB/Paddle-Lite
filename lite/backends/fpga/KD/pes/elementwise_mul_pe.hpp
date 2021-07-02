@@ -52,9 +52,16 @@ class ElementwiseMulPE : public PE {
     args.image.pad_height = 0;
     args.output.address = output->data<void>();
     args.output.scale_address = output->max();
+    args.input_idx = input->maxIndex();
+    args.output_idx = output->maxIndex(true);
     args.inplace.active_param.type = param_.activeParam.type;
     args.inplace.active_param.leaky_relu_factor =
         float_to_half(param_.activeParam.leaky_relu_factor);
+
+    transaction_ = TransactionManager::get_instance().getTransaction();
+    Action* action = new Action(compute_fpga_scale(args));
+    action_.reset(action);
+    transaction_->appendAction(action);
   }
 
   void updateInput(Tensor* t, int index) {
@@ -64,7 +71,7 @@ class ElementwiseMulPE : public PE {
   }
 
   bool dispatch() {
-    compute_fpga_scale(args_) == 0;
+    // compute_fpga_scale(args_) == 0;
     return true;
   }
 
@@ -74,6 +81,9 @@ class ElementwiseMulPE : public PE {
   ElementwiseMulParam param_;
   ScaleArgs args_ = {0};
   Tensor bias_tensor;
+
+  std::shared_ptr<Transaction> transaction_;
+  std::unique_ptr<Action> action_;
 };
 
 }  // namespace zynqmp

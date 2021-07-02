@@ -17,6 +17,8 @@ limitations under the License. */
 #include <algorithm>
 #include "lite/backends/fpga/KD/pe.hpp"
 #include "lite/backends/fpga/KD/pe_params.hpp"
+#include "lite/backends/fpga/KD/pes/bypass_pe.hpp"
+#include "lite/backends/fpga/KD/pes/cpu_pe.hpp"
 
 namespace paddle {
 namespace zynqmp {
@@ -92,6 +94,9 @@ class YoloBoxPE : public PE {
   }
 
   bool dispatch() {
+    input_bypass_pe_.dispatch();
+    cpu_pe_.dispatch();
+
     auto* input = param_.input;
     auto* imgsize = param_.imgSize;
     auto* boxes = param_.outputBoxes;
@@ -117,13 +122,12 @@ class YoloBoxPE : public PE {
     std::copy(anchors.begin(), anchors.end(), anchors_data);
 
     input->syncToCPU();
-    Tensor input_float;
-    input_float.setDataLocation(CPU);
-    float* input_data = input_float.mutableData<float>(FP32, input->shape());
-    input_float.copyFrom(input);
-    input_float.setAligned(input->aligned());
-    input_float.unalignImage();
-    input_float.setAligned(false);
+
+    input_float_.setAligned(input->aligned());
+    input_float_.unalignImage();
+    input_float_.setAligned(false);
+    // float* input_data = input_float.mutableData<float>(FP32, input->shape());
+    float* input_data = input_float_.mutableData<float>();
 
     Tensor boxes_float;
     Tensor scores_float;
@@ -151,7 +155,7 @@ class YoloBoxPE : public PE {
       img_width = imgsize_data[1];
     }
 
-    int channel = input_float.shape().channel();
+    int channel = input_float_.shape().channel();
     int count = 0;
     for (int h = 0; h < height; h++) {
       for (int w = 0; w < width; w++) {
@@ -200,12 +204,29 @@ class YoloBoxPE : public PE {
     scores->copyFrom(&scores_float);
   }
 
-  void apply() {}
+  void apply() {
+    input_float_.setDataLocation(CPU);
+    input_float_.mutableData<float>(FP32, param_.input->shape());
+    input_float_.setAligned(param_.input->aligned());
+
+    BypassParam& bypass_param = input_bypass_pe_.param();
+    bypass_param.input = param_.input;
+    bypass_param.output = &input_float_;
+
+    input_bypass_pe_.init();
+    input_bypass_pe_.apply();
+
+    cpu_pe_.init();
+    cpu_pe_.apply();
+  }
 
   YoloBoxParam& param() { return param_; }
 
  private:
+  Tensor input_float_;
   YoloBoxParam param_;
+  CPUPE cpu_pe_;
+  BypassPE input_bypass_pe_;
 };
 }  // namespace zynqmp
 }  // namespace paddle

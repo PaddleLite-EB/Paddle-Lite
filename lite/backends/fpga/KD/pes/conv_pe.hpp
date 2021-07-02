@@ -23,9 +23,12 @@ limitations under the License. */
 #include "lite/backends/fpga/KD/pes/concat_pe.hpp"
 #include "lite/backends/fpga/KD/pes/conv_pe.hpp"
 #include "lite/backends/fpga/KD/pes/conv_process.hpp"
+#include "lite/backends/fpga/KD/pes/cpu_pe.hpp"
 #include "lite/backends/fpga/KD/pes/elementwise_add_pe.hpp"
 #include "lite/backends/fpga/KD/pes/scale_pe.hpp"
 #include "lite/backends/fpga/KD/pes/split_pe.hpp"
+
+#include "lite/backends/fpga/KD/dispatch/transaction_manager.hpp"
 
 namespace paddle {
 namespace zynqmp {
@@ -45,11 +48,32 @@ class ConvPE : public PE {
       pack_channel = split_axis == 2 && param_.splitParams().size() > 1;
       split_cpu_concat = split_axis == 0 && param_.cpu_concat;
       split_channel = split_axis == 1;
-      for (auto conv_param : param_.splitParams()) {
+
+      if (pack_channel || split_channel) {
+        SplitParam& split_param = splitPE_.param();
+        split_param.input = param_.input;
+        for (auto conv_param : param_.splitParams()) {
+          split_param.outputs.push_back(&conv_param->input);
+        }
+        splitPE_.init();
+        splitPE_.apply();
+      }
+
+      // ======================= dispatch =======================
+      transaction_ = TransactionManager::get_instance().getTransaction();
+      for (int i = 0; i < param_.splitParams().size(); i++) {
+        auto conv_param = param_.splitParams()[i];
+        conv_param->args.output_idx = param_.output->maxIndex(true);
+        conv_param->args.inplace.findmax_restart = i == 0;
         conv_param->args.inplace.active_param.type = param_.activeParam.type;
         conv_param->args.inplace.active_param.leaky_relu_factor =
             float_to_half(param_.activeParam.leaky_relu_factor);
-      }
+
+        int action_id = compute_fpga_conv_basic(conv_param->args);
+        Action* action = new Action(action_id);
+        actions_.push_back(action);
+        transaction_->appendAction(action);
+      } 
 
       if (pack_channel) {
         ConcatParam& concat_param = concatPE_.param();
@@ -71,22 +95,26 @@ class ConvPE : public PE {
         concat_param.output = param_.output;
         concatPE_.init();
         concatPE_.apply();
-      }
+      }  
+    }
 
-      if (pack_channel || split_channel) {
-        SplitParam& split_param = splitPE_.param();
-        split_param.input = param_.input;
-        for (auto conv_param : param_.splitParams()) {
-          split_param.outputs.push_back(&conv_param->input);
-        }
-        splitPE_.init();
-        splitPE_.apply();
-      }
+    std::vector<BasicConvParam*>& params = param_.splitParams();
+      if (split_channel && params.size() > 1) {
+        ElementwiseAddParam& add_param = addPE_.param();
+        add_param.inputs = {&params[0]->output, &params[1]->output};
+        add_param.output = param_.output;
+        addPE_.init();
+        addPE_.apply();
     }
 
     if (!use_cpu_) {
       param_.filter->releaseData();
     }
+ 
+    // cpu_pe_.reset(new CPUPE());
+    // cpu_pe_->init();
+    // cpu_pe_->apply();
+
   }
   void cpu_compute() {
     Tensor* input = param_.input;
@@ -139,13 +167,7 @@ class ConvPE : public PE {
       splitPE_.dispatch();
     }
 
-    int ret = 0;
-
-    for (auto conv_param : params) {
-      ret |= compute_fpga_conv_basic(conv_param->args);
-    }
-
-    if ((pack_channel || split_cpu_concat) && ret == 0 && !param_.deconv) {
+    if ((pack_channel || split_cpu_concat) && !param_.deconv) {
       concatPE_.dispatch();
     }
     if (!split_channel && param_.deconv == false) {
@@ -168,15 +190,16 @@ class ConvPE : public PE {
       param_.output->max()[0] = max_val;
     }
 
-    if (split_channel && ret == 0 && params.size() > 1) {
+    if (split_channel && params.size() > 1) {
       ElementwiseAddParam& add_param = addPE_.param();
       add_param.inputs = {&params[0]->output, &params[1]->output};
       add_param.output = param_.output;
-      addPE_.init();
-      addPE_.apply();
       addPE_.dispatch();
     }
-    return ret == 0;
+    
+    // cpu_pe_->dispatch();
+  
+    return true;
   }
 
   ConvParam& param() { return param_; }
@@ -191,6 +214,10 @@ class ConvPE : public PE {
   SplitPE splitPE_;
   ElementwiseAddPE addPE_;
   int split_axis = 0;
+
+  std::shared_ptr<Transaction> transaction_;
+  std::vector<Action*> actions_;
+  std::unique_ptr<CPUPE> cpu_pe_;
 };
 
 }  // namespace zynqmp

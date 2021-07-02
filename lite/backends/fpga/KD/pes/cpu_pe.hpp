@@ -13,40 +13,43 @@ See the License for the specific language governing permissions and
 limitations under the License. */
 
 #pragma once
+
+#include <algorithm>
 #include <memory>
+#include <vector>
 
 #include "lite/backends/fpga/KD/pe.hpp"
 #include "lite/backends/fpga/KD/pe_params.hpp"
-#include "lite/backends/fpga/KD/pes/cpu_pe.hpp"
+
+#include "lite/backends/fpga/KD/dispatch/transaction_manager.hpp"
 
 namespace paddle {
 namespace zynqmp {
 
-class PriorBoxPE : public PE {
+class CPUPE : public PE {
  public:
   bool init() {
-    param_.outputBoxes->setAligned(false);
-    param_.outputBoxes->setDataLocation(CPU);
-    param_.outputBoxes->setCacheable(true);
-    param_.outputVariances->setAligned(false);
-    param_.outputVariances->setDataLocation(CPU);
-    param_.outputVariances->setCacheable(true);
+    for (Tensor* t : param_.outputs) {
+      // t->scaleIndex(true);
+      t->maxIndex(true);
+    }
     return true;
   }
 
-  bool dispatch();
+  void apply() {
+    transaction_ = TransactionManager::get_instance().getTransaction();
+    TransactionManager::get_instance().endTransaction();
+  }
 
-  void apply();
+  bool dispatch() { transaction_->startTraction(); }
 
-  PriorBoxParam& param() { return param_; }
+  CPUParam& param() { return param_; }
 
  private:
-  PriorBoxParam param_;
-  std::unique_ptr<Tensor> cachedBoxes_;
-  std::unique_ptr<Tensor> cachedVariances_;
-  CPUPE cpu_pe_;
+  CPUParam param_;
 
-  void compute_prior_box();
+  std::shared_ptr<Transaction> transaction_;
 };
+
 }  // namespace zynqmp
 }  // namespace paddle

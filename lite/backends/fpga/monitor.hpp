@@ -23,6 +23,7 @@
 
 #include "lite/core/program.h"
 #include "lite/core/tensor.h"
+#include "lite/backends/fpga/KD/debugger.hpp"
 
 namespace paddle {
 namespace lite {
@@ -60,15 +61,17 @@ class Monitor {
         }
       }
     }
+    VLOG(4) << "\n preRun end:";
   }
 
   void postRun(Instruction& inst) {  // NOLINT
+    VLOG(4) << "\n postRun 0:";
     auto op = const_cast<OpLite*>(inst.op());
     auto op_info = op->op_info();
     auto in_names = op_info->input_names();
 
     static std::vector<std::string> tensor_names = {};
-
+    VLOG(4) << "\n postRun out_tensor:";
     auto should_print = [tensor_names](std::string& name) -> bool {
       if (std::find(tensor_names.begin(), tensor_names.end(), name) !=
           tensor_names.end()) {
@@ -93,7 +96,8 @@ class Monitor {
           }
           VLOG(4) << "\n out_tensor:::" << name;
           if (tensor->ZynqTensor() != nullptr && should_print(name)) {
-            tensor->ZynqTensor()->saveToFile(name, true);
+            // tensor->ZynqTensor()->saveToFile(name, true);
+            // Debugger::get_instance().registerOutput(name, tensor->ZynqTensor());
           }
         }
       }

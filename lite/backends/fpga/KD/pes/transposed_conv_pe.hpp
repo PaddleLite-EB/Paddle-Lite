@@ -26,6 +26,7 @@ limitations under the License. */
 #include "lite/backends/fpga/KD/pes/scale_pe.hpp"
 #include "lite/backends/fpga/KD/pes/split_pe.hpp"
 #include "lite/backends/fpga/KD/pes/transposed_conv_process.hpp"
+#include "lite/backends/fpga/KD/pes/cpu_pe.hpp"
 
 namespace paddle {
 namespace zynqmp {
@@ -48,6 +49,10 @@ class TransposedConvPE : public PE {
   }
 
   void apply() {
+    cpu_pe_padinput_.init();
+    cpu_pe_padinput_.apply();
+
+
     int kernel_width = param_.filter->shape().width();
     int kernel_height = param_.filter->shape().height();
     int stride_width = param_.strides[0];
@@ -144,11 +149,13 @@ class TransposedConvPE : public PE {
 
   bool dispatch() {
     if (sub_filter_ena_ == false) {
+      cpu_pe_padinput_.dispatch();   
       pad_input<float16>();
     }
 
     bool ret = pe_.dispatch();
     if (ret == true) {
+       cpu_pe_padinput_.dispatch();
       if (sub_filter_ena_ && deconv_concat_type_ == DCpuConcatType::DISABLED) {
         float max_val = 0.0;
         for (auto conv_param : param_.splitParams()) {
@@ -307,6 +314,7 @@ class TransposedConvPE : public PE {
   DCpuConcatType deconv_concat_type_ = DCpuConcatType::DISABLED;
   Tensor padded_input_;
   Tensor filter_;
+  CPUPE cpu_pe_padinput_;
 };
 
 }  // namespace zynqmp

@@ -12,30 +12,39 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License. */
 
+#include <algorithm>
+#include <vector>
+
+#include "lite/backends/fpga/KD/dispatch/action.hpp"
+#include "lite/backends/fpga/KD/llapi/zynqmp_api.h"
+
 #pragma once
-
-#include <stdio.h>
-#include <iostream>
-
-#include "lite/backends/fpga/KD/dispatch/transaction_manager.hpp"
-#include "lite/backends/fpga/KD/pe_params.hpp"
-#include "lite/backends/fpga/KD/tensor_util.hpp"
 
 namespace paddle {
 namespace zynqmp {
 
-class PE {
+class Transaction {
  public:
-  virtual bool init() { return false; }
-
-  virtual void apply() {}
-
-  virtual bool dispatch() { 
-  	std::cout << "dispatch" << std::endl;
-  	return false; 
+  void appendAction(Action* action) {
+    if (!actions_.empty()) {
+      Action* last = actions_.back();
+      link_actions(last->id(), action->id());
+    }
+    actions_.push_back(action);
   }
 
-  virtual ~PE() {}
+  void startTraction() {
+    if (actions_.size() > 0) {
+      struct CnnCmdArgs args;
+      Action* action = actions_[0];
+      args.action_id = action->id();
+      start_transaction(args);
+    }
+  }
+
+ private:
+  std::vector<Action*> actions_;
+  int id_ = -1;
 };
 }  // namespace zynqmp
 }  // namespace paddle

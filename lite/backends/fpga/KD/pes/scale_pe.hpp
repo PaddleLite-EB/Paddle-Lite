@@ -20,6 +20,8 @@ limitations under the License. */
 #include "lite/backends/fpga/KD/pe_params.hpp"
 #include "lite/backends/fpga/KD/pes/depthwise_conv_pe.hpp"
 #include "lite/backends/fpga/KD/tensor.hpp"
+#include "lite/backends/fpga/KD/pes/bypass_pe.hpp"
+#include "lite/backends/fpga/KD/pes/cpu_pe.hpp"
 
 namespace paddle {
 namespace zynqmp {
@@ -107,6 +109,19 @@ class ScalePE : public PE {
     dw_param.kernelSize = {1, 1};
     dw_param.dilations = {1, 1};
 
+    dw_param.re_assign = param_.re_assign;
+    if (dw_param.re_assign) {
+      cpu_pe_.reset(new CPUPE());
+      cpu_pe_->init();
+      cpu_pe_->apply();
+    //   BypassParam& bypass_param = input_bypass_pe_.param();
+    //   bypass_param.input = param_.scale;
+    //   bypass_param.output = dw_param.scale();
+
+    //   input_bypass_pe_.init();
+    //   input_bypass_pe_.apply();
+    }
+
     dw_pe_.init();
     dw_pe_.apply();
   }
@@ -148,6 +163,8 @@ class ScalePE : public PE {
 
   bool dispatch() {
     if (param_.re_assign == true) {
+      cpu_pe_->dispatch();
+
       DepthwiseConvParam& dw_param = dw_pe_.param();
       memcpy(dw_param.scale()->mutableData<float16>(),
              param_.scale->data<float16>(),
@@ -164,6 +181,7 @@ class ScalePE : public PE {
   ScaleParam param_;
   Tensor filter;
   DepthwiseConvPE dw_pe_;
+  std::unique_ptr<CPUPE> cpu_pe_;
 };
 }  // namespace zynqmp
 }  // namespace paddle

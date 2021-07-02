@@ -19,6 +19,7 @@
 #include "lite/core/tensor.h"
 #include "lite/core/type_system.h"
 #include "lite/kernels/fpga/transpose_compute.h"
+#include "lite/backends/fpga/KD/debugger.hpp"
 
 namespace paddle {
 namespace lite {
@@ -75,24 +76,22 @@ void transposeCompute(operators::TransposeParam param) {
   }
 }
 
-// Transpose
-void TransposeCompute::Run() {
-  auto& param = this->Param<param_t>();
-  param.output->mutable_data<zynqmp::float16>();
-  param.x->ZynqTensor()->unalignImage();
-  if (param.x->dims().size() != 4) {
-    transposeCompute(param);
-    param.output->ZynqTensor()->setAligned(param.x->ZynqTensor()->aligned());
-  } else {
-    param.output->ZynqTensor()->copyFrom(param.x->ZynqTensor());
-  }
-}
+void TransposeCompute::PrepareForRun() {
 
-// Transpose2
-void Transpose2Compute::Run() {
+  cpu_pe_.reset(new zynqmp::CPUPE());
+  cpu_pe_->init();
+  cpu_pe_->apply();
+
   auto& param = this->Param<param_t>();
   param.output->mutable_data<float16>();
-  // param.x->ZynqTensor()->syncToCPU();
+}
+
+// Transpose
+void TransposeCompute::Run() {
+  // bypass_pe_.dispatch();
+  cpu_pe_->dispatch();
+
+  auto& param = this->Param<param_t>();
   param.x->ZynqTensor()->unalignImage();
   param.x->ZynqTensor()->flush();
   param.x->ZynqTensor()->invalidate();
@@ -104,7 +103,40 @@ void Transpose2Compute::Run() {
     param.output->ZynqTensor()->copyFrom(param.x->ZynqTensor());
   }
 
-  param.output->ZynqTensor()->flush();
+#ifdef FPGA_PRINT_TENSOR
+  Debugger::get_instance().registerOutput("transpose", param.output->ZynqTensor());
+#endif
+}
+
+void Transpose2Compute::PrepareForRun() {
+
+  cpu_pe_.reset(new zynqmp::CPUPE());
+  cpu_pe_->init();
+  cpu_pe_->apply();
+
+  auto& param = this->Param<param_t>();
+  param.output->mutable_data<float16>();
+}
+
+// Transpose2
+void Transpose2Compute::Run() {
+
+  cpu_pe_->dispatch();
+
+  auto& param = this->Param<param_t>();
+  param.x->ZynqTensor()->unalignImage();
+  param.x->ZynqTensor()->flush();
+  param.x->ZynqTensor()->invalidate();
+
+  if (param.x->dims().size() != 4) {
+    transposeCompute(param);
+    param.output->ZynqTensor()->setAligned(param.x->ZynqTensor()->aligned());
+  } else {
+    param.output->ZynqTensor()->copyFrom(param.x->ZynqTensor());
+  }
+#ifdef FPGA_PRINT_TENSOR
+  Debugger::get_instance().registerOutput("transpose2", param.output->ZynqTensor());
+#endif
 }
 
 }  // namespace fpga

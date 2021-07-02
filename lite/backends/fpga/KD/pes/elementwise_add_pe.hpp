@@ -18,6 +18,7 @@ limitations under the License. */
 
 #include "lite/backends/fpga/KD/pe.hpp"
 #include "lite/backends/fpga/KD/pe_params.hpp"
+#include "lite/backends/fpga/KD/pes/cpu_pe.hpp"
 
 namespace paddle {
 namespace zynqmp {
@@ -32,6 +33,7 @@ class ElementwiseAddPE : public PE {
   }
 
   void apply() {
+
     int dynamic_range = (1 << 12) - 1;  // int13 max value, pow(2,12)-1
     float16 dynamic_range_fp16 = float_to_half(dynamic_range * 1.0);
     float inv_dynamic_range = 1.0 / dynamic_range;
@@ -58,6 +60,9 @@ class ElementwiseAddPE : public PE {
     args.image1.pad_width = 0;
     args.output.scale_address = output->max();
     args.output.address = output->data<float16>();
+    args.input_idx = input0->maxIndex();
+    args.input_idx_ew1 = input1->maxIndex();
+    args.output_idx = output->maxIndex(true);
     args.inplace.active_param.type = param_.activeParam.type;
     args.inplace.active_param.leaky_relu_factor =
         float_to_half(param_.activeParam.leaky_relu_factor);
@@ -66,16 +71,35 @@ class ElementwiseAddPE : public PE {
     args.quant.inv_dynamic_range =
         *(reinterpret_cast<uint32_t*>(&inv_dynamic_range));
     param_.ewargs = args;
+
+    transaction_ = TransactionManager::get_instance().getTransaction();
+    Action* action = new Action(compute_fpga_ewadd(args));
+    action_.reset(action);
+    transaction_->appendAction(action);
+
+    cpu_pe_.reset(new CPUPE());
+    cpu_pe_->init();
+    cpu_pe_->apply();
+
   }
 
   bool dispatch() {
+    cpu_pe_->dispatch();
+
+    //TODO 是否需要停下来
     param_.inputs[0]->syncToDevice();
     param_.inputs[1]->syncToDevice();
-    input_max_ =
-        float_to_half(std::max(half_to_float(param_.inputs[0]->max()[0]),
-                               half_to_float(param_.inputs[1]->max()[0])));
+    // std::cout << "elementwise_add_pe max" << std::endl;
+    param_.inputs[0]->readMax();
+    param_.inputs[1]->readMax();
+    // input_max_ =
+    //     float_to_half(std::max(half_to_float(param_.inputs[0]->max()[0]),
+    //                            half_to_float(param_.inputs[1]->max()[0])));
 
-    return compute_fpga_ewadd(param_.ewargs);
+    // param_.inputs[0]->writeMax(input_max_);
+    return true;
+
+    // return compute_fpga_ewadd(param_.ewargs);
   }
 
   ElementwiseAddParam& param() { return param_; }
@@ -83,6 +107,10 @@ class ElementwiseAddPE : public PE {
  private:
   ElementwiseAddParam param_;
   float16 input_max_ = 0;
+
+  std::shared_ptr<Transaction> transaction_;
+  std::unique_ptr<Action> action_;
+  std::unique_ptr<CPUPE> cpu_pe_;
 };
 
 }  // namespace zynqmp

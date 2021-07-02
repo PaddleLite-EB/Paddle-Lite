@@ -36,25 +36,38 @@ void ReluCompute::PrepareForRun() {
 
 void ReluCompute::Run() { pe_.dispatch(); }
 
-void SigmoidCompute::Run() {
+void SigmoidCompute::PrepareForRun() {
   // TODO(chonwhite) use fpga and arm implementation;
   auto& param = this->Param<param_t>();
   auto output_data = param.Out->mutable_data<float16>();
   int numel = param.Out->numel();
 
-  float16* in_data = param.X->ZynqTensor()->data<float16>();
-  float16* out_data = param.Out->ZynqTensor()->data<float16>();
-  param.X->ZynqTensor()->syncToCPU();
-  float max = 0.0f;
-  for (int i = 0; i < numel; i++) {
-    /* code */
-    float value = zynqmp::half_to_float(in_data[i]);
-    value = 1 / (1 + exp(-value));
-    out_data[i] = zynqmp::float_to_half(value);
-    max = std::max(std::abs(value), max);
-  }
-  param.Out->ZynqTensor()->max()[0] = max;
-  param.Out->ZynqTensor()->flush();
+  zynqmp::SigmoidParam& sigmod_param = pe_.param();
+
+  sigmod_param.input = param.X->ZynqTensor();
+  sigmod_param.output = param.Out->ZynqTensor();
+  sigmod_param.activeParam.type = zynqmp::TYPE_SIGMOID;
+  pe_.init();
+  pe_.apply();
+
+}
+
+
+void SigmoidCompute::Run() {
+  pe_.dispatch();
+  // float16* in_data = param.X->ZynqTensor()->data<float16>();
+  // float16* out_data = param.Out->ZynqTensor()->data<float16>();
+  // param.X->ZynqTensor()->syncToCPU();
+  // float max = 0.0f;
+  // for (int i = 0; i < numel; i++) {
+  //   /* code */
+  //   float value = zynqmp::half_to_float(in_data[i]);
+  //   value = 1 / (1 + exp(-value));
+  //   out_data[i] = zynqmp::float_to_half(value);
+  //   max = std::max(std::abs(value), max);
+  // }
+  // param.Out->ZynqTensor()->max()[0] = max;
+  // param.Out->ZynqTensor()->flush();
 }
 
 }  // namespace fpga

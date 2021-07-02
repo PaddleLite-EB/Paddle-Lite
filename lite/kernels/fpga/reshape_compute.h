@@ -14,6 +14,8 @@
 
 #pragma once
 #include <algorithm>
+#include "lite/backends/fpga/KD/pes/bypass_pe.hpp"
+#include "lite/backends/fpga/KD/pes/cpu_pe.hpp"
 #include "lite/core/kernel.h"
 #include "lite/core/op_registry.h"
 
@@ -24,19 +26,29 @@ namespace fpga {
 
 class ReshapeCompute
     : public KernelLite<TARGET(kFPGA), PRECISION(kFP16), DATALAYOUT(kNHWC)> {
- public:
+public:
   void PrepareForRun() override;
   void Run() override;
 
   virtual ~ReshapeCompute() = default;
+
+private:
+  std::unique_ptr<zynqmp::CPUPE> cpu_pe_;
+  zynqmp::BypassPE bypass_pe_;
 };
 
 class FlattenCompute
     : public KernelLite<TARGET(kFPGA), PRECISION(kFP16), DATALAYOUT(kNHWC)> {
- public:
+public:
+  void PrepareForRun() override;
   void Run() override;
 
   virtual ~FlattenCompute() = default;
+
+private:
+  std::unique_ptr<zynqmp::CPUPE> cpu_pe_;
+  zynqmp::BypassPE bypass_pe_;
+
 };
 
 class ReshapeComputeFpgaToHost

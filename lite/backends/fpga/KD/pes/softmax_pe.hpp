@@ -17,6 +17,7 @@ limitations under the License. */
 #include <math.h>
 #include <algorithm>
 #include <limits>
+#include <utility>
 
 #if defined(__ARM_NEON) || defined(__ARM_NEON__)
 #include <arm_neon.h>
@@ -26,6 +27,8 @@ limitations under the License. */
 #include "lite/backends/fpga/KD/pe.hpp"
 #include "lite/backends/fpga/KD/pe_params.hpp"
 #include "lite/backends/fpga/KD/pes/pooling_pe.hpp"
+#include "lite/backends/fpga/KD/pes/bypass_pe.hpp"
+#include "lite/backends/fpga/KD/pes/cpu_pe.hpp"
 
 namespace paddle {
 namespace zynqmp {
@@ -39,9 +42,22 @@ class SoftmaxPE : public PE {
   SoftmaxParam& param();
 
  private:
+
+  void fpga_softmax(int axis,
+                  Tensor *input,
+                  Tensor *output,
+                  PoolingPE *poolingPE_);
+
   bool use_cpu_ = false;
   SoftmaxParam param_;
   PoolingPE poolingPE_;
+  Tensor float_input_;
+  Tensor float_output_;
+
+  BypassPE bypass_in_pe_;
+  std::shared_ptr<Transaction> transaction_;
+  std::unique_ptr<Action> action_;
+  std::unique_ptr<CPUPE> cpu_pe_;
 };
 
 }  // namespace zynqmp

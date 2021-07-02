@@ -59,6 +59,12 @@ class DepthwiseConvSplitPE : public PE {
         dwconv_param->args.inplace.active_param.type = param_.activeParam.type;
         dwconv_param->args.inplace.active_param.leaky_relu_factor =
             float_to_half(param_.activeParam.leaky_relu_factor);
+
+        int action_id = compute_fpga_dwconv(dwconv_param->args);
+        Action* action = new Action(action_id);
+        actions_.push_back(action);
+        transaction_->appendAction(action);
+        
         split_param.outputs.push_back(&dwconv_param->input);
       }
       splitPE_.init();
@@ -97,6 +103,9 @@ class DepthwiseConvSplitPE : public PE {
   DepthwiseConvSplitParam param_;
   ConcatPE concatPE_;
   SplitPE splitPE_;
+
+  std::shared_ptr<Transaction> transaction_;
+  std::vector<Action*> actions_;
 };
 
 }  // namespace zynqmp

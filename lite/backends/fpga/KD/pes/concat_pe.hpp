@@ -19,6 +19,7 @@ limitations under the License. */
 
 #include "lite/backends/fpga/KD/pe.hpp"
 #include "lite/backends/fpga/KD/pe_params.hpp"
+#include "lite/backends/fpga/KD/pes/cpu_pe.hpp"
 
 namespace paddle {
 namespace zynqmp {
@@ -29,10 +30,12 @@ class ConcatPE : public PE {
     Tensor* output = param_.output;
     output->setAligned(false);
     output->setDataLocation(CPU);
+    output->maxIndex(true);
+    cpu_pe_.init();
     return true;
   }
 
-  void apply() {}
+  void apply() { cpu_pe_.apply(); }
 
   void concat2D() {
     int offset = 0;
@@ -83,6 +86,8 @@ class ConcatPE : public PE {
   }
 
   bool dispatch() {
+    cpu_pe_.dispatch();
+
     Tensor* output = param_.output;
     Shape& output_shape = output->shape();
 
@@ -91,9 +96,14 @@ class ConcatPE : public PE {
       Tensor* input = param_.inputs[n];
       input->syncToCPU();
       input->unalignImage();
+      input->readMax();
       max_val = std::max(max_val, half_to_float(input->max()[0]));
+      // std::cout << "concat " << n << " max:" << max_val << std::endl;
     }
+    // std::cout << "concat max:" << max_val << std::endl;
     output->max()[0] = float_to_half(max_val);
+    output->maxIndex(true);
+    output->writeMax(float_to_half(max_val));
 
     if (output_shape.dimSize() == 3) {
       concat3D();
@@ -128,6 +138,7 @@ class ConcatPE : public PE {
 
  private:
   ConcatParam param_;
+  CPUPE cpu_pe_;
 };
 
 }  // namespace zynqmp

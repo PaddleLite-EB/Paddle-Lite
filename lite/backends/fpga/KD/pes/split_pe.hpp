@@ -19,6 +19,8 @@ limitations under the License. */
 #include "lite/backends/fpga/KD/pe.hpp"
 #include "lite/backends/fpga/KD/pe_params.hpp"
 #include "lite/backends/fpga/KD/util.hpp"
+#include "lite/backends/fpga/KD/pes/cpu_pe.hpp"
+
 namespace paddle {
 namespace zynqmp {
 
@@ -31,8 +33,11 @@ class SplitPE : public PE {
       out->setAligned(false);
       out->setDataLocation(CPU);
     }
+    cpu_pe_.init();
     return true;
   }
+
+  void apply() { cpu_pe_.apply(); }
 
   std::vector<int> stride_numel(std::vector<int> ddim) {
     std::vector<int> strides(ddim.size());
@@ -78,8 +83,12 @@ class SplitPE : public PE {
   }
 
   bool dispatch() {
+    cpu_pe_.dispatch();
+
     Tensor* input = param_.input;
     input->syncToCPU();
+    input->readMax();
+    
     if (input->shape().dimSize() <= 3) {
       auto in_stride = stride_numel(input->shape().dims());
       int64_t axis = param_.axis;
@@ -98,6 +107,8 @@ class SplitPE : public PE {
                                           out_stride[axis]);
         input_offset += out_stride[axis];
         out->flush();
+        input->readMax();
+        out->copyMaxFrom(input, true);
       }
       return true;
     }
@@ -123,7 +134,8 @@ class SplitPE : public PE {
       Tensor* out = outputs[n];
       out->flush();
       out->copyScaleFrom(input);
-      out->copyMaxFrom(input);
+      input->readMax();
+      out->copyMaxFrom(input, true);
     }
     return true;
   }
@@ -132,6 +144,7 @@ class SplitPE : public PE {
 
  private:
   SplitParam param_;
+  CPUPE cpu_pe_;
 };
 
 }  // namespace zynqmp

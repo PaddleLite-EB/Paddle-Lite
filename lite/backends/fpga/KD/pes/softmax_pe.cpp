@@ -131,7 +131,7 @@ static void softmax(Tensor *X, Tensor *Y) {
   }
 }
 
-void fpga_softmax(int axis,
+void SoftmaxPE::fpga_softmax(int axis,
                   Tensor *input,
                   Tensor *output,
                   PoolingPE *poolingPE_) {
@@ -160,7 +160,12 @@ void fpga_softmax(int axis,
 
   input->flush();
 
-  compute_fpga_pool(norm_exp_args);
+  // compute_fpga_pool(norm_exp_args);
+  transaction_ = TransactionManager::get_instance().getTransaction();
+
+  Action* action = new Action(compute_fpga_pool(norm_exp_args));
+  action_.reset(action);
+  transaction_->appendAction(action);
 
   norm_exp_output.invalidate();
 
@@ -183,7 +188,11 @@ void fpga_softmax(int axis,
   prob_args.out_height = output->shape().height();
   prob_args.out_width = output->shape().width();
 
-  compute_fpga_pool(prob_args);
+  // compute_fpga_pool(prob_args);
+  Action* action_prob = new Action(compute_fpga_pool(prob_args));
+  action_.reset(action_prob);
+  transaction_->appendAction(action_prob);
+
   struct FpgaRegWriteArgs args;
   args.value = 0;
   args.address = 0x890;
@@ -194,10 +203,35 @@ bool SoftmaxPE::init() {
   Tensor *output = param_.output;
   output->setAligned(false);
   output->setDataLocation(CPU);
+  output->maxIndex(true);
+  // output->scaleIndex(true);
   return true;
 }
 
-void SoftmaxPE::apply() { use_cpu_ = param_.input->shape().dimSize() <= 2; }
+void SoftmaxPE::apply() { 
+  use_cpu_ = param_.input->shape().dimSize() <= 2; 
+
+  if (use_cpu_) {
+    Tensor *input = param_.input;
+    float_input_.mutableData<float>(DataType::FP32, input->shape());
+    // float_output.mutableData<float>(DataType::FP32, input->shape());
+
+    BypassParam &input_param = bypass_in_pe_.param();
+    input_param.input = param_.input;
+    input_param.output = &float_input_;
+    bypass_in_pe_.init();
+    bypass_in_pe_.apply();
+
+    cpu_pe_.reset(new CPUPE());
+    cpu_pe_->init();
+    cpu_pe_->apply();
+  } else {
+    Tensor *input = param_.input;
+    Tensor *output = param_.output;
+    int axis = param_.axis;
+    fpga_softmax(axis, input, output, &poolingPE_);
+  }
+}
 
 bool SoftmaxPE::dispatch() {
   Tensor *input = param_.input;
@@ -205,22 +239,30 @@ bool SoftmaxPE::dispatch() {
   int axis = param_.axis;
 
   if (use_cpu_) {
-    Tensor float_input;
-    Tensor float_output;
-    float_input.mutableData<float>(DataType::FP32, input->shape());
-    input->syncToDevice();
-    float_input.copyFrom(input);
+    // Tensor float_input;
+    // Tensor float_output;
+    // float_input.mutableData<float>(DataType::FP32, input->shape());
+    // input->syncToDevice();
+    // float_input.copyFrom(input);
 
-    float *out_data =
-        float_output.mutableData<float>(DataType::FP32, input->shape());
+    // float *out_data =
+    //     float_output.mutableData<float>(DataType::FP32, input->shape());
 
-    softmax(&float_input, &float_output);
-    float_output.flush();
+    // softmax(&float_input, &float_output);
+    // float_output.flush();
 
-    output->copyFrom(&float_output);
+    // output->copyFrom(&float_output);
+    // output->flush();
+    Tensor *input = param_.input;
+    Tensor *output = param_.output;
+
+    bypass_in_pe_.dispatch();
+    cpu_pe_->dispatch();
+
+    softmax(&float_input_, output);
     output->flush();
   } else {
-    fpga_softmax(axis, input, output, &poolingPE_);
+    // fpga_softmax(axis, input, output, &poolingPE_);
   }
 
   return true;

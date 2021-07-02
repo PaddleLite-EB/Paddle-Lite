@@ -27,6 +27,6 @@ cmake .. \
         -DLITE_WITH_LOG=OFF \
         -DLITE_WITH_CV=ON
 
-make -j8
+make -j48
 
 cd -

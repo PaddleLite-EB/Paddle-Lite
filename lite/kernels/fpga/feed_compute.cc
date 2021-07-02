@@ -35,7 +35,6 @@ void FeedCompute::PrepareForRun() {
   switch (in_type) {
     case zynqmp::FP32:
     case zynqmp::FP16:
-      param.out->mutable_data<float16>();
       break;
     case zynqmp::INT32:
       param.out->mutable_data<int32_t>();
@@ -47,12 +46,17 @@ void FeedCompute::PrepareForRun() {
       throw "type not supported!";
   }
 
+  float16* out_data = param.out->mutable_data<zynqmp::float16>();
+
   // ====================================================
   zynqmp::InputParam& feed_param = pe_.param();
   feed_param.input = x.ZynqTensor();
   feed_param.output = param.out->ZynqTensor();
+  float16* out_data1 = feed_param.output->mutableData<zynqmp::float16>();
+
   pe_.init();
   pe_.apply();
+
 }
 
 void FeedCompute::Run() {

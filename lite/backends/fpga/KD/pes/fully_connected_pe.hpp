@@ -21,6 +21,7 @@ limitations under the License. */
 #include "lite/backends/fpga/KD/pes/conv_pe.hpp"
 #include "lite/backends/fpga/KD/pes/conv_process.hpp"
 #include "lite/backends/fpga/KD/tensor_util.hpp"
+#include "lite/backends/fpga/KD/pes/bypass_pe.hpp"
 
 namespace paddle {
 namespace zynqmp {
@@ -35,6 +36,7 @@ class FullyConnectedPE : public PE {
   }
 
   void apply() {
+
     ConvParam& convParam_ = convPE_.param();
     int num = param_.filter->shape().channel();
     int chw = param_.filter->shape().num();
@@ -42,6 +44,13 @@ class FullyConnectedPE : public PE {
 
     Shape in_shape(NCHW, {1, in_channel, 1, 1});
     input_.mutableData<float16>(FP16, in_shape);
+
+    BypassParam& bypass_param = input_bypass_pe_.param();
+    bypass_param.input = param_.input;
+    bypass_param.output = &input_;
+
+    input_bypass_pe_.init();
+    input_bypass_pe_.apply();
 
     convParam_.input = &input_;
     convParam_.output = param_.output;
@@ -125,10 +134,11 @@ class FullyConnectedPE : public PE {
   }
 
   bool dispatch() {
-    param_.input->invalidate();
-    input_.copyFrom(param_.input);
-    input_.flush();
-    return convPE_.dispatch();
+    // param_.input->invalidate();
+    // input_.copyFrom(param_.input);
+    // input_.flush();
+    // return convPE_.dispatch();
+    return true;
   }
 
   FullyConnectedParam& param() { return param_; }
@@ -138,6 +148,7 @@ class FullyConnectedPE : public PE {
   Tensor conv_filter_;
   FullyConnectedParam param_;
   ConvPE convPE_;
+  BypassPE input_bypass_pe_;
 };
 }  // namespace zynqmp
 }  // namespace paddle

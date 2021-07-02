@@ -43,6 +43,7 @@ void resize_output(const Tensor* input, Tensor& out) {  // NOLINT
 }
 
 void FetchCompute::PrepareForRun() {
+
   auto& param = this->Param<param_t>();
 
   zynqmp::OutputParam& fetch_param = pe_.param();
@@ -59,9 +60,11 @@ void FetchCompute::PrepareForRun() {
 
   pe_.init();
   pe_.apply();
+
 }
 
 void FetchCompute::Run() {
+
   auto& param = this->Param<param_t>();
   auto fetch_list = param.fetch_list;
   if (fetch_list->size() <= static_cast<size_t>(param.col)) {

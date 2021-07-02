@@ -246,9 +246,14 @@ void PriorBoxPE::compute_prior_box() {
   output_variances->copyFrom(&variances);
 }
 
-void PriorBoxPE::apply() {}
+void PriorBoxPE::apply() {
+  cpu_pe_.init();
+  cpu_pe_.apply();
+}
 
 bool PriorBoxPE::dispatch() {
+  cpu_pe_.dispatch();
+  
   if (cachedBoxes_ == nullptr) {
     cachedBoxes_.reset(new Tensor());
     cachedVariances_.reset(new Tensor());
