@@ -368,18 +368,17 @@ class Tensor {
 
   void save_file_with_name(std::string path) {
     invalidate();
-
     Tensor* t = this;
     Tensor unaligned;
-    if (this->aligned_) {
-      unaligned.dataType_ = this->dataType_;
-      unaligned.aligned_ = this->aligned_;
-      unaligned.mutableData<void>(dataType_, *shape_);
-      unaligned.copyFrom(this);
-      unaligned.unalignImage();
-      unaligned.syncToCPU();
-      t = &unaligned;
-    }
+    // if (this->aligned_) {
+    //   unaligned.dataType_ = this->dataType_;
+    //   unaligned.aligned_ = this->aligned_;
+    //   unaligned.mutableData<void>(dataType_, *shape_);
+    //   unaligned.copyFrom(this);
+    //   unaligned.unalignImage();
+    //   unaligned.syncToCPU();
+    //   t = &unaligned;
+    // }
 
     std::ofstream ofs;
     ofs.open(path);

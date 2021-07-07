@@ -23,7 +23,14 @@ namespace host {
 void WriteBackCompute::Run() {
   auto& param = this->template Param<operators::WriteBackParam>();
   CHECK(param.x->target() == param.y->target());
-  param.y->ShareDataWith(*param.x);
+  // param.y->ShareDataWith(*param.x);
+  // param.y->ShareDataWith(*param.x);
+
+  auto output = param.y;
+  auto output_dims = output->dims();
+
+  output->CopyDataFrom(*param.x);
+  output->Resize(output_dims);
 }
 
 }  // namespace host

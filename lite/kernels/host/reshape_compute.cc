@@ -25,12 +25,18 @@ void ReshapeCompute::Run() {
   auto& param = Param<operators::ReshapeParam>();
   auto x = param.x;
   auto output = param.output;
+  output->mutable_data<float>();
   auto output_dims = output->dims();
   if (param.inplace) {
     output->ShareDataWith(*x);
   } else {
-    output->CopyDataFrom(*x);
+    // output->CopyDataFrom(*x);
   }
+  x->ZynqTensor()->unalignImage();
+
+  output->ZynqTensor()->copyFrom(x->ZynqTensor());
+  output->ZynqTensor()->flush();
+  output->ZynqTensor()->setAligned(x->ZynqTensor()->aligned());
   output->Resize(output_dims);
 }
 

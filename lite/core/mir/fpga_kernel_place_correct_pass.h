@@ -52,6 +52,7 @@ class FPGAKernelPlaceCorrectPass : public ProgramPass {
     VLOG(4) << "lite_with_targets['kFPGA']:" << lite_with_targets["kFPGA"];
 
     VLOG(3) << "param-type-registry:\n" << ParamTypeRegistry::Global();
+
     for (auto& x : graph->StmtTopologicalOrder()) {
       auto& inst = x->AsStmt();
       // The IoCopyOp is a tool operator, it won't support the type inference.
@@ -82,6 +83,11 @@ class FPGAKernelPlaceCorrectPass : public ProgramPass {
         continue;
       }
       auto out = x->outlinks.front();
+
+      if (out == nullptr) {
+        continue;
+      }
+
       auto p = in->AsArg().type->precision();
 
       std::string node_name = out->AsArg().name;
@@ -122,6 +128,13 @@ class FPGAKernelPlaceCorrectPass : public ProgramPass {
         if (p != PrecisionType::kFP16) {
           UpdateTarget(inst, TargetType::kARM);
           UpdateTensor(inst, in, out, TargetType::kARM);
+        }
+      }
+
+      if (inst.op_type() == "flatten2") {
+        if (p != PrecisionType::kFP16) {
+          UpdateTarget(inst, TargetType::kHost);
+          UpdateTensor(inst, in, out, TargetType::kHost);
         }
       }
 

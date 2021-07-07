@@ -42,9 +42,44 @@ class Monitor {
     auto op_type = op->Type();
 
     VLOG(4) << "Running op:" << op_type << " on " << inst.kernel()->name();
+    // auto in_args = op_info->input_names();
+    // for (auto name : in_args) {
+    //   VLOG(4) << "\n in_tensor:" << name;
+    // }
+
+    static std::vector<std::string> tensor_names = {
+        // "fc_3.w_0","tanh_0.tmp_0","im2sequence_0.tmp_0",
+        // "reshape2_0.tmp_0","sequence_softmax_0.tmp_0","fc_3.tmp_0"
+    };
+
+    auto should_print = [tensor_names](std::string& name) -> bool {
+      if (std::find(tensor_names.begin(), tensor_names.end(), name) !=
+          tensor_names.end()) {
+        return true;
+      }
+      return false;
+    };
+
     auto in_args = op_info->input_names();
     for (auto name : in_args) {
       VLOG(4) << "\n in_tensor:" << name;
+      auto* var = op->scope()->FindVar(name);
+      if (var->IsType<lite::Tensor>()) {
+        lite::Tensor* tensor =
+            const_cast<lite::Tensor*>(&var->Get<lite::Tensor>());
+        if (tensor->ZynqTensor() != nullptr) {
+          std::string substr = "/";
+          std::size_t found = name.rfind(substr);
+          VLOG(4) << "\n in_tensor:::" << name << "," << found;
+          if (found != std::string::npos) {
+            name.replace(found, substr.length(), "_");
+          }
+          VLOG(4) << "\n in_tensor:::" << name;
+          if (tensor->ZynqTensor() != nullptr && should_print(name)) {
+            tensor->ZynqTensor()->saveToFile(name, true);
+          }
+        }
+      }
     }
   }
 

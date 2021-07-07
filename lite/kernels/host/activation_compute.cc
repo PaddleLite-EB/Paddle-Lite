@@ -13,7 +13,9 @@
 // limitations under the License.
 
 #include "lite/kernels/host/activation_compute.h"
+#include <math.h>
 #include <cmath>
+
 namespace paddle {
 namespace lite {
 namespace kernels {
@@ -103,12 +105,16 @@ void SigmoidCompute::Run() {
 void TanhCompute::Run() {
   auto& param = this->Param<param_t>();
   CHECK(param.X);
+
   auto x_dims = param.X->dims();
   auto x_data = param.X->data<float>();
   auto output_data = param.Out->mutable_data<float>();
   for (int i = 0; i < x_dims.production(); i++) {
-    output_data[i] = (std::exp(x_data[i]) - std::exp(-x_data[i])) /
-                     (std::exp(x_data[i]) + std::exp(-x_data[i]));
+    float value = x_data[i];
+    value = std::max(value, -70.0f);
+    value = std::min(value, 70.0f);
+    output_data[i] = (std::exp(value) - std::exp(-value)) /
+                     (std::exp(value) + std::exp(-value));
   }
 }
 
